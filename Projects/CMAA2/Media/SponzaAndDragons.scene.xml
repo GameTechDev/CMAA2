@@ -1,0 +1,137 @@
+<VertexAsylumScene Name="SponzaAndDragons" AmbientLight="{0.100000,0.100000,0.100000}">
+    <Lights count="2">
+        <a0>
+            <Light Name="Sun" Type="1" Intensity="{2.000000,2.000000,2.000000}" Position="{0.000000,0.000000,10.000000}" Direction="{0.308221,0.308221,-0.900000}" Up="{0.000000,0.000000,0.000000}" Size="0.20000000298023224" SpotInnerAngle="0" SpotOuterAngle="0"/>
+        </a0>
+        <a1>
+            <Light Name="Ambient" Type="0" Intensity="{0.100000,0.100000,0.100000}" Position="{0.000000,0.000000,0.000000}" Direction="{0.000000,0.000000,0.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.20000000298023224" SpotInnerAngle="0" SpotOuterAngle="0"/>
+        </a1>
+    </Lights>
+    <RootObjects count="29">
+        <RootObjects_0 Name="obj_dragon" TransformR0="{-1.500000,-0.000000,0.000000,0.000000}" TransformR1="{0.000000,-1.500000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.500000,0.000000}" TransformR3="{-4.000000,-5.300000,1.380000,1.000000}">
+            <RenderMeshes count="1" a0="99586971-23f3-4a21-96fc-04629013ffdc"/>
+            <ChildObjects count="2">
+                <ChildObjects_0 Name="obj_dragon" TransformR0="{-0.000000,0.200000,0.000000,0.000000}" TransformR1="{-0.200000,-0.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,0.200000,0.000000}" TransformR3="{-1.000000,0.000000,0.500000,1.000000}">
+                    <RenderMeshes count="1" a0="99586971-23f3-4a21-96fc-04629013ffdc"/>
+                    <ChildObjects count="0"/>
+                </ChildObjects_0>
+                <ChildObjects_1 Name="obj_dragon" TransformR0="{-0.000000,0.200000,0.000000,0.000000}" TransformR1="{-0.200000,-0.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,0.200000,0.000000}" TransformR3="{1.000000,0.000000,0.500000,1.000000}">
+                    <RenderMeshes count="1" a0="99586971-23f3-4a21-96fc-04629013ffdc"/>
+                    <ChildObjects count="0"/>
+                </ChildObjects_1>
+            </ChildObjects>
+        </RootObjects_0>
+        <RootObjects_1 Name="obj_dragon" TransformR0="{-0.500000,-0.000000,0.000000,0.000000}" TransformR1="{0.000000,-0.500000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,0.500000,0.000000}" TransformR3="{4.000000,-5.300000,1.110000,1.000000}">
+            <RenderMeshes count="1" a0="99586971-23f3-4a21-96fc-04629013ffdc"/>
+            <ChildObjects count="0"/>
+        </RootObjects_1>
+        <RootObjects_2 Name="obj_SystemMesh_Tetrahedron" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{-4.000000,4.000000,1.350000,1.000000}">
+            <RenderMeshes count="1" a0="45fa748c-982b-406b-a0d0-e0c49772ded7"/>
+            <ChildObjects count="0"/>
+        </RootObjects_2>
+        <RootObjects_3 Name="obj_SystemMesh_Teapot" TransformR0="{0.500000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,0.500000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,0.500000,0.000000}" TransformR3="{4.000000,4.000000,1.500000,1.000000}">
+            <RenderMeshes count="1" a0="3bab100b-7336-429b-bb79-e4b1b25ba443"/>
+            <ChildObjects count="0"/>
+        </RootObjects_3>
+        <RootObjects_4 Name="obj__arch" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="c0bbe59e-22b5-498f-bb07-b7c09dc57a77"/>
+            <ChildObjects count="0"/>
+        </RootObjects_4>
+        <RootObjects_5 Name="obj__bricks" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="04504cd9-c850-42b1-9f4c-5d4c880ab5b8"/>
+            <ChildObjects count="0"/>
+        </RootObjects_5>
+        <RootObjects_6 Name="obj__ceiling" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="370271c7-8350-494a-9622-331975b56509"/>
+            <ChildObjects count="0"/>
+        </RootObjects_6>
+        <RootObjects_7 Name="obj__chain" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="ba009ee8-23f7-4117-839a-3bbcb66836a3"/>
+            <ChildObjects count="0"/>
+        </RootObjects_7>
+        <RootObjects_8 Name="obj__column_a" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="ff20d4d5-2128-40cb-81f9-9fce79392719"/>
+            <ChildObjects count="0"/>
+        </RootObjects_8>
+        <RootObjects_9 Name="obj__column_b" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="c1d97818-a8af-495d-9876-7b50147ac5ba"/>
+            <ChildObjects count="0"/>
+        </RootObjects_9>
+        <RootObjects_10 Name="obj__column_c" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="c2e0cdcd-4c81-4147-9d49-22ac0987b1db"/>
+            <ChildObjects count="0"/>
+        </RootObjects_10>
+        <RootObjects_11 Name="obj__details" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="c04b7889-585d-4401-ab0a-3998ca8398a3"/>
+            <ChildObjects count="0"/>
+        </RootObjects_11>
+        <RootObjects_12 Name="obj__fabric_a" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="8480a25b-8f7c-4f06-be95-f51130b9e49a"/>
+            <ChildObjects count="0"/>
+        </RootObjects_12>
+        <RootObjects_13 Name="obj__fabric_c" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="97f0413b-c6c4-4daa-a6c9-de1a8e108000"/>
+            <ChildObjects count="0"/>
+        </RootObjects_13>
+        <RootObjects_14 Name="obj__fabric_d" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="67b13073-2d5b-478e-b5cb-257ccfb2961c"/>
+            <ChildObjects count="0"/>
+        </RootObjects_14>
+        <RootObjects_15 Name="obj__fabric_e" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="7d670687-a472-4e4b-b078-8d958dab37b1"/>
+            <ChildObjects count="0"/>
+        </RootObjects_15>
+        <RootObjects_16 Name="obj__fabric_f" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="859c5952-f59c-40ce-a677-b7cc1a3606df"/>
+            <ChildObjects count="0"/>
+        </RootObjects_16>
+        <RootObjects_17 Name="obj__fabric_g" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="f1dc86c3-c450-419b-8461-f8c45624bbd5"/>
+            <ChildObjects count="0"/>
+        </RootObjects_17>
+        <RootObjects_18 Name="obj__flagpole" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="97e8288f-ec60-4b24-a99c-5fee8eb12002"/>
+            <ChildObjects count="0"/>
+        </RootObjects_18>
+        <RootObjects_19 Name="obj__floor" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="83c87507-7b6e-4a81-9eaf-be59987cdec5"/>
+            <ChildObjects count="0"/>
+        </RootObjects_19>
+        <RootObjects_20 Name="obj__leaf" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="02fb1b2e-608e-4fb1-987d-563a8b7ce43f"/>
+            <ChildObjects count="0"/>
+        </RootObjects_20>
+        <RootObjects_21 Name="obj__material__25" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="7ed2d720-39f0-4515-82fa-6e7e4c455043"/>
+            <ChildObjects count="0"/>
+        </RootObjects_21>
+        <RootObjects_22 Name="obj__material__298" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="cf065d88-5799-45b6-a682-15a22914aa83"/>
+            <ChildObjects count="0"/>
+        </RootObjects_22>
+        <RootObjects_23 Name="obj__material__47" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="0319923b-bb48-4ae8-9125-5b57fc727f3c"/>
+            <ChildObjects count="0"/>
+        </RootObjects_23>
+        <RootObjects_24 Name="obj__material__57" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="3812392c-76f5-4def-827d-2886ae7cc91c"/>
+            <ChildObjects count="0"/>
+        </RootObjects_24>
+        <RootObjects_25 Name="obj__roof" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="03848e9c-4817-42c9-bdfd-642d3f25ec50"/>
+            <ChildObjects count="0"/>
+        </RootObjects_25>
+        <RootObjects_26 Name="obj__vase" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="6d7bea29-a71b-4348-b7aa-ec10dd9cd08c"/>
+            <ChildObjects count="0"/>
+        </RootObjects_26>
+        <RootObjects_27 Name="obj__vase_hanging_0" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="e111659b-f7ce-4c98-987a-cceea35b28a4"/>
+            <ChildObjects count="0"/>
+        </RootObjects_27>
+        <RootObjects_28 Name="obj__vase_round_0" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
+            <RenderMeshes count="1" a0="293091de-4e21-4e44-856f-2136f45ff417"/>
+            <ChildObjects count="0"/>
+        </RootObjects_28>
+    </RootObjects>
+</VertexAsylumScene>

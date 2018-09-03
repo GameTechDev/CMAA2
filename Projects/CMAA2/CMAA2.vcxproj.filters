@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Media">
+      <UniqueIdentifier>{e308ebc0-8ee7-4028-bebe-3cf34ce38451}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Media\Textures">
+      <UniqueIdentifier>{fcdaf0fc-face-45ab-9722-e40cba5c52ce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CMAA2">
+      <UniqueIdentifier>{6751cc82-7c53-4ae8-8995-e2c5f33d82e4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SMAA">
+      <UniqueIdentifier>{14380903-251a-4f19-be31-766167679768}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="FXAA">
+      <UniqueIdentifier>{688f1116-63c6-4c43-85d3-25d2ea785dd3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="CMAA2Sample.cpp" />
+    <ClCompile Include="SMAA\vaSMAAWrapper.cpp">
+      <Filter>SMAA</Filter>
+    </ClCompile>
+    <ClCompile Include="SMAA\vaSMAAWrapperDX11.cpp">
+      <Filter>SMAA</Filter>
+    </ClCompile>
+    <ClCompile Include="SMAA\SMAA.cpp">
+      <Filter>SMAA</Filter>
+    </ClCompile>
+    <ClCompile Include="SMAA\RenderTarget.cpp">
+      <Filter>SMAA</Filter>
+    </ClCompile>
+    <ClCompile Include="FXAA\vaFXAAWrapperDX11.cpp">
+      <Filter>FXAA</Filter>
+    </ClCompile>
+    <ClCompile Include="FXAA\vaFXAAWrapper.cpp">
+      <Filter>FXAA</Filter>
+    </ClCompile>
+    <ClCompile Include="CMAA2\vaCMAA2.cpp">
+      <Filter>CMAA2</Filter>
+    </ClCompile>
+    <ClCompile Include="CMAA2\vaCMAA2DX11.cpp">
+      <Filter>CMAA2</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="CMAA2Sample.h" />
+    <ClInclude Include="SMAA\vaSMAAWrapper.h">
+      <Filter>SMAA</Filter>
+    </ClInclude>
+    <ClInclude Include="SMAA\AreaTex.h">
+      <Filter>SMAA</Filter>
+    </ClInclude>
+    <ClInclude Include="SMAA\SearchTex.h">
+      <Filter>SMAA</Filter>
+    </ClInclude>
+    <ClInclude Include="SMAA\SMAA.h">
+      <Filter>SMAA</Filter>
+    </ClInclude>
+    <ClInclude Include="SMAA\RenderTarget.h">
+      <Filter>SMAA</Filter>
+    </ClInclude>
+    <ClInclude Include="FXAA\vaFXAAWrapper.h">
+      <Filter>FXAA</Filter>
+    </ClInclude>
+    <ClInclude Include="FXAA\Fxaa3_11.h">
+      <Filter>FXAA</Filter>
+    </ClInclude>
+    <ClInclude Include="CMAA2\vaCMAA2.h">
+      <Filter>CMAA2</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="CMAA2\CMAA2.hlsl">
+      <Filter>CMAA2</Filter>
+    </FxCompile>
+    <FxCompile Include="SMAA\SMAA.fx">
+      <Filter>SMAA</Filter>
+    </FxCompile>
+    <FxCompile Include="SMAA\SMAA.hlsl">
+      <Filter>SMAA</Filter>
+    </FxCompile>
+    <FxCompile Include="SMAA\SMAAWrapper.hlsl">
+      <Filter>SMAA</Filter>
+    </FxCompile>
+    <FxCompile Include="FXAA\FXAAWrapper.hlsl">
+      <Filter>FXAA</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" />
+  </ItemGroup>
+</Project>
