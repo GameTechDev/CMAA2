@@ -1469,7 +1469,7 @@ protected:
                     assert( m_parent.Settings().CurrentAAOption == CMAA2Sample::AAType::SuperSampleReference );
                     int fullSampleCount = m_parent.GetSSGridRes()*m_parent.GetSSGridRes()*m_parent.GetSSResScale()*m_parent.GetSSResScale();
                     int msaaSampleCount = m_parent.GetSSMSAASampleCount();
-				    info = vaStringTools::Format( "reference used for PSNR: supersampled anti-aliased image at %d x %d with %d full samples each with %d MSAA samples (total %d)", colorInOut->GetSizeX(), colorInOut->GetSizeY(), fullSampleCount, msaaSampleCount, fullSampleCount*msaaSampleCount );
+				    info = vaStringTools::Format( "reference used for PSNR: supersampled anti-aliased image at %d x %d with %d full samples each with %d MSAA samples (total %d per pixel)", colorInOut->GetSizeX(), colorInOut->GetSizeY(), fullSampleCount, msaaSampleCount, fullSampleCount*msaaSampleCount );
                     info += "\r\n(measures distance to the ideal anti-aliased image - bigger number means closer to ideal)";
                 }
                 else
