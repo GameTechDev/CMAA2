@@ -21,7 +21,7 @@ For more detailed comparison, we provide 'ZoomTool'  which, when enabled, allows
 
 In addition we also provide 'CompareTool' which can be used to capture a reference image ('Save ref' button) and compare it to the currently rendered image either numerically ('Compare with ref' button provides PSNR between the two) or visually (using 'Visualization' combo box to show the difference).
 
-Finally, tools for automated testing of quality and peformance of the various AA options are available in the 'Benchmarking' section.
+Finally, tools for automated testing of quality and performance of the various AA options are available in the 'Benchmarking' section.
 
 ## Code integration guide
 
