@@ -3,8 +3,8 @@
 We accept contributions as pull requests on GitHub, and will attempt to do so
 as quickly as possible.
 
-PresentMon is licensed under the terms in
-[LICENSE](https://github.com/GameTechDev/PresentMon/blob/master/license.txt).
+CMAA2 is licensed under the terms in
+[LICENSE](https://github.com/GameTechDev/CMAA2/blob/master/license.txt).
 By contributing to the project, you agree to the license and copyright terms
 therein and release your contribution under these terms.
 
