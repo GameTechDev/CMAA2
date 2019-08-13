@@ -19,9 +19,11 @@
 
 #include "vaFXAAWrapper.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
-vaFXAAWrapper::vaFXAAWrapper( const vaRenderingModuleParams & params ) : vaRenderingModule( params ), m_constantsBuffer( params.RenderDevice )
+vaFXAAWrapper::vaFXAAWrapper( const vaRenderingModuleParams & params ) : vaRenderingModule( params ), vaUIPanel( "FXAA", 0, false ), m_constantsBuffer( params ), m_FXAAEffect_3_11_PS( params )
 { 
 //    assert( vaRenderingCore::IsInitialized() );
 
@@ -33,8 +35,9 @@ vaFXAAWrapper::~vaFXAAWrapper( )
 {
 }
 
-void vaFXAAWrapper::IHO_Draw( )
+void vaFXAAWrapper::UIPanelDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     ImGui::PushItemWidth( 120.0f );
 
 
@@ -51,9 +54,40 @@ void vaFXAAWrapper::IHO_Draw( )
     //ImGui::Checkbox( "Show edges", &m_debugShowEdges );
 
     ImGui::PopItemWidth();
+#endif
 }
 
-void vaFXAAWrapper::UpdateConstants( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & inputColor, const shared_ptr<vaTexture> & optionalInLuma )
+bool vaFXAAWrapper::UpdateResources( vaRenderDeviceContext & deviceContext, const shared_ptr<vaTexture> & inputColor, const shared_ptr<vaTexture> & optionalInLuma )
+{
+    deviceContext; inputColor;
+
+    bool useOptionalLuma = optionalInLuma != nullptr;
+
+    if( m_usedPreset != m_settings.Preset || m_useOptionalLuma != useOptionalLuma )
+    {
+        m_usedPreset = m_settings.Preset;
+        m_useOptionalLuma = useOptionalLuma;
+
+        vector< pair< string, string > > shaderMacros;
+        
+        if( m_useOptionalLuma )
+            shaderMacros.push_back( { "FXAA_LUMA_SEPARATE_R8", "1" } );
+
+        switch( m_usedPreset )
+        {
+        case vaFXAAWrapper::PRESET_LOW:     shaderMacros.push_back( { "FXAA_QUALITY__PRESET", "10" } );  break;
+        case vaFXAAWrapper::PRESET_MEDIUM:  shaderMacros.push_back( { "FXAA_QUALITY__PRESET", "12" } );  break;
+        case vaFXAAWrapper::PRESET_HIGH:    shaderMacros.push_back( { "FXAA_QUALITY__PRESET", "25" } );  break;
+        case vaFXAAWrapper::PRESET_ULTRA:   shaderMacros.push_back( { "FXAA_QUALITY__PRESET", "39" } );  break;
+        default: assert( false ); 
+        }
+
+        m_FXAAEffect_3_11_PS->CreateShaderFromFile( L"FXAA/FXAAWrapper.hlsl", "ps_5_0", "FXAAEffectPS", shaderMacros, false );
+    }
+    return true;
+}
+
+void vaFXAAWrapper::UpdateConstants( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & inputColor, const shared_ptr<vaTexture> & optionalInLuma )
 {
     optionalInLuma;
 
@@ -169,6 +203,26 @@ void vaFXAAWrapper::UpdateConstants( vaRenderDeviceContext & apiContext, const s
     //   then start at zero and increase until aliasing is a problem.
     consts.fxaaConsoleEdgeThresholdMin = 0.05f;
 
-    m_constantsBuffer.Update( apiContext, consts );
+    m_constantsBuffer.Update( renderContext, consts );
 }
 
+vaDrawResultFlags vaFXAAWrapper::Draw( vaRenderDeviceContext & deviceContext, const shared_ptr<vaTexture> & inputColor, const shared_ptr<vaTexture> & optionalInLuma )
+{
+    if( !UpdateResources( deviceContext, inputColor, optionalInLuma ) )
+    { assert( false ); return vaDrawResultFlags::UnspecifiedError; }
+
+    UpdateConstants( deviceContext, inputColor );
+
+    vaGraphicsItem renderItem;
+
+    deviceContext.FillFullscreenPassRenderItem( renderItem );
+    renderItem.ConstantBuffers[0]       = m_constantsBuffer;
+    renderItem.ShaderResourceViews[0]   = inputColor;
+    renderItem.ShaderResourceViews[1]   = optionalInLuma;   // can be null, that's fine!
+    renderItem.PixelShader              = m_FXAAEffect_3_11_PS;
+    
+    // make sure shader us not still compiling
+    m_FXAAEffect_3_11_PS->WaitFinishIfBackgroundCreateActive();
+
+    return deviceContext.ExecuteSingleItem( renderItem );
+}

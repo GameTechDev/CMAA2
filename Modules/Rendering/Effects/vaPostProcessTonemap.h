@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Core/vaCoreIncludes.h"
+#include "Core/vaUI.h"
 
 #include "Rendering/vaRendering.h"
 #include "Rendering/vaShader.h"
@@ -29,8 +30,6 @@
 #include "Rendering/Effects/vaPostProcessBlur.h"
 
 #include "Rendering/Shaders/vaSharedTypes.h"
-
-#include "IntegratedExternals/vaImguiIntegration.h"
 
 #include "Rendering/Shaders/vaSharedTypes_PostProcessTonemap.h"
 
@@ -48,7 +47,7 @@
 
 namespace VertexAsylum
 {
-    class vaPostProcessTonemap : public vaRenderingModule, public vaImguiHierarchyObject
+    class vaPostProcessTonemap : public vaRenderingModule, public vaUIPanel
     {
     protected:
         vaPostProcessTonemap( const vaRenderingModuleParams & params );
@@ -74,6 +73,8 @@ namespace VertexAsylum
             float   BloomThreshold;
             float   BloomMultiplier;
 
+            float   DefaultAvgLuminanceWhenDataNotAvailable;
+
             TMSettings( )
             {
                 Enabled                     = true;
@@ -91,6 +92,7 @@ namespace VertexAsylum
                 BloomMultiplier             = 0.04f;
                 ExposureMin                 = -20.0f;
                 ExposureMax                 = 20.0f;
+                DefaultAvgLuminanceWhenDataNotAvailable = 0.5f;
             }
         };
 
@@ -111,20 +113,21 @@ namespace VertexAsylum
         TMSettings                                  m_settings;
 
         static const int                            c_avgLuminanceMIPs = 11;        // 11 means 1024x1024 size for MIP 0, should be more than enough
-        static const int                            c_backbufferCount = vaRenderDevice::c_DefaultBackbufferCount+1;          // also adds c_backbufferCount-1 lag!
-        std::shared_ptr<vaTexture>                  m_avgLuminance;
-        std::shared_ptr<vaTexture>                  m_avgLuminanceMIPViews[c_avgLuminanceMIPs];
+        static const int                            c_backbufferCount = vaRenderDevice::c_BackbufferCount;          // also adds c_backbufferCount-1 lag!
+        shared_ptr<vaTexture>                       m_avgLuminance;
+        shared_ptr<vaTexture>                       m_avgLuminanceMIPViews[c_avgLuminanceMIPs];
 
         int                                         m_avgLuminancePrevLastWrittenIndex;
-        std::shared_ptr<vaTexture>                  m_avgLuminancePrev[c_backbufferCount];
-        std::shared_ptr<vaTexture>                  m_avgLuminancePrevCPU[c_backbufferCount];
+        shared_ptr<vaTexture>                       m_avgLuminancePrev[c_backbufferCount];
+        shared_ptr<vaTexture>                       m_avgLuminancePrevCPU[c_backbufferCount];
+        bool                                        m_avgLuminancePrevCPUHasData[c_backbufferCount];
 
-        std::shared_ptr<vaTexture>                  m_halfResRadiance;
-        std::shared_ptr<vaTexture>                  m_resolvedSrcRadiance;          // for MSAA
+        shared_ptr<vaTexture>                       m_halfResRadiance;
+        shared_ptr<vaTexture>                       m_resolvedSrcRadiance;          // for MSAA
 
         float                                       m_lastAverageLuminance;
 
-        std::shared_ptr<vaPostProcessBlur>          m_bloomBlur;
+        shared_ptr<vaPostProcessBlur>               m_bloomBlur;
 
         vaAutoRMI<vaPixelShader>                    m_PSPassThrough;
         vaAutoRMI<vaPixelShader>                    m_PSTonemap;
@@ -146,25 +149,24 @@ namespace VertexAsylum
         virtual ~vaPostProcessTonemap( );
 
     public:
-        virtual vaDrawResultFlags                   TickAndTonemap( float deltaTime, vaCameraBase & camera, vaRenderDeviceContext & apiContext, const std::shared_ptr<vaTexture> & srcRadiance, const AdditionalParams & additionalParams = AdditionalParams() );
+        virtual vaDrawResultFlags                   TickAndTonemap( float deltaTime, vaCameraBase & camera, vaRenderDeviceContext & renderContext, const std::shared_ptr<vaTexture> & srcRadiance, const AdditionalParams & additionalParams = AdditionalParams() );
 
     public:
         TMSettings &                                Settings( )                                 { return m_settings; }
 
     protected:
         void                                        Tick( float deltaTime );
+        void                                        ResetHistory( );            // if determinism is required between changing of scenes or similar
 
     protected:
-        virtual void                                UpdateConstants( vaRenderDeviceContext & apiContext, const std::shared_ptr<vaTexture> & srcRadiance );
-        virtual void                                UpdateShaders( int msaaSampleCount, const std::shared_ptr<vaTexture> & outMSTonemappedColor, const std::shared_ptr<vaTexture> & outMSTonemappedColorControl, const std::shared_ptr<vaTexture> & outExportLuma );
+        virtual void                                UpdateConstants( vaRenderDeviceContext & renderContext, const std::shared_ptr<vaTexture> & srcRadiance );
+        virtual void                                UpdateShaders( int msaaSampleCount, const std::shared_ptr<vaTexture> & outMSTonemappedColor, const std::shared_ptr<vaTexture> & outMSTonemappedColorControl, const std::shared_ptr<vaTexture> & outExportLuma, bool waitCompileShaders );
 
     protected:
-        virtual void                                UpdateLastAverageLuminance( vaRenderDeviceContext & apiContext, bool noDelayInGettingLuminance );
+        virtual void                                UpdateLastAverageLuminance( vaRenderDeviceContext & renderContext, bool noDelayInGettingLuminance );
 
     protected:
-        // vaImguiHierarchyObject
-        virtual string                              IHO_GetInstanceName( ) const                { return "Tonemap"; }
-        virtual void                                IHO_Draw( );
+        virtual void                                UIPanelDraw( ) override;
     };
 
 }

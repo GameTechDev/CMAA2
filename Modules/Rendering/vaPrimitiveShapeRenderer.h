@@ -25,7 +25,7 @@
 
 #include "Rendering/Shaders/vaSharedTypes_PrimitiveShapeRenderer.h"
 
-#include "IntegratedExternals/vaImguiIntegration.h"
+//#include "IntegratedExternals/vaImguiIntegration.h"
 
 #include "Rendering/vaRenderBuffers.h"
 
@@ -47,7 +47,7 @@ namespace VertexAsylum
     //
     // Support for texture mapping, custom shaders, etc. will be added in the future.
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    class vaPrimitiveShapeRenderer : public vaRenderingModule, public vaImguiHierarchyObject
+    class vaPrimitiveShapeRenderer : public vaRenderingModule
     {
     public:
         struct DrawSettings

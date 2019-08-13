@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -19,9 +19,12 @@
 
 #include "vaApplicationWin.h"
 
+#include "Core/vaUI.h"
 #include "IntegratedExternals\vaImguiIntegration.h"
 
 #include "Rendering/vaRenderDevice.h"
+#include "Rendering/DirectX/vaRenderDeviceDX11.h"
+#include "Rendering/DirectX/vaRenderDeviceDX12.h"
 #include "Rendering/vaRendering.h"
 #include "Rendering/vaShader.h"
 
@@ -32,6 +35,10 @@
 #include <timeapi.h>
 
 #include <tpcshrd.h>
+
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+#include "IntegratedExternals/imgui/examples/imgui_impl_win32.h"
+#endif
 
 using namespace VertexAsylum;
 
@@ -110,14 +117,11 @@ public:
     }
 };
 
-vaApplicationWin::Settings::Settings( )
+vaApplicationWin::Settings::Settings(  const wstring & appName, const wstring & cmdLine, int cmdShow  ) : vaApplicationBase::Settings( appName, cmdLine ), CmdShow( cmdShow )
 {
-    UserOutputWindow = NULL;
-
-    Cursor = LoadCursor( NULL, IDC_ARROW );
-    Icon = NULL;
-    SmallIcon = NULL;
-    CmdShow = SW_SHOWDEFAULT;
+    Cursor      = LoadCursor( NULL, IDC_ARROW );
+    Icon        = NULL;
+    SmallIcon   = NULL;
 }
 
 // https://randomascii.wordpress.com/2012/07/05/when-even-crashing-doesnt-work/
@@ -142,8 +146,8 @@ static void disable_exception_swallowing( void )
     }
 }
 
-vaApplicationWin::vaApplicationWin( Settings & settings, const std::shared_ptr<vaRenderDevice> & renderDevice, const wstring & cmdLine )
-    : vaApplicationBase( settings, renderDevice, cmdLine ), m_localSettings( settings )
+vaApplicationWin::vaApplicationWin( const Settings & settings, const std::shared_ptr<vaRenderDevice> & renderDevice )
+    : vaApplicationBase( settings, renderDevice ), m_localSettings( settings )
 {
     m_wndClassName = L"VertexAsylumApp";
     m_hWnd = NULL;
@@ -169,6 +173,8 @@ vaApplicationWin::vaApplicationWin( Settings & settings, const std::shared_ptr<v
     s_instance = this;
 
     new vaFPSLimiter( );
+
+    m_enumeratedAPIsAdapters = EnumerateGraphicsAPIsAndAdapters();
 }
 
 vaApplicationWin::~vaApplicationWin( )
@@ -185,58 +191,118 @@ void vaApplicationWin::Initialize( )
 {
     vaApplicationBase::Initialize();
 
-//    m_renderDevice->Initialize( );
+
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+    // not really solved - not sure what I want to do here anyway; draw native at 4k on a laptop? not really practical from performance standpoint.
+    // something to ponder on for the future.
+//    ImGui_ImplWin32_EnableDpiAwareness( );
+#endif
 
     {
-        WNDCLASSEX wcex;
+        static bool classRegistred = false;
+        if( !classRegistred )
+        {
+            WNDCLASSEX wcex;
 
-        wcex.cbSize = sizeof( WNDCLASSEX );
+            wcex.cbSize = sizeof( WNDCLASSEX );
 
-        wcex.style = 0; //CS_HREDRAW | CS_VREDRAW;
-        wcex.lpfnWndProc = WndProcStatic;
-        wcex.cbClsExtra = 0;
-        wcex.cbWndExtra = 0;
-        wcex.hInstance = GetModuleHandle( NULL );
-        wcex.hIcon = m_localSettings.Icon;
-        wcex.hCursor = m_localSettings.Cursor;
-        wcex.hbrBackground = (HBRUSH)( COLOR_WINDOW + 1 );
-        wcex.lpszMenuName = NULL; //MAKEINTRESOURCE(IDC_VANILLA);
-        wcex.lpszClassName = m_wndClassName.c_str( );
-        wcex.hIconSm = NULL; //LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+            wcex.style = 0; //CS_HREDRAW | CS_VREDRAW;
+            wcex.lpfnWndProc = WndProcStatic;
+            wcex.cbClsExtra = 0;
+            wcex.cbWndExtra = 0;
+            wcex.hInstance = GetModuleHandle( NULL );
+            wcex.hIcon = m_localSettings.Icon;
+            wcex.hCursor = m_localSettings.Cursor;
+            wcex.hbrBackground = (HBRUSH)( COLOR_WINDOW + 1 );
+            wcex.lpszMenuName = NULL; //MAKEINTRESOURCE(IDC_VANILLA);
+            wcex.lpszClassName = m_wndClassName.c_str( );
+            wcex.hIconSm = NULL; //LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
-        ATOM ret = RegisterClassEx( &wcex );
-        assert( ret != 0 ); ret;
+            ATOM ret = RegisterClassEx( &wcex );
+            assert( ret != 0 ); ret;
+            classRegistred = true;
+        }
 
         m_hWnd = CreateWindow( m_wndClassName.c_str( ), m_settings.AppName.c_str( ), WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, GetModuleHandle( NULL ), NULL );
+        m_currentFullscreenState = vaFullscreenState::Windowed;
 
         RegisterTouchWindow( m_hWnd, 0 );
 
         vaWindows::SetMainHWND( m_hWnd );
 
         assert( m_hWnd != NULL );
-        SetWindowClientAreaSize( vaVector2i( m_settings.StartScreenWidth, m_settings.StartScreenHeight ) );
+        // SetWindowClientAreaSize( vaVector2i( m_settings.StartScreenWidth, m_settings.StartScreenHeight ) );
+        m_setWindowSizeNextFrame.x = m_settings.StartScreenWidth;
+        m_setWindowSizeNextFrame.y = m_settings.StartScreenHeight;
 
+        // Load settings here so we can change window position and stuff
+        {
+            const wstring settingsFileName = GetSettingsFileName( );
+            vaFileStream settingsFile;
+            if( settingsFile.Open( settingsFileName, FileCreationMode::Open ) )
+            {
+                VA_LOG( L"Loading settings from '%s'...", settingsFileName.c_str( ) );
+                vaXMLSerializer loadSerializer( settingsFile );
+                if( loadSerializer.IsReading( ) )
+                {
+                    NamedSerializeSettings( loadSerializer );
+                }
+                else
+                {
+                    VA_WARN( L"Settings file '%s' is corrupt...", settingsFileName.c_str( ) );
+                }
+            }
+            else
+            {
+                VA_WARN( L"Unable to load settings from '%s'...", settingsFileName.c_str( ) );
+            }
+        }
+
+        if( GetFullscreenState() == vaFullscreenState::Windowed )
+            SetWindowClientAreaSize( m_setWindowSizeNextFrame );
+        m_setWindowSizeNextFrame = vaVector2i( 0, 0 );
+        
+        if( m_setFullscreenStateNextFrame != m_currentFullscreenState )
+        {
+            SetFullscreenWindowInternal( GetFullscreenState() != vaFullscreenState::Windowed );
+        }
         ShowWindow( m_hWnd, SW_SHOWDEFAULT ); //m_settings.CmdShow );
         UpdateWindow( m_hWnd );
 
-        GetWindowPlacement( m_hWnd, &m_windowPlacement );
+        // have to update this as well in case there was a fullscreen toggle
+        {
+            RECT wrect;
+            if( ::GetClientRect( m_hWnd, &wrect ) )
+            {
+                int width = wrect.right - wrect.left;
+                int height = wrect.bottom - wrect.top;
+
+                if( width != m_currentWindowClientSize.x || height != m_currentWindowClientSize.y )
+                {
+                    m_currentWindowClientSize.x = width;
+                    m_currentWindowClientSize.y = height;
+                    if( !IsFullscreen() )
+                        m_lastNonFullscreenWindowClientSize = m_currentWindowClientSize;
+                }
+            }
+        }
     }
 
-    vaLog::GetInstance( ).Add( LOG_COLORS_NEUTRAL, L"vaApplicationWin initialized (%d, %d)", m_settings.StartScreenWidth, m_settings.StartScreenHeight );
+    vaLog::GetInstance( ).Add( LOG_COLORS_NEUTRAL, L"vaApplicationWin initialized (%d, %d)", m_currentWindowClientSize.x, m_currentWindowClientSize.y );
 
-    if( m_settings.StartFullscreen )
-        ToggleFullscreen( );
-
-    m_renderDevice->CreateSwapChain( m_currentWindowClientSize.x, m_currentWindowClientSize.y, true, m_hWnd );
-    //m_renderDevice->CreateSwapChain( 3840, 2160, true, m_hWnd ); <- don't ask, just for measurements...
-
-    //vaRenderingCore::OnAPIInitialized( );
-
+    m_renderDevice->CreateSwapChain( m_currentWindowClientSize.x, m_currentWindowClientSize.y, m_hWnd, GetFullscreenState() ); //(IsFullscreen())?(vaFullscreenState::Fullscreen):(vaFullscreenState::Windowed) );
+    
+    m_setFullscreenStateNextFrame = vaFullscreenState::Unknown;
+    
+    // can be downgraded from Fullscreen to FullscreenBorderless or Windowed for a number of reasons
+    m_currentFullscreenState = m_renderDevice->GetFullscreenState();
 }
 
 void vaApplicationWin::Tick( float deltaTime )
 {
+    VA_SCOPE_CPU_TIMER( vaApplicationWin_Tick );
+
     assert( m_initialized );
 
     if( m_framerateLimit > 0 )
@@ -276,39 +342,11 @@ void vaApplicationWin::UpdateMouseClientWindowRect( )
     vaInputMouse::GetInstance( ).SetWindowClientRect( rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top );
 }
 
-void vaApplicationWin::OnResized( int width, int height, bool windowed )
-{
-    UpdateMouseClientWindowRect( );
-    vaApplicationBase::OnResized( width, height, windowed );
-}
-
 void vaApplicationWin::Run( )
 {
+    Initialize( );
+
     assert( m_initialized );
-
-    const wstring settingsFileName = vaCore::GetExecutableDirectory( ) + L"ApplicationSettings.xml";
-
-    // Load settings
-    {
-        vaFileStream settingsFile;
-        if( settingsFile.Open( settingsFileName, FileCreationMode::Open ) )
-        {
-            VA_LOG( L"Loading settings from '%s'...", settingsFileName.c_str() );
-            vaXMLSerializer loadSerializer( settingsFile );
-            if( loadSerializer.IsReading() )
-            {
-                SerializeSettings( loadSerializer );
-            }
-            else
-            {
-                VA_WARN( L"Settings file '%s' is corrupt...", settingsFileName.c_str() );
-            }
-        }
-        else
-        {
-            VA_WARN( L"Unable to load settings from '%s'...", settingsFileName.c_str() );
-        }
-    }
 
     m_running = true;
 
@@ -320,46 +358,45 @@ void vaApplicationWin::Run( )
     int wmMessagesPerFrame = 0;
 
     Event_Started.Invoke( );
-    OnResized( m_currentWindowClientSize.x, m_currentWindowClientSize.y, !m_renderDevice->IsFullscreen( ) );
 
     // Main message loop:
     vaLog::GetInstance( ).Add( LOG_COLORS_NEUTRAL, L"vaApplicationWin entering main loop" );
     while( !m_shouldQuit )
     {
-        if( ( wmMessagesPerFrame < 10 ) && ::PeekMessage( &msg, 0, 0, 0, PM_REMOVE ) )
+        vaProfiler::GetInstance().NewFrame( );
+
+        VA_SCOPE_CPU_TIMER( RootLoop );
+
+        m_mainTimer.Tick( );
+
+        if( ( wmMessagesPerFrame < 10 ) )
         {
-            if( msg.message == WM_QUIT || msg.message == WM_CLOSE || msg.message == WM_DESTROY )
-                m_shouldQuit = true;
-
-            if( ( msg.hwnd == m_hWnd ) && ( msg.message == WM_DESTROY ) )
+            VA_SCOPE_CPU_TIMER( WindowsMessageLoop );
+            while( ( wmMessagesPerFrame < 10 ) && ::PeekMessage( &msg, 0, 0, 0, PM_REMOVE ) )
             {
-                m_hWnd = NULL;
+                if( msg.message == WM_QUIT || msg.message == WM_CLOSE || msg.message == WM_DESTROY )
+                    m_shouldQuit = true;
+
+                if( ( msg.hwnd == m_hWnd ) && ( msg.message == WM_DESTROY ) )
+                {
+                    m_hWnd = NULL;
+                }
+
+                ::TranslateMessage( &msg );
+
+                bool overrideDefault = false;
+                //if( ( m_settings.UserOutputWindow != NULL ) && ( msg.hwnd == m_settings.UserOutputWindow ) )
+                PreWndProcOverride( msg.hwnd, msg.message, msg.wParam, msg.lParam, overrideDefault );
+
+                if( !overrideDefault )
+                    ::DispatchMessage( &msg );
+
+                wmMessagesPerFrame++;
             }
-
-            ::TranslateMessage( &msg );
-
-            bool overrideDefault = false;
-            //if( ( m_settings.UserOutputWindow != NULL ) && ( msg.hwnd == m_settings.UserOutputWindow ) )
-            PreWndProcOverride( msg.hwnd, msg.message, msg.wParam, msg.lParam, overrideDefault );
-
-            if( !overrideDefault )
-                ::DispatchMessage( &msg );
-
-            wmMessagesPerFrame++;
-
         }
-        else
+        // else
         {
-            if( m_toggleFullscreenNextFrame )
-            {
-                ToggleFullscreenInternal();
-                m_toggleFullscreenNextFrame = false;
-            }
-            if( m_setWindowSizeNextFrame.x != 0 && m_setWindowSizeNextFrame.y != 0 )
-            {
-                SetWindowClientAreaSize( vaVector2i( m_setWindowSizeNextFrame.x, m_setWindowSizeNextFrame.y ) );
-                m_setWindowSizeNextFrame = vaVector2i( 0, 0 );
-            }
+            VA_SCOPE_CPU_TIMER( ApplicationLoop );
 
             bool windowOk = UpdateUserWindowChanges( );
 
@@ -368,19 +405,13 @@ void vaApplicationWin::Run( )
             if( !windowOk )
             {
                 // maybe the window was closed?
-                assert( false );
+                m_shouldQuit = true;
                 continue;
             }
 
             extern bool evilg_inOtherMessageLoop_PreventTick;
             if( evilg_inOtherMessageLoop_PreventTick )
                 continue;
-
-            vaProfiler::GetInstance().NewFrame( );
-
-            VA_SCOPE_CPU_TIMER( MainLoop );
-
-            m_mainTimer.Tick( );
 
             double totalElapsedTime = m_mainTimer.GetTimeFromStart( );
             totalElapsedTime;
@@ -389,20 +420,43 @@ void vaApplicationWin::Run( )
             UpdateFramerateStats( (float)deltaTime );
             if( m_settings.UpdateWindowTitleWithBasicFrameInfo )
             {
-                static int tickCounter = 0;
-                if( ( tickCounter % 30 ) == 0 )
+                VA_SCOPE_CPU_TIMER( vaApplicationWin_SetWindowText );
+                
+                m_windowTitleInfoTimeFromLastUpdate += (float)deltaTime;
+                if( m_windowTitleInfoTimeFromLastUpdate > m_windowTitleInfoUpdateFrequency    )
                 {
+                    m_windowTitleInfoTimeFromLastUpdate = vaMath::Clamp( m_windowTitleInfoTimeFromLastUpdate-m_windowTitleInfoUpdateFrequency, 0.0f, m_windowTitleInfoUpdateFrequency );
+
                     wstring newTitle = m_settings.AppName + L" " + m_basicFrameInfo;
                     ::SetWindowText( m_hWnd, newTitle.c_str() );
                 }
-                tickCounter++;
             }
             //         vaCore::Tick( (float)deltaTime );
 
             Tick( (float)deltaTime );
 
-            // if( !m_hasFocus )
-            //     Sleep( 30 );
+            // fullscreen state of the device has changed due to external reasons (alt-tab, etc)? make sure we sync up
+            if( m_currentFullscreenState != m_renderDevice->GetFullscreenState() )
+                m_setFullscreenStateNextFrame = m_renderDevice->GetFullscreenState();
+
+            if( m_setFullscreenStateNextFrame != vaFullscreenState::Unknown )
+            {
+                SetFullscreenWindowInternal( m_setFullscreenStateNextFrame != vaFullscreenState::Windowed );
+                m_currentFullscreenState = m_setFullscreenStateNextFrame;
+                m_setFullscreenStateNextFrame = vaFullscreenState::Unknown;
+            }
+
+            if( m_setWindowSizeNextFrame.x != 0 && m_setWindowSizeNextFrame.y != 0 )
+            {
+                if( !IsFullscreen() )
+                    SetWindowClientAreaSize( vaVector2i( m_setWindowSizeNextFrame.x, m_setWindowSizeNextFrame.y ) );
+                m_setWindowSizeNextFrame = vaVector2i( 0, 0 );
+            }
+
+            if( m_shouldQuit )
+            {
+                ::DestroyWindow( m_hWnd );
+            }
         }
     }
     vaLog::GetInstance( ).Add( LOG_COLORS_NEUTRAL, L"vaApplicationWin main loop closed, exiting..." );
@@ -410,12 +464,15 @@ void vaApplicationWin::Run( )
 
     // Save settings
     {
+        const wstring settingsFileName = GetSettingsFileName( );
+
+        VA_LOG( L"Saving settings to '%s'...", settingsFileName.c_str() );
+        vaXMLSerializer saveSerializer;
+        NamedSerializeSettings( saveSerializer );
+
         vaFileStream settingsFile;
         if( settingsFile.Open( settingsFileName, FileCreationMode::Create ) )
         {
-            VA_LOG( L"Saving settings to '%s'...", settingsFileName.c_str() );
-            vaXMLSerializer saveSerializer;
-            SerializeSettings( saveSerializer );
             saveSerializer.WriterSaveToFile( settingsFile );
         }
         else
@@ -424,14 +481,16 @@ void vaApplicationWin::Run( )
         }
     }
 
-     // cleanup the message queue just in case
-     int safetyBreakNum = 100;
-     while( ::PeekMessage( &msg, 0, 0, 0, PM_REMOVE ) && ( safetyBreakNum > 0 ) )
-     {
-         ::TranslateMessage( &msg );
-         ::DispatchMessage( &msg );
-         safetyBreakNum--;
-     }
+    m_renderDevice->SetDisabled();
+
+    // cleanup the message queue just in case
+    int safetyBreakNum = 200;
+    while( ::PeekMessage( &msg, 0, 0, 0, PM_REMOVE ) && ( safetyBreakNum > 0 ) )
+    {
+        ::TranslateMessage( &msg );
+        ::DispatchMessage( &msg );
+        safetyBreakNum--;
+    }
 
     Event_Stopped.Invoke( );
 
@@ -441,45 +500,34 @@ void vaApplicationWin::Run( )
 void vaApplicationWin::UpdateDeviceSizeOnWindowResize( )
 {
     ReleaseMouse( );
-    bool windowed = !m_renderDevice->IsFullscreen( );
     //Event_BeforeWindowResized.Invoke( );
-    if( m_renderDevice->ResizeSwapChain( m_currentWindowClientSize.x, m_currentWindowClientSize.y, true ) )
+    if( !m_renderDevice->ResizeSwapChain( m_currentWindowClientSize.x, m_currentWindowClientSize.y, m_currentFullscreenState ) )
     {
-        OnResized( m_currentWindowClientSize.x, m_currentWindowClientSize.y, windowed );
+        VA_WARN( "Swap chain resize failed!" );
     }
+    // can be downgraded from Fullscreen to FullscreenBorderless or Windowed for a number of reasons
+    m_currentFullscreenState = m_renderDevice->GetFullscreenState( );
 }
 
-bool vaApplicationWin::IsFullscreen( ) const
+bool vaApplicationWin::IsWindowFullscreenInternal( ) const
 {
     DWORD dwStyle = GetWindowLong( m_hWnd, GWL_STYLE );
     
-    if( !m_toggleFullscreenNextFrame )
     return ( dwStyle & WS_OVERLAPPEDWINDOW ) == 0;
-    else
-        return ( dwStyle & WS_OVERLAPPEDWINDOW ) != 0;
 }
 
 
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
-IMGUI_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+IMGUI_IMPL_API LRESULT  ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
 
-void vaApplicationWin::ToggleFullscreen( )
+void vaApplicationWin::SetFullscreenWindowInternal( bool fullscreen )
 {
-    m_toggleFullscreenNextFrame = !m_toggleFullscreenNextFrame;
-}
-
-void vaApplicationWin::ToggleFullscreenInternal( )
-{
-    if( !m_renderDevice->IsSwapChainCreated( ) )
-        return;
-    m_toggleFullscreenNextFrame = false;
-
     DWORD dwStyle = GetWindowLong( m_hWnd, GWL_STYLE );
-    if( !IsFullscreen( ) )
+    if( fullscreen )
     {
         MONITORINFO mi = { sizeof( mi ) };
-        if( GetWindowPlacement( m_hWnd, &m_windowPlacement ) &&
+        if( /*GetWindowPlacement( m_hWnd, &m_windowPlacement ) &&*/
             GetMonitorInfo( MonitorFromWindow( m_hWnd, MONITOR_DEFAULTTOPRIMARY ), &mi ) )
         {
             SetWindowLong( m_hWnd, GWL_STYLE, dwStyle & ~WS_OVERLAPPEDWINDOW );
@@ -489,14 +537,19 @@ void vaApplicationWin::ToggleFullscreenInternal( )
                 mi.rcMonitor.bottom - mi.rcMonitor.top,
                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED );
         }
+        // m_lastFullscreen = true;
     }
     else
     {
+        m_renderDevice->SetWindowed();
+
         SetWindowLong( m_hWnd, GWL_STYLE, dwStyle | WS_OVERLAPPEDWINDOW );
-        SetWindowPlacement( m_hWnd, &m_windowPlacement );
+        //SetWindowPlacement( m_hWnd, &m_windowPlacement );
         SetWindowPos( m_hWnd, NULL, 0, 0, 0, 0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
             SWP_NOOWNERZORDER | SWP_FRAMECHANGED );
+        m_setWindowSizeNextFrame = m_lastNonFullscreenWindowClientSize;
+        // m_lastFullscreen = false;
     }
 }
 
@@ -514,9 +567,10 @@ void vaApplicationWin::PreWndProcOverride( HWND hWnd, UINT message, WPARAM wPara
     switch( message )
     {
     case WM_PAINT:
-        hdc = BeginPaint( hWnd, &ps );
-        // TODO: Add any drawing code here...
-        EndPaint( hWnd, &ps );
+        ps; hdc; hWnd;
+        // hdc = BeginPaint( hWnd, &ps );
+        // // TODO: Add any drawing code here...
+        // EndPaint( hWnd, &ps );
         overrideDefault = true;
         break;
     }
@@ -542,12 +596,14 @@ LRESULT vaApplicationWin::WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARA
     }
 
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
-    if( GetRenderDevice().ImGuiIsVisible() && !IsMouseCaptured() )
+    if( vaUIManager::GetInstance().IsVisible() && !IsMouseCaptured() )
     {
-        if( ImGui_ImplWin32_WndProcHandler( hWnd, message, wParam, lParam ) )
-        {
-            return DefWindowProc( hWnd, message, wParam, lParam );
-        }
+        LRESULT res = ImGui_ImplWin32_WndProcHandler( hWnd, message, wParam, lParam );
+        if( res )
+            return res;
+        // {
+        //     return DefWindowProc( hWnd, message, wParam, lParam );
+        // }
     }
 #endif
 
@@ -612,7 +668,6 @@ LRESULT vaApplicationWin::WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARA
         //break;
     case WM_MOVE:
         {
-            UpdateMouseClientWindowRect( );
             RECT rc;
             GetWindowRect(m_hWnd, &rc); // get client coords
             m_currentWindowPosition = vaVector2i( rc.left, rc.top );
@@ -621,9 +676,9 @@ LRESULT vaApplicationWin::WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARA
     case WM_DESTROY:
         ::DestroyCursor( m_cursorNone );
     case WM_CLOSE:
-        if( !m_shouldQuit )
+        //if( !m_shouldQuit )
         {
-            m_shouldQuit = true;
+            //m_shouldQuit = true;
             return DefWindowProc( hWnd, message, wParam, lParam );
         }
         break;
@@ -631,8 +686,8 @@ LRESULT vaApplicationWin::WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARA
         m_inResizeOrMove = true;
         break;
     case WM_EXITSIZEMOVE:
-        if( m_inResizeOrMove )
-            UpdateDeviceSizeOnWindowResize( );
+        // if( m_inResizeOrMove )
+        //     UpdateDeviceSizeOnWindowResize( );
         m_inResizeOrMove = false;
         break;
     case WM_ACTIVATE:
@@ -647,51 +702,55 @@ LRESULT vaApplicationWin::WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARA
         OnLostFocus( );
         break;
     case WM_SETFOCUS:
-        if( m_inResizeOrMove )
-            UpdateDeviceSizeOnWindowResize( );
+        // if( m_inResizeOrMove )
+        //     UpdateDeviceSizeOnWindowResize( );
         m_inResizeOrMove = false;
         OnGotFocus( );
         break;
     case WM_KEYDOWN:
         if( wParam == 27 ) // ESC
         {
-            m_shouldQuit = true;
-            //::PostQuitMessage( 0 );
+            //m_shouldQuit = true;
+            ::DestroyWindow( m_hWnd );
         }
         break;
     case WM_KEYUP:
         break;
     case WM_SIZE:
     {
-        if( m_hWnd != NULL )
-        {
-            RECT rect;
-            ::GetClientRect( m_hWnd, &rect );
-
-            int newWidth    =  rect.right - rect.left;
-            int newHeight   =  rect.bottom - rect.top;
-
-            if( ( newWidth != 0 ) && ( newHeight != 0 ) )
-            {
-                m_currentWindowClientSize.x = newWidth;
-                m_currentWindowClientSize.y = newHeight;
-
-                if( !m_preventWMSIZEResizeSwapChain && !m_inResizeOrMove )
-                    UpdateDeviceSizeOnWindowResize( );
-            }
-        }
-        else
-        {
-            int dbg = 0;
-            dbg++;
-        }
+        // if( m_hWnd != NULL )
+        // {
+        //     RECT rect;
+        //     ::GetClientRect( m_hWnd, &rect );
+        // 
+        //     int newWidth    =  rect.right - rect.left;
+        //     int newHeight   =  rect.bottom - rect.top;
+        // 
+        //     if( ( newWidth != 0 ) && ( newHeight != 0 ) )
+        //     {
+        //         m_currentWindowClientSize.x = newWidth;
+        //         m_currentWindowClientSize.y = newHeight;
+        // 
+        //         if( !m_preventWMSIZEResizeSwapChain && !m_inResizeOrMove )
+        //             UpdateDeviceSizeOnWindowResize( );
+        //     }
+        // }
+        // else
+        // {
+        //     int dbg = 0;
+        //     dbg++;
+        // }
     }
     break;
     case WM_SYSKEYDOWN:
     {        
-        if( wParam == VK_RETURN && (m_localSettings.UserOutputWindow == NULL) )
+        if( wParam == VK_RETURN ) //&& (m_localSettings.UserOutputWindow == NULL) )
         {
-            ToggleFullscreen( );
+            if( m_currentFullscreenState == vaFullscreenState::Windowed )
+                m_setFullscreenStateNextFrame = vaFullscreenState::Fullscreen;
+            else
+                m_setFullscreenStateNextFrame = vaFullscreenState::Windowed;
+            //ToggleFullscreen( );
         }
         // if( wParam == VK_TAB )
         // {
@@ -702,8 +761,8 @@ LRESULT vaApplicationWin::WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARA
         // }
         if( wParam == VK_F4 )
         {
-            m_shouldQuit = true;
-            //::PostQuitMessage( 0 );
+            //m_shouldQuit = true;
+            ::DestroyWindow( m_hWnd );
         }
     }
     break;
@@ -760,7 +819,7 @@ LRESULT vaApplicationWin::WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARA
     return 0;
 }
 
-vaVector2i vaApplicationWin::GetWindowPosition( )
+vaVector2i vaApplicationWin::GetWindowPosition( ) const 
 {
     RECT wrect;
     if( ::GetWindowRect( m_hWnd, &wrect ) )
@@ -774,20 +833,22 @@ void vaApplicationWin::SetWindowPosition( const vaVector2i & position )
     ::SetWindowPos( m_hWnd, 0, position.x, position.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER );
 }
 
-vaVector2i vaApplicationWin::GetWindowClientAreaSize( )
+vaVector2i vaApplicationWin::GetWindowClientAreaSize( ) const
 {
     return m_currentWindowClientSize;
 }
 
 void vaApplicationWin::SetWindowClientAreaSize( const vaVector2i & clientSize )
 {
-    VA_ASSERT( m_localSettings.UserOutputWindow == NULL, L"Using user window, this isn't going to work" );
+    // VA_ASSERT( m_localSettings.UserOutputWindow == NULL, L"Using user window, this isn't going to work" );
 
     if( clientSize.x == m_currentWindowClientSize.x && clientSize.y == m_currentWindowClientSize.y )
         return;
 
     m_currentWindowClientSize.x = clientSize.x;
     m_currentWindowClientSize.y = clientSize.y;
+    if( !IsFullscreen() )
+        m_lastNonFullscreenWindowClientSize = m_currentWindowClientSize;
 
     if( m_hWnd == NULL )
         return;
@@ -815,25 +876,84 @@ LRESULT CALLBACK vaApplicationWin::WndProcStatic( HWND hWnd, UINT message, WPARA
 
 bool vaApplicationWin::UpdateUserWindowChanges( )
 {
-    if( m_localSettings.UserOutputWindow == NULL ) return true;
+    VA_SCOPE_CPU_TIMER( vaApplicationWin_UpdateUserWindowChanges );
+
+    // if( m_localSettings.UserOutputWindow == NULL ) return true;
     if( m_hWnd == NULL )
         return false;
-    assert( m_localSettings.UserOutputWindow == m_hWnd );
+    //assert( m_localSettings.UserOutputWindow == m_hWnd );
 
     RECT wrect;
-    if( !::GetWindowRect( m_hWnd, &wrect ) )
+    if( !::GetClientRect( m_hWnd, &wrect ) )
     {
         return false;
     }
     int width = wrect.right - wrect.left;
     int height = wrect.bottom - wrect.top;
+    UpdateMouseClientWindowRect();
 
     if( width != m_currentWindowClientSize.x || height != m_currentWindowClientSize.y )
     {
         m_currentWindowClientSize.x = width;
         m_currentWindowClientSize.y = height;
+        if( !IsFullscreen() )
+            m_lastNonFullscreenWindowClientSize = m_currentWindowClientSize;
+    }
+    if( m_renderDevice->GetSwapChainTextureSize( ) != m_currentWindowClientSize || m_renderDevice->GetFullscreenState() != m_currentFullscreenState )
+    {
         UpdateDeviceSizeOnWindowResize( );
     }
     return true;
 }
 
+vector<pair<string, string>> vaApplicationWin::EnumerateGraphicsAPIsAndAdapters( )
+{
+    vector<pair<string, string>> ret;
+    ret.push_back( std::make_pair("default", "default") );
+    vaRenderDeviceDX11::StaticEnumerateAdapters( ret );
+    vaRenderDeviceDX12::StaticEnumerateAdapters( ret );
+    return ret;
+}
+
+void vaApplicationWin::Run( const vaApplicationWin::Settings & settings, std::function< void( vaApplicationBase & application, bool starting ) > startStopCallback )
+{
+    do
+    {
+        {
+            auto defaultAPIAdapter = LoadDefaultGraphicsAPIAdapter();
+            //////////////////////////////////////////////////////////////////////////
+            // DirectX specific
+            std::shared_ptr<vaRenderDevice> renderDevice;
+            if( defaultAPIAdapter.first == "" || defaultAPIAdapter.first == "default" || defaultAPIAdapter.first == vaRenderDeviceDX11::StaticGetAPIName() )
+                renderDevice = std::make_shared<vaRenderDeviceDX11>( defaultAPIAdapter.second );
+            else if( defaultAPIAdapter.first == vaRenderDeviceDX12::StaticGetAPIName() )
+                renderDevice = std::make_shared<vaRenderDeviceDX12>( defaultAPIAdapter.second );
+            else
+            {
+                assert( false );
+                return;
+            }
+            //////////////////////////////////////////////////////////////////////////
+
+            shared_ptr<vaApplicationWin> application = std::shared_ptr<vaApplicationWin>( new vaApplicationWin( settings, renderDevice ) );
+
+            startStopCallback( *application, true );
+
+            application->Run();
+
+            startStopCallback( *application, false );
+        }
+
+        if( !vaCore::GetAppQuitButRestartingFlag() )
+            return;
+        else
+        {
+            vaCore::Deinitialize( true );
+            vaCore::Initialize( true );
+            vaCore::SetAppQuitFlag( false );
+        }
+
+    } while( true );
+
+
+}

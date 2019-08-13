@@ -24,6 +24,7 @@ using namespace VertexAsylum;
 std::vector<vaShader *> vaShader::s_allShaderList;
 mutex vaShader::s_allShaderListMutex;
 std::atomic_int vaShader::s_activelyCompilingShaderCount = 0;
+std::atomic_int64_t vaShader::s_lastUniqueShaderContentsID = -1;
 
 vaShader::vaShader( const vaRenderingModuleParams & params ) : vaRenderingModule( params )
 { 
@@ -74,6 +75,7 @@ void vaShader::CreateShaderFromFile( const wstring & filePath, const string & sh
     {
         std::unique_lock<mutex> allShaderDataLock( m_allShaderDataMutex ); 
         m_state                 = State::Uncooked;
+        m_uniqueContentsID      = -1;
         m_shaderCode            = "";
         m_shaderFilePath        = filePath;
         m_entryPoint            = entryPoint;
@@ -96,7 +98,7 @@ void vaShader::CreateShaderFromFile( const wstring & filePath, const string & sh
     };
 
 #ifndef VA_SHADER_SHADER_BACKGROUND_COMPILATION_ENABLE
-    forceImmediateCompile = false;
+    forceImmediateCompile = true;
 #endif
     if( forceImmediateCompile )
         shaderCompileLambda( vaBackgroundTaskManager::TaskContext() );
@@ -117,6 +119,7 @@ void vaShader::CreateShaderFromBuffer( const string & shaderCode, const string &
     {
         std::unique_lock<mutex> allShaderDataLock( m_allShaderDataMutex ); 
         m_state                 = State::Uncooked;
+        m_uniqueContentsID      = -1;
         m_shaderCode            = shaderCode;
         m_shaderFilePath        = L"";
         m_entryPoint            = entryPoint;
@@ -139,7 +142,7 @@ void vaShader::CreateShaderFromBuffer( const string & shaderCode, const string &
     };
 
 #ifndef VA_SHADER_SHADER_BACKGROUND_COMPILATION_ENABLE
-    forceImmediateCompile = false;
+    forceImmediateCompile = true;
 #endif
     if( forceImmediateCompile )
         shaderCompileLambda( vaBackgroundTaskManager::TaskContext() );
@@ -153,10 +156,15 @@ void vaShader::Reload( )
     assert( vaThreading::IsMainThread() );  // creation only supported from main thread for now
     vaBackgroundTaskManager::GetInstance().WaitUntilFinished( m_backgroundCreationTask );
 
-    // increase the number BEFORE launching the threads (otherwise it is 0 while we're waiting for the compile thread to spawn)
-    { /*std::unique_lock<mutex> shaderListLock( s_allShaderListMutex );*/ s_activelyCompilingShaderCount++; }
     bool forceImmediateCompile;
     { std::unique_lock<mutex> allShaderDataLock( m_allShaderDataMutex ); forceImmediateCompile = m_forceImmediateCompile; }
+
+    // nothing to do here
+    if( ( m_shaderFilePath.size( ) == 0 ) && ( m_shaderCode.size( ) == 0 ) )
+        return;
+
+    // increase the number BEFORE launching the threads (otherwise it is 0 while we're waiting for the compile thread to spawn)
+    { /*std::unique_lock<mutex> shaderListLock( s_allShaderListMutex );*/ s_activelyCompilingShaderCount++; }
 
     auto shaderCompileLambda = [this]( vaBackgroundTaskManager::TaskContext & ) 
     {
@@ -170,7 +178,7 @@ void vaShader::Reload( )
     };
 
 #ifndef VA_SHADER_SHADER_BACKGROUND_COMPILATION_ENABLE
-    forceImmediateCompile = false;
+    forceImmediateCompile = true;
 #endif
     if( forceImmediateCompile )
         shaderCompileLambda( vaBackgroundTaskManager::TaskContext() );
@@ -230,6 +238,7 @@ void vaShader::GetMacrosAsIncludeFile( string & outString )
 
 vaShaderManager::vaShaderManager( vaRenderDevice & device )  : vaRenderingModule( vaRenderingModuleParams( device ) ) 
 { 
+#ifdef VA_SHADER_SHADER_BACKGROUND_COMPILATION_ENABLE
     auto progressInfoLambda = [this]( vaBackgroundTaskManager::TaskContext & context ) 
     {
         while( !context.ForceStop )
@@ -253,11 +262,14 @@ vaShaderManager::vaShaderManager( vaRenderDevice & device )  : vaRenderingModule
         return true;
     };
     vaBackgroundTaskManager::GetInstance().Spawn( m_backgroundShaderCompilationProgressIndicator, "Compiling shaders...", vaBackgroundTaskManager::SpawnFlags::ShowInUI, progressInfoLambda );
+#endif
 }
 vaShaderManager::~vaShaderManager( )
 { 
+#ifdef VA_SHADER_SHADER_BACKGROUND_COMPILATION_ENABLE
     vaBackgroundTaskManager::GetInstance().MarkForStopping( m_backgroundShaderCompilationProgressIndicator );
     vaBackgroundTaskManager::GetInstance().WaitUntilFinished( m_backgroundShaderCompilationProgressIndicator );
+#endif
 }
 
 

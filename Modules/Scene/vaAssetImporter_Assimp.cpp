@@ -212,7 +212,7 @@ static shared_ptr<vaAssetTexture> FindOrLoadTexture( aiTexture * assimpTexture, 
 
     if( !foundDDS && parameters.Settings.TextureOnlyLoadDDS )
     {
-        VA_LOG( L"VaAssetImporter_Assimp : TextureOnlyLoadDDS true but no .dds texture found when looking for '%s'", filePath.c_str() )
+        VA_LOG( L"VaAssetImporter_Assimp : TextureOnlyLoadDDS true but no .dds texture found when looking for '%s'", filePath.c_str() );
         return nullptr;
     }
 
@@ -621,7 +621,7 @@ static bool ProcessMaterials( const aiScene* loadedScene, LoadingTempStorage & t
         {
             if( matSettings.Transparent )
             {
-                VA_LOG_WARNING( "Assimp warning: in '%s' material, both alpha test and transparency were enabled - we'll disable transparency." )
+                VA_LOG_WARNING( "Assimp warning: in '%s' material, both alpha test and transparency were enabled - we'll disable transparency." );
             }
             matSettings.Transparent = false;
         }

@@ -1475,6 +1475,8 @@ void vaBoundingBox::GetCornerPoints( vaVector3 corners[] )
 
 vaIntersectType vaBoundingBox::IntersectFrustum( const vaPlane planes[], const int planeCount )
 {
+    assert( planes != nullptr || planeCount == 0 );
+
     vaVector3 corners[9];
     GetCornerPoints(corners);
     corners[8] = Center();

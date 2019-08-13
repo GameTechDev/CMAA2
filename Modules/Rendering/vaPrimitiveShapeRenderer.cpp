@@ -76,7 +76,7 @@ void vaPrimitiveShapeRenderer::UpdateConstants( vaSceneDrawContext & drawContext
 
         consts.ColorMul = drawSettings.ColorMultiplier;
 
-        m_constantsBuffer.Update( drawContext.APIContext, consts );
+        m_constantsBuffer.Update( drawContext.RenderDeviceContext, consts );
     }
 
 }
@@ -201,8 +201,8 @@ void vaPrimitiveShapeRenderer::Draw( vaSceneDrawContext & drawContext, DrawSetti
 {
     if( m_buffersDirty )
     {
-        m_vertexBufferGPU.Update( drawContext.APIContext, m_vertexBuffer.data(), (uint32)m_vertexBuffer.size() );
-        m_shapeInfoBufferGPU.Update( drawContext.APIContext, m_shapeInfoBuffer.data(), (uint32)m_shapeInfoBuffer.size() );
+        m_vertexBufferGPU.Update( drawContext.RenderDeviceContext, m_vertexBuffer.data(), (uint32)m_vertexBuffer.size() );
+        m_shapeInfoBufferGPU.Update( drawContext.RenderDeviceContext, m_shapeInfoBuffer.data(), (uint32)m_shapeInfoBuffer.size() );
         m_verticesToDraw = (int)m_vertexBuffer.size();
         m_buffersDirty = false;
     }
@@ -212,11 +212,11 @@ void vaPrimitiveShapeRenderer::Draw( vaSceneDrawContext & drawContext, DrawSetti
 
     UpdateConstants( drawContext, drawSettings );
     
-    vaRenderItem renderItem;
+    vaGraphicsItem renderItem;
 
     renderItem.SceneDrawContext = &drawContext;
 
-    renderItem.ConstantBuffers[PRIMITIVESHAPERENDERER_CONSTANTS_BUFFERSLOT] = m_constantsBuffer;
+    renderItem.ConstantBuffers[PRIMITIVESHAPERENDERER_CONSTANTSBUFFERSLOT] = m_constantsBuffer;
     renderItem.ShaderResourceViews[PRIMITIVESHAPERENDERER_SHAPEINFO_SRV]    = m_shapeInfoBufferGPU.GetBuffer();
     renderItem.VertexBuffer     = m_vertexBufferGPU;
     renderItem.VertexShader     = m_vertexShader;
@@ -230,7 +230,7 @@ void vaPrimitiveShapeRenderer::Draw( vaSceneDrawContext & drawContext, DrawSetti
     renderItem.Topology         = vaPrimitiveTopology::TriangleList;
     renderItem.SetDrawSimple( m_verticesToDraw, 0 );
 
-    drawContext.APIContext.ExecuteSingleItem( renderItem );
+    drawContext.RenderDeviceContext.ExecuteSingleItem( renderItem );
 
     if( clearCollected )
     {

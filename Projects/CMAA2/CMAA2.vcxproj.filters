@@ -31,9 +31,6 @@
     <ClCompile Include="SMAA\RenderTarget.cpp">
       <Filter>SMAA</Filter>
     </ClCompile>
-    <ClCompile Include="FXAA\vaFXAAWrapperDX11.cpp">
-      <Filter>FXAA</Filter>
-    </ClCompile>
     <ClCompile Include="FXAA\vaFXAAWrapper.cpp">
       <Filter>FXAA</Filter>
     </ClCompile>
@@ -41,6 +38,9 @@
       <Filter>CMAA2</Filter>
     </ClCompile>
     <ClCompile Include="CMAA2\vaCMAA2DX11.cpp">
+      <Filter>CMAA2</Filter>
+    </ClCompile>
+    <ClCompile Include="CMAA2\vaCMAA2DX12.cpp">
       <Filter>CMAA2</Filter>
     </ClCompile>
   </ItemGroup>

@@ -53,14 +53,15 @@ namespace VertexAsylum
 //            virtual void                                SetAPIContext( void * gpuAPIContext )   = 0;
 //            virtual void *                              GetAPIContext( )                        = 0;
 
-            virtual void                                Start( ) = 0;
-            virtual void                                Stop( ) = 0;
+            virtual void                                Start( vaRenderDeviceContext * renderDeviceContext ) = 0;
+            virtual void                                Stop( vaRenderDeviceContext * renderDeviceContext ) = 0;
 
             virtual double                              GetLastTime( ) const = 0;
-            virtual double                              GetAvgTime( ) const = 0;
+            //virtual double                              GetAvgTime( ) const = 0;
     };
 
    
+    /*
     class vaGPUTimer_AutoScopeProfile
     {
         vaGPUTimer &                        m_profiler;
@@ -76,5 +77,6 @@ namespace VertexAsylum
             if( m_doProfile ) m_profiler.Stop( );
         }
     };
+    */
 
 }

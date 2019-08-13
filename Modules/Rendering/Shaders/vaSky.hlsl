@@ -22,14 +22,14 @@
 
 #include "vaSharedTypes.h"
 
-#define SKY_CONSTANTS_BUFFERSLOT                    4
+#define SKY_CONSTANTSBUFFERSLOT                    4
 
 // The rest below is shader only code
 #ifndef __cplusplus
 
 #include "vaShared.hlsl"
 
-cbuffer SimpleSkyConstantsBuffer                    : register( B_CONCATENATER( SKY_CONSTANTS_BUFFERSLOT ) )
+cbuffer SimpleSkyConstantsBuffer                    : register( B_CONCATENATER( SKY_CONSTANTSBUFFERSLOT ) )
 {
     SimpleSkyConstants                      g_SimpleSkyGlobal;
 }

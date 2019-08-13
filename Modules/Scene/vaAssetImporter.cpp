@@ -22,11 +22,22 @@
 #include "Core/System/vaMemoryStream.h"
 #include "Core/System/vaFileTools.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
 bool LoadFileContents_Assimp( const wstring & path, vaAssetImporter::ImporterContext & parameters, vaAssetImporter::LoadedContent * outContent );
 
-vaAssetImporter::vaAssetImporter( vaRenderDevice & device ) : m_device( device )
+vaAssetImporter::vaAssetImporter( vaRenderDevice & device ) : 
+    vaUIPanel( "Asset Importer", 0,
+#ifdef VA_ASSIMP_INTEGRATION_ENABLED
+        true
+#else
+        false
+#endif
+        , vaUIPanel::DockLocation::DockedRight
+        ),
+    m_device( device )
 {
 }
 vaAssetImporter::~vaAssetImporter( )
@@ -81,8 +92,9 @@ void vaAssetImporter::Clear( )
     m_tempScene = nullptr;
 }
 
-void vaAssetImporter::IHO_Draw( )
+void vaAssetImporter::UIPanelDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
 #ifdef VA_ASSIMP_INTEGRATION_ENABLED
     // importing assets UI
     {
@@ -159,7 +171,6 @@ void vaAssetImporter::IHO_Draw( )
             ImGui::EndPopup( );
         }
     }
-#endif
 
     if( ImGui::BeginChild( "ImporterDataStuff", ImVec2( 0.0f, 0.0f ), true ) )
     {
@@ -174,9 +185,13 @@ void vaAssetImporter::IHO_Draw( )
         }
         else
         {
-            vaImguiHierarchyObject::DrawCollapsable( *m_tempAssetPack, false, true );
-            vaImguiHierarchyObject::DrawCollapsable( *m_tempScene, false, true );
+            m_tempAssetPack->DrawCollapsable( false, true );
+            m_tempScene->DrawCollapsable( false, true );
         }
     }
     ImGui::End( );
+#else
+    ImGui::Text("VA_ASSIMP_INTEGRATION_ENABLED not defined!");
+#endif
+#endif // #ifdef VA_IMGUI_INTEGRATION_ENABLED
 }

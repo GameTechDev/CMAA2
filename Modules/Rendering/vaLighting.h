@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -27,9 +27,11 @@
 
 #include "vaTexture.h"
 
-#include "Rendering/Shaders/vaSharedTypes.h"
+#ifndef __INTELLISENSE__
+#include "Rendering/Shaders/vaLighting.hlsl"
+#endif
 
-#include "IntegratedExternals/vaImguiIntegration.h"
+#include "Core/vaUI.h"
 
 #include "Rendering/vaRenderBuffers.h"
 
@@ -41,7 +43,7 @@ namespace VertexAsylum
 
     class vaShadowmap;
 
-    struct vaLight : public vaXMLSerializable, public vaImguiHierarchyObject
+    struct vaLight : public vaXMLSerializable, public vaUIPropertiesItem
     {
         // Following assimp light definitions (which seem to follow blender standards).
         // See aiLightSourceType
@@ -101,16 +103,18 @@ namespace VertexAsylum
         float                                           EffectiveRadius( float intensityThreshold = 1e-4f ) const    { float totalLight = Intensity.x + Intensity.y + Intensity.z; return vaMath::Sqrt( totalLight / intensityThreshold ); }
 
         void                                            CorrectLimits( );
-        bool                                            Serialize( vaXMLSerializer & serializer ) override;
-        string                                          IHO_GetInstanceName( ) const override   { return Name; }
-        void                                            IHO_Draw( ) override;
+        string                                          UIPropertiesItemGetDisplayName( ) const override   { return Name; }
+        void                                            UIPropertiesItemDraw( ) override;
 
         bool                                            NearEqual( const vaLight & other );
-        void Reset( );
+        void                                            Reset( );
+
+    protected:
+        bool                                            Serialize( vaXMLSerializer & serializer ) override;
     };
 
     // Simple easy to use and control fog
-    struct vaFogSphere : public vaXMLSerializable, public vaImguiHierarchyObject
+    struct vaFogSphere : public vaXMLSerializable, public vaUIPropertiesItem
     {
         bool        Enabled             = false;
         bool        UseCustomCenter     = false;
@@ -123,14 +127,16 @@ namespace VertexAsylum
 
     public:
         void                                            CorrectLimits( );
+        string                                          UIPropertiesItemGetDisplayName( ) const override { return "Fog Settings"; }
+        void                                            UIPropertiesItemDraw( ) override;
+
+    protected:
         bool                                            Serialize( vaXMLSerializer & serializer ) override;
-        string                                          IHO_GetInstanceName( ) const override { return "Fog Settings"; }
-        void                                            IHO_Draw( ) override;
     };
 
 
     // A helper for GBuffer rendering - does creation and updating of render target textures and provides debug views of them.
-    class vaLighting : public vaRenderingModule, public vaImguiHierarchyObject, public std::enable_shared_from_this<vaLighting>
+    class vaLighting : public vaRenderingModule, public vaUIPanel, public std::enable_shared_from_this<vaLighting>
     {
     public:
 
@@ -156,7 +162,8 @@ namespace VertexAsylum
         bool                                            m_shadowmapTexturesCreated  = false;
         static const int                                m_shadowCubeMapCount        = LightingShaderConstants::MaxShadowCubes;    // total supported at one time
         const int                                       m_shadowCubeResolution      = 3072; // one face resolution
-        vaResourceFormat                                m_shadowCubeFormat          = vaResourceFormat::R16_UNORM;   // R32_FLOAT for more precision
+        vaResourceFormat                                m_shadowCubeDepthFormat     = vaResourceFormat::D16_UNORM;  // D32_FLOAT for more precision
+        vaResourceFormat                                m_shadowCubeFormat          = vaResourceFormat::R16_UNORM;  // R32_FLOAT for more precision
         shared_ptr<vaTexture>                           m_shadowCubeArrayTexture;
         weak_ptr<vaShadowmap>                           m_shadowCubeArrayCurrentUsers[m_shadowCubeMapCount];
         shared_ptr<vaTexture>                           m_shadowCubeDepthTexture;
@@ -186,7 +193,10 @@ namespace VertexAsylum
         friend class vaLightingDX11;
 
     public:
-        void                                            UpdateLightingGlobalShaderConstants( vaSceneDrawContext & drawContext );
+        void                                            UpdateShaderConstants( vaSceneDrawContext & drawContext );
+        const shared_ptr<vaConstantBuffer> &            GetConstantsBuffer( ) const                                                             { return m_constantsBuffer.GetBuffer(); };
+        const shared_ptr<vaTexture> &                   GetEnvmapTexture( ) const                                                               { return m_envmapTexture; }
+        const shared_ptr<vaTexture> &                   GetShadowCubeArrayTexture( ) const                                                      { return m_shadowCubeArrayTexture; }
 
     public:
         vaFogSphere &                                   FogSettings( )                                                                          { return m_fogSettings; }
@@ -224,12 +234,10 @@ namespace VertexAsylum
         const shared_ptr<vaTexture> &                   GetCubemapDepthTexture( )                                              { return m_shadowCubeDepthTexture; }
 
     private:
-        virtual string                                  IHO_GetInstanceName( ) const { return m_debugInfo; }
-        virtual void                                    IHO_Draw( );
-
+        virtual void                                    UIPanelDraw( ) override;
     };
 
-    class vaShadowmap : public vaRenderingModule, public vaImguiHierarchyObject, public std::enable_shared_from_this<vaShadowmap>
+    class vaShadowmap : public vaRenderingModule, public vaUIPanel, public vaUIPropertiesItem, public std::enable_shared_from_this<vaShadowmap>
     {
     protected:
         const weak_ptr<vaLighting>                      m_lightingSystem;
@@ -245,7 +253,7 @@ namespace VertexAsylum
 
     protected:
         vaShadowmap( ) = delete;
-        vaShadowmap( vaRenderDevice & device, const shared_ptr<vaLighting> & lightingSystem, const shared_ptr<vaLight> & light ) : vaRenderingModule( vaRenderingModuleParams(device) ), m_lightingSystem( lightingSystem ), m_light( light ) { }
+        vaShadowmap( vaRenderDevice & device, const shared_ptr<vaLighting> & lightingSystem, const shared_ptr<vaLight> & light ) : vaRenderingModule( vaRenderingModuleParams(device) ), vaUIPanel("SM", 0, false, vaUIPanel::DockLocation::DockedLeftBottom, "ShadowMaps" ), m_lightingSystem( lightingSystem ), m_light( light ) { }
 
     public:
         virtual ~vaShadowmap( ) { }
@@ -269,7 +277,10 @@ namespace VertexAsylum
         // create draw filter
         virtual void                                    SetToRenderSelectionFilter( vaRenderSelectionFilter & filter ) const = 0 ;
         // draw
-        virtual vaDrawResultFlags                       Draw( vaRenderDeviceContext & renderContext, vaRenderingGlobals & globals, vaRenderSelection & renderSelection ) = 0;
+        virtual vaDrawResultFlags                       Draw( vaRenderDeviceContext & renderContext, vaRenderSelection & renderSelection ) = 0;
+
+        virtual string                                  UIPropertiesItemGetDisplayName( ) const override           { return UIPanelGetDisplayName(); }
+        virtual void                                    UIPropertiesItemDraw( ) override                    { return UIPanelDraw(); }
     };
 
     // for point/spot lights
@@ -290,12 +301,12 @@ namespace VertexAsylum
 
     protected:
         virtual void                                    SetToRenderSelectionFilter( vaRenderSelectionFilter & filter ) const;
-        virtual vaDrawResultFlags                       Draw( vaRenderDeviceContext & renderContext, vaRenderingGlobals & globals, vaRenderSelection & renderSelection );
+        virtual vaDrawResultFlags                       Draw( vaRenderDeviceContext & renderContext, vaRenderSelection & renderSelection );
         virtual void                                    Tick( float deltaTime );
 
     protected:
-        virtual string                                  IHO_GetInstanceName( ) const { return vaStringTools::Format( "Cubemap shadow for '%s'", m_lastLightState.Name.c_str() ); }
-        virtual void                                    IHO_Draw( );
+        virtual string                                  UIPanelGetDisplayName( ) const override { return vaStringTools::Format( "Cubemap [%s]", m_lastLightState.Name.c_str() ); }
+        virtual void                                    UIPanelDraw( ) override;
     };
 
     

@@ -22,12 +22,6 @@
 
 #pragma once
 
-#ifdef VA_HALF_FLOAT_ENABLED
-
-#include "Misc/half.hpp"
-
-#endif
-
 #include <cstdint>
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -54,10 +48,6 @@ namespace VertexAsylum
 
    typedef int64_t              int64;
    typedef uint64_t             uint64;
-
-#ifdef VA_HALF_FLOAT_ENABLED   
-   typedef half_float::half     float16;
-#endif
 }
 
 // see example below

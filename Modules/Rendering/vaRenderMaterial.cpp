@@ -20,6 +20,9 @@
 #include "vaRenderMesh.h"
 
 #include "Rendering/vaStandardShapes.h"
+#include "Core/vaXMLSerialization.h"
+
+#include "IntegratedExternals/vaImguiIntegration.h"
 
 using namespace VertexAsylum;
 
@@ -31,8 +34,8 @@ const int c_renderMeshMaterialFileVersion = 2;
 vaRenderMaterial::vaRenderMaterial( const vaRenderingModuleParams & params ) : vaRenderingModule( params ),
     vaAssetResource( vaSaferStaticCast< const vaRenderMaterialConstructorParams &, const vaRenderingModuleParams &>( params ).UID), 
     m_trackee( vaSaferStaticCast< const vaRenderMaterialConstructorParams &, const vaRenderingModuleParams &>( params ).RenderMaterialManager.GetRenderMaterialTracker( ), this ), 
-    m_renderMaterialManager( vaSaferStaticCast< const vaRenderMaterialConstructorParams &, const vaRenderingModuleParams &>( params ).RenderMaterialManager ),
-    m_constantsBuffer( params )
+    m_renderMaterialManager( vaSaferStaticCast< const vaRenderMaterialConstructorParams &, const vaRenderingModuleParams &>( params ).RenderMaterialManager )
+    //,    m_constantsBuffer( params )
 {
     m_shaderMacros.reserve( 16 );
     m_shaderMacrosDirty = true;
@@ -44,13 +47,19 @@ vaRenderMaterial::vaRenderMaterial( const vaRenderingModuleParams & params ) : v
 
 void vaRenderMaterial::InitializeDefaultMaterial( )
 {
-    m_shaderSettings.FileName               = "vaMaterialBasic.hlsl";
-    //m_shaderSettings.EntryVS_PosOnly        = "VS_PosOnly";
-    m_shaderSettings.EntryPS_DepthOnly      = "PS_DepthOnly";
-    m_shaderSettings.EntryVS_Standard       = "VS_Standard";
-    m_shaderSettings.EntryPS_Forward        = "PS_Forward";
-    m_shaderSettings.EntryPS_Deferred       = "PS_Deferred";
-    m_shaderSettings.EntryPS_CustomShadow   = "PS_CustomShadow";
+    m_shaderSettings.VS_Standard            = std::make_pair( "vaMaterialBasic.hlsl", "VS_Standard"     );
+    m_shaderSettings.PS_DepthOnly           = std::make_pair( "vaMaterialBasic.hlsl", "PS_DepthOnly"    );
+    m_shaderSettings.PS_Forward             = std::make_pair( "vaMaterialBasic.hlsl", "PS_Forward"      );
+    m_shaderSettings.PS_Deferred            = std::make_pair( "vaMaterialBasic.hlsl", "PS_Deferred"     );
+    m_shaderSettings.PS_CustomShadow        = std::make_pair( "vaMaterialBasic.hlsl", "PS_CustomShadow" );
+
+    // m_shaderSettings.FileName               = "vaMaterialBasic.hlsl";
+    // //m_shaderSettings.EntryVS_PosOnly        = "VS_PosOnly";
+    // m_shaderSettings.EntryVS_Standard       = "VS_Standard";
+    // m_shaderSettings.EntryPS_DepthOnly      = "PS_DepthOnly";
+    // m_shaderSettings.EntryPS_Forward        = "PS_Forward";
+    // m_shaderSettings.EntryPS_Deferred       = "PS_Deferred";
+    // m_shaderSettings.EntryPS_CustomShadow   = "PS_CustomShadow";
     m_shaderSettings.BaseMacros.clear();
 
     m_computedTextureSlotCount      = 0; 
@@ -230,12 +239,22 @@ void vaRenderMaterial::UpdateShaderMacros( )
 
     m_shaderMacros.push_back( std::pair<string, string>( "VA_RM_TEXTURE_DECLARATIONS", textureDeclarations ) );
 
+    m_shaderMacros.insert( m_shaderMacros.end(), m_shaderSettings.BaseMacros.begin(), m_shaderSettings.BaseMacros.end() );
+
     m_shaderMacrosDirty = false;
     m_shadersDirty = prevShaderMacros != m_shaderMacros;
 }
 
+void vaRenderMaterial::RemoveAllInputs( )
+{
+    assert( !m_immutable ); 
+    m_inputs.clear();
+    m_inputsDirty = true;
+}
+
 bool vaRenderMaterial::RemoveInput( int index )
 {
+    assert( !m_immutable ); 
     if( index < 0 || index > m_inputs.size( ) )
     {
         assert( false );
@@ -253,6 +272,7 @@ bool vaRenderMaterial::RemoveInput( int index )
 
 bool vaRenderMaterial::SetInput( int index, const MaterialInput & newValue )
 {
+    assert( !m_immutable ); 
     if( index < 0 || index > m_inputs.size( ) )
     {
         assert( false );
@@ -291,6 +311,7 @@ bool vaRenderMaterial::SetInput( int index, const MaterialInput & newValue )
 
 bool vaRenderMaterial::SetInputByName( const MaterialInput & newValue, bool addIfNotFound )
 {
+    assert( !m_immutable ); 
     int index = FindInputByName( newValue.Name );
     if( index == -1 )
     {
@@ -307,9 +328,9 @@ bool vaRenderMaterial::SaveAPACK( vaStream & outStream )
 {
     // Just using SerializeUnpacked to implement this - not a lot of binary data; can be upgraded later
     vaXMLSerializer materialSerializer;
-    VERIFY_TRUE_RETURN_ON_FALSE( materialSerializer.WriterOpenElement( "Material" ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( materialSerializer.SerializeOpenChildElement( "Material" ) );
     SerializeUnpacked( materialSerializer, L"%there-is-no-folder@" );
-    VERIFY_TRUE_RETURN_ON_FALSE( materialSerializer.WriterCloseElement( "Material" ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( materialSerializer.SerializePopToParentElement( "Material" ) );
 
     const char * buffer = materialSerializer.GetWritePrinter( ).CStr( );
     int64 bufferSize = materialSerializer.GetWritePrinter( ).CStrSize( );
@@ -321,6 +342,7 @@ bool vaRenderMaterial::SaveAPACK( vaStream & outStream )
 
 bool vaRenderMaterial::LoadAPACK( vaStream & inStream )
 {
+    assert( !m_immutable ); 
     // Just using SerializeUnpacked to implement this - not a lot of binary data; can be upgraded later
     int64 bufferSize = 0;
     VERIFY_TRUE_RETURN_ON_FALSE( inStream.ReadValue<int64>( bufferSize ) );
@@ -334,13 +356,13 @@ bool vaRenderMaterial::LoadAPACK( vaStream & inStream )
 
     vaXMLSerializer materialSerializer( buffer, bufferSize );
 
-    bool allOk = materialSerializer.ReaderAdvanceToChildElement( "Material" );
+    bool allOk = materialSerializer.SerializeOpenChildElement( "Material" );
 
     if( allOk )
         allOk = SerializeUnpacked( materialSerializer, L"%there-is-no-folder@" );
 
     if( allOk )
-        allOk = materialSerializer.ReaderPopToParentElement( "Material" );
+        allOk = materialSerializer.SerializePopToParentElement( "Material" );
 
     assert( allOk );
 
@@ -353,63 +375,100 @@ bool vaRenderMaterial::SerializeUnpacked( vaXMLSerializer & serializer, const ws
     assetFolder; // unused
 
     int32 fileVersion = c_renderMeshMaterialFileVersion;
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "FileVersion", fileVersion ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "FileVersion", fileVersion ) );
     VERIFY_TRUE_RETURN_ON_FALSE( fileVersion == c_renderMeshMaterialFileVersion );
 
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "FaceCull", (int32&)            m_materialSettings.FaceCull ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "AlphaTest",                    m_materialSettings.AlphaTest ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "AlphaTestThreshold",           m_materialSettings.AlphaTestThreshold ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "ReceiveShadows",               m_materialSettings.ReceiveShadows ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Wireframe",                    m_materialSettings.Wireframe ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Transparent",                  m_materialSettings.Transparent ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "AdvancedSpecularShader",       m_materialSettings.AdvancedSpecularShader,  m_materialSettings.AdvancedSpecularShader ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "SpecialEmissiveLight",         m_materialSettings.SpecialEmissiveLight,    m_materialSettings.SpecialEmissiveLight ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "FaceCull", (int32&)            m_materialSettings.FaceCull ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<bool>( "AlphaTest",                    m_materialSettings.AlphaTest ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<float>( "AlphaTestThreshold",           m_materialSettings.AlphaTestThreshold ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<bool>( "ReceiveShadows",               m_materialSettings.ReceiveShadows ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<bool>( "Wireframe",                    m_materialSettings.Wireframe ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<bool>( "Transparent",                  m_materialSettings.Transparent ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<bool>( "AdvancedSpecularShader",       m_materialSettings.AdvancedSpecularShader,  m_materialSettings.AdvancedSpecularShader ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<bool>( "SpecialEmissiveLight",         m_materialSettings.SpecialEmissiveLight,    m_materialSettings.SpecialEmissiveLight ) );
 
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "ShaderFileName",               m_shaderSettings.FileName ) );
-    //VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "ShaderEntryVS_PosOnly",        m_shaderSettings.EntryVS_PosOnly ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "ShaderEntryPS_DepthOnly",      m_shaderSettings.EntryPS_DepthOnly ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "ShaderEntryVS_Standard",       m_shaderSettings.EntryVS_Standard ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "ShaderEntryPS_Forward",        m_shaderSettings.EntryPS_Forward ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "ShaderEntryPS_Deferred",       m_shaderSettings.EntryPS_Deferred ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "ShaderEntryPS_CustomShadow",   m_shaderSettings.EntryPS_CustomShadow, string("PS_CustomShadow") ) ); // default to be removed in the future
-
-    if( serializer.SerializeOpenChildElement( "ShaderBaseMacros" ) )
+    string oldFormatShaderFileName = "";
+    if( serializer.IsReading( ) )
     {
-        uint32 count = (uint32)m_shaderSettings.BaseMacros.size();
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "count", count ) );
-        if( serializer.IsReading() )
-            m_shaderSettings.BaseMacros.resize( count );
-        for( uint32 i = 0; i < count; i++ )
-        {
-            string elementName = vaStringTools::Format( "a%d", i );
-            VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeOpenChildElement( elementName.c_str() ) );
+        VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "ShaderFileName",               oldFormatShaderFileName, "" ) );
 
-            VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Name", m_shaderSettings.BaseMacros[i].first ) );
-            VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Definition", m_shaderSettings.BaseMacros[i].first ) );
-        
-            VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializePopToParentElement( elementName.c_str() ) );
-        }
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializePopToParentElement( "ShaderBaseMacros" ) );
+        // earlier override
+        if( vaStringTools::CompareNoCase( oldFormatShaderFileName, "vaMaterialPhong.hlsl" ) == 0 )
+            oldFormatShaderFileName = "vaMaterialBasic.hlsl";
     }
+
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "ShaderFileNameVS_Standard",       m_shaderSettings.VS_Standard.first, oldFormatShaderFileName ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "ShaderFileNamePS_DepthOnly",      m_shaderSettings.PS_DepthOnly.first, oldFormatShaderFileName ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "ShaderFileNamePS_Forward",        m_shaderSettings.PS_Forward.first, oldFormatShaderFileName ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "ShaderFileNamePS_Deferred",       m_shaderSettings.PS_Deferred.first, oldFormatShaderFileName ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "ShaderFileNamePS_CustomShadow",   m_shaderSettings.PS_CustomShadow.first, oldFormatShaderFileName ) ); // default to be removed in the future
+
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "ShaderEntryVS_Standard",       m_shaderSettings.VS_Standard.second ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "ShaderEntryPS_DepthOnly",      m_shaderSettings.PS_DepthOnly.second ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "ShaderEntryPS_Forward",        m_shaderSettings.PS_Forward.second ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "ShaderEntryPS_Deferred",       m_shaderSettings.PS_Deferred.second ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "ShaderEntryPS_CustomShadow",   m_shaderSettings.PS_CustomShadow.second, string("PS_CustomShadow") ) ); // default to be removed in the future
+
+    if( serializer.IsReading() )
+        m_shaderSettings.BaseMacros.clear();
+
+    if( !serializer.SerializeArrayGeneric<vector<pair<string, string>>>( "ShaderBaseMacros", "Macro", m_shaderSettings.BaseMacros, 
+        [ ] ( bool isReading, vector<pair<string, string>> & container, int & itemCount )
+        { 
+            if( isReading )
+                container.resize( itemCount );
+            else
+                itemCount = (int)container.size();
+        }, 
+        [ ]( vaXMLSerializer & serializer, vector<pair<string, string>> & container, int index )
+        {
+            pair<string, string> & inoutItem = container[index];
+            serializer.Serialize<string>( "Name", inoutItem.first );
+            serializer.Serialize<string>( "Definition", inoutItem.first );
+        } ) ) 
+    { 
+        // do nothing, it's ok not to have ShadeBaseMacros for legacy reasons
+    };
+
+    // // TODO: convert to SerializeArray
+    // if( serializer.SerializeOpenChildElement( "ShaderBaseMacros" ) )
+    // {
+    //     uint32 count = (uint32)m_shaderSettings.BaseMacros.size();
+    //     VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<uint32>( "count", count ) );
+    //     if( serializer.IsReading() )
+    //         m_shaderSettings.BaseMacros.resize( count );
+    //     for( uint32 i = 0; i < count; i++ )
+    //     {
+    //         string elementName = vaStringTools::Format( "a%d", i );
+    //         VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeOpenChildElement( elementName.c_str() ) );
+    // 
+    //         VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "Name", m_shaderSettings.BaseMacros[i].first ) );
+    //         VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "Definition", m_shaderSettings.BaseMacros[i].first ) );
+    //     
+    //         VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializePopToParentElement( elementName.c_str() ) );
+    //     }
+    //     VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializePopToParentElement( "ShaderBaseMacros" ) );
+    // }
+    // else
+    // {
+    //     if( serializer.IsReading() )
+    //     {
+    //         m_shaderSettings.BaseMacros.clear();
+    //     }
+    //     else
+    //     {
+    //         // we couldn't open ShaderBaseMacros element for saving?
+    //         VERIFY_TRUE_RETURN_ON_FALSE( false );
+    //     }
+    // }
+
+    if( serializer.GetVersion() > 0 )
+        serializer.SerializeArray( "Inputs", "Input", m_inputs );
     else
-    {
-        if( serializer.IsReading() )
-        {
-            m_shaderSettings.BaseMacros.clear();
-        }
-        else
-        {
-            // we couldn't open ShaderBaseMacros element for saving?
-            VERIFY_TRUE_RETURN_ON_FALSE( false );
-        }
-    }
-
-    serializer.SerializeObjectVector( "Inputs", m_inputs );
+        serializer.OldSerializeObjectVector( "Inputs", m_inputs );
 
     if( serializer.IsReading( ) )
     {
-        if( vaStringTools::CompareNoCase( m_shaderSettings.FileName, "vaMaterialPhong.hlsl" ) == 0 )
-            m_shaderSettings.FileName = "vaMaterialBasic.hlsl";
 
         // temp corrections for old datasets
         if( FindInputByName( "EnvironmentMapMul" ) == -1 )
@@ -577,8 +636,8 @@ bool vaRenderMaterial::MaterialInput::Serialize( vaXMLSerializer & serializer )
         *this = vaRenderMaterial::MaterialInput();
     }
 
-    serializer.SerializeValue( "Name", Name );
-    serializer.SerializeValue( "Type", (int32&)Type );
+    serializer.Serialize<string>( "Name", Name );
+    serializer.Serialize<int32>( "Type", (int32&)Type );
 
     // conversion from old to new - not needed anymore
     // if( serializer.IsReading( ) )
@@ -596,39 +655,39 @@ bool vaRenderMaterial::MaterialInput::Serialize( vaXMLSerializer & serializer )
     switch( this->Type )
     {
     case( InputType::Bool ):
-        serializer.SerializeValue( "Value", Value.Bool );
-        serializer.SerializeValue( "ValueDefault", ValueDefault.Bool );
-        serializer.SerializeValue( "ValueMin", ValueMin.Bool );
-        serializer.SerializeValue( "ValueMax", ValueMax.Bool );
+        serializer.Serialize<bool>( "Value", Value.Bool );
+        serializer.Serialize<bool>( "ValueDefault", ValueDefault.Bool );
+        serializer.Serialize<bool>( "ValueMin", ValueMin.Bool );
+        serializer.Serialize<bool>( "ValueMax", ValueMax.Bool );
         break;
     case( InputType::Integer ):
-        serializer.SerializeValue( "Value", Value.Integer );
-        serializer.SerializeValue( "ValueDefault", ValueDefault.Integer );
-        serializer.SerializeValue( "ValueMin", ValueMin.Integer );
-        serializer.SerializeValue( "ValueMax", ValueMax.Integer );
+        serializer.Serialize<int32>( "Value", Value.Integer );
+        serializer.Serialize<int32>( "ValueDefault", ValueDefault.Integer );
+        serializer.Serialize<int32>( "ValueMin", ValueMin.Integer );
+        serializer.Serialize<int32>( "ValueMax", ValueMax.Integer );
         break;
     case( InputType::Scalar ):
-        serializer.SerializeValue( "Value", Value.Scalar );
-        serializer.SerializeValue( "ValueDefault", ValueDefault.Scalar );
-        serializer.SerializeValue( "ValueMin", ValueMin.Scalar );
-        serializer.SerializeValue( "ValueMax", ValueMax.Scalar );
+        serializer.Serialize<float>( "Value", Value.Scalar );
+        serializer.Serialize<float>( "ValueDefault", ValueDefault.Scalar );
+        serializer.Serialize<float>( "ValueMin", ValueMin.Scalar );
+        serializer.Serialize<float>( "ValueMax", ValueMax.Scalar );
         break;
     case( InputType::Vector4 ) : // Fall through
     case( InputType::Color4 )  :
-        serializer.SerializeValue( "Value", Value.Vector4 );
-        serializer.SerializeValue( "ValueDefault", ValueDefault.Vector4 );
-        serializer.SerializeValue( "ValueMin", ValueMin.Vector4 );
-        serializer.SerializeValue( "ValueMax", ValueMax.Vector4 );
+        serializer.Serialize<vaVector4>( "Value", Value.Vector4 );
+        serializer.Serialize<vaVector4>( "ValueDefault", ValueDefault.Vector4 );
+        serializer.Serialize<vaVector4>( "ValueMin", ValueMin.Vector4 );
+        serializer.Serialize<vaVector4>( "ValueMax", ValueMax.Vector4 );
         break;
     default:
         assert( false );
         break;
     }
 
-    serializer.SerializeValue( "IsValueDynamic",            IsValueDynamic );
-    serializer.SerializeValue( "SourceTextureID",           SourceTextureID );
-    serializer.SerializeValue( "SourceTextureUVIndex",      SourceTextureUVIndex );
-    serializer.SerializeValue( "SourceTextureSamplerType",  (int32&)SourceTextureSamplerType );
+    serializer.Serialize<bool>( "IsValueDynamic",            IsValueDynamic );
+    serializer.Serialize<vaGUID>( "SourceTextureID",           SourceTextureID );
+    serializer.Serialize<int32>( "SourceTextureUVIndex",      SourceTextureUVIndex );
+    serializer.Serialize<int32>( "SourceTextureSamplerType",  (int32&)SourceTextureSamplerType );
 
     if( serializer.IsReading( ) )
     {
@@ -772,6 +831,7 @@ void vaRenderMaterial::UpdateInputsDependencies( )
             item.ComputedSourceTextureShaderSlot            = m_computedTextureSlotCount;
             item.ComputedSourceTextureShaderVariableName    = vaStringTools::Format( "g_RMTexture%02d", item.ComputedSourceTextureShaderSlot );
             m_computedTextureSlotCount++;
+            assert( m_computedTextureSlotCount <= (RENDERMESH_TEXTURE_SLOT_MAX - RENDERMESH_TEXTURE_SLOT_MIN + 1) );
         }
         else
         {
@@ -832,7 +892,7 @@ shared_ptr<vaPixelShader> vaRenderMaterial::GetPS( vaRenderMaterialShaderType sh
     }
 }
 
-bool vaRenderMaterial::SetToRenderItem( vaRenderItem & renderItem, vaRenderMaterialShaderType shaderType )
+bool vaRenderMaterial::SetToRenderItem( vaGraphicsItem & renderItem, vaRenderMaterialShaderType shaderType )
 {
     UpdateShaderMacros( );
 
@@ -844,15 +904,15 @@ bool vaRenderMaterial::SetToRenderItem( vaRenderItem & renderItem, vaRenderMater
 
     if( m_shadersDirty || (m_shaders == nullptr) )
     {
-        m_shaders = m_renderMaterialManager.FindOrCreateShaders( m_shaderSettings.FileName, m_materialSettings.AlphaTest, m_shaderSettings.EntryPS_DepthOnly, m_shaderSettings.EntryVS_Standard, m_shaderSettings.EntryPS_Forward, m_shaderSettings.EntryPS_Deferred, m_shaderSettings.EntryPS_CustomShadow, m_shaderMacros );
+        m_shaders = m_renderMaterialManager.FindOrCreateShaders( m_materialSettings.AlphaTest, m_shaderSettings, m_shaderMacros );
         m_shadersDirty = false;
     }
 
     renderItem.VertexShader = GetVS( shaderType );
     renderItem.PixelShader  = GetPS( shaderType );
 
-    // int texOffset = RENDERMESH_TEXTURE_SLOT0;
-    assert( RENDERMESH_TEXTURE_SLOT0 == 0 ); // 0 required for now - can be modified here below, just make sure to properly adjust range checking and assert
+    // int texOffset = RENDERMESH_TEXTURE_SLOT_MIN;
+    assert( RENDERMESH_TEXTURE_SLOT_MIN == 0 ); // 0 required for now - can be modified here below, just make sure to properly adjust range checking and assert
 
     for( int i = 0; i < m_inputs.size(); i++ )
     {
@@ -890,16 +950,19 @@ bool vaRenderMaterial::SetToRenderItem( vaRenderItem & renderItem, vaRenderMater
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-vaRenderMaterialManager::vaRenderMaterialManager( const vaRenderingModuleParams & params ) : vaRenderingModule( params )
+vaRenderMaterialManager::vaRenderMaterialManager( const vaRenderingModuleParams & params ) : 
+    vaRenderingModule( params ),
+    vaUIPanel( "RenderMaterialManager", 0, false, vaUIPanel::DockLocation::DockedLeftBottom )
 {
     m_isDestructing = false;
     
     m_renderMaterials.SetAddedCallback( std::bind( &vaRenderMaterialManager::RenderMaterialsTrackeeAddedCallback, this, std::placeholders::_1 ) );
     m_renderMaterials.SetBeforeRemovedCallback( std::bind( &vaRenderMaterialManager::RenderMaterialsTrackeeBeforeRemovedCallback, this, std::placeholders::_1, std::placeholders::_2 ) );
-
-    m_defaultMaterial = VA_RENDERING_MODULE_CREATE_SHARED( vaRenderMaterial, vaRenderMaterialConstructorParams( params.RenderDevice, *this, vaCore::GUIDFromString( L"11523d65-09ea-4342-9bad-8dab7a4dc1e0" ) ) );
-
+    
+    m_defaultMaterial = CreateRenderMaterial( vaCore::GUIDFromString( L"11523d65-09ea-4342-9bad-8dab7a4dc1e0" ) );
     m_defaultMaterial->InitializeDefaultMaterial();
+
+    m_defaultMaterial->SetImmutable( true );
 
     m_texturingDisabled = false;
 }
@@ -945,7 +1008,7 @@ shared_ptr<vaRenderMaterial> vaRenderMaterialManager::CreateRenderMaterial( cons
     return ret;
 }
 
-void vaRenderMaterialManager::IHO_Draw( )
+void vaRenderMaterialManager::UIPanelDraw( )
 {
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
     static int selected = 0;
@@ -977,9 +1040,9 @@ void vaRenderMaterialManager::IHO_Draw( )
 }
 
 shared_ptr<vaRenderMaterialCachedShaders>
-vaRenderMaterialManager::FindOrCreateShaders( const string & fileName, bool alphaTest, const string & entryPS_DepthOnly, const string & entryVS_Standard, string & entryPS_Forward, const string & entryPS_Deferred, const string & entryPS_CustomShadow, const vector< pair< string, string > > & shaderMacros )
+vaRenderMaterialManager::FindOrCreateShaders( bool alphaTest, const vaRenderMaterial::ShaderSettings & shaderSettings, const vector< pair< string, string > > & shaderMacros )
 {
-    vaRenderMaterialCachedShaders::Key cacheKey( fileName, alphaTest, entryPS_DepthOnly, entryVS_Standard, entryPS_Forward, entryPS_Deferred, entryPS_CustomShadow, shaderMacros );
+    vaRenderMaterialCachedShaders::Key cacheKey( alphaTest, shaderSettings, shaderMacros );
 
     auto it = m_cachedShaders.find( cacheKey );
     
@@ -1003,14 +1066,14 @@ vaRenderMaterialManager::FindOrCreateShaders( const string & fileName, bool alph
         inputElements.push_back( { "TEXCOORD", 0,       vaResourceFormat::R32G32_FLOAT,          0, vaVertexInputElementDesc::AppendAlignedElement, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } );
         inputElements.push_back( { "TEXCOORD", 1,       vaResourceFormat::R32G32_FLOAT,          0, vaVertexInputElementDesc::AppendAlignedElement, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } );
 
-        newShaders->VS_Standard->CreateShaderAndILFromFile( vaStringTools::SimpleWiden(fileName), "vs_5_0", entryVS_Standard.c_str( ), inputElements, shaderMacros );
+        newShaders->VS_Standard->CreateShaderAndILFromFile( vaStringTools::SimpleWiden(shaderSettings.VS_Standard.first),       "vs_5_0", shaderSettings.VS_Standard.second.c_str( ), inputElements, shaderMacros, false );
         if( alphaTest )
-            newShaders->PS_DepthOnly->CreateShaderFromFile( vaStringTools::SimpleWiden(fileName), "ps_5_0", entryPS_DepthOnly.c_str( ), shaderMacros );
+            newShaders->PS_DepthOnly->CreateShaderFromFile( vaStringTools::SimpleWiden(shaderSettings.PS_DepthOnly.first),      "ps_5_0", shaderSettings.PS_DepthOnly.second.c_str( ), shaderMacros, false );
         else
             newShaders->PS_DepthOnly->Clear( );
-        newShaders->PS_Forward->CreateShaderFromFile( vaStringTools::SimpleWiden(fileName), "ps_5_0", entryPS_Forward.c_str( ), shaderMacros );
-        newShaders->PS_Deferred->CreateShaderFromFile( vaStringTools::SimpleWiden(fileName), "ps_5_0", entryPS_Deferred.c_str( ), shaderMacros );
-        newShaders->PS_CustomShadow->CreateShaderFromFile( vaStringTools::SimpleWiden(fileName), "ps_5_0", entryPS_CustomShadow.c_str( ), shaderMacros );
+        newShaders->PS_Forward->CreateShaderFromFile( vaStringTools::SimpleWiden(shaderSettings.PS_Forward.first),              "ps_5_0", shaderSettings.PS_Forward.second.c_str( ), shaderMacros, false );
+        newShaders->PS_Deferred->CreateShaderFromFile( vaStringTools::SimpleWiden(shaderSettings.PS_Deferred.first),            "ps_5_0", shaderSettings.PS_Deferred.second.c_str( ), shaderMacros, false );
+        newShaders->PS_CustomShadow->CreateShaderFromFile( vaStringTools::SimpleWiden(shaderSettings.PS_CustomShadow.first),    "ps_5_0", shaderSettings.PS_CustomShadow.second.c_str( ), shaderMacros, false );
         
         m_cachedShaders.insert( std::make_pair( cacheKey, newShaders ) );
 

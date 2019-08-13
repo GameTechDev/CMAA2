@@ -53,12 +53,20 @@
     <ClCompile Include="..\..\Modules\IntegratedExternals\enkiTS\TaskScheduler.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_dx11.cpp" />
+    <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_dx12.cpp" />
+    <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_win32.cpp" />
     <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\imgui.cpp" />
     <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\imgui_demo.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\..\Modules\IntegratedExternals\remotery\lib\Remotery.c">
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)..\..\Modules\IntegratedExternals\remotery\vaRemoteryIntegrationSpecifics.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)..\..\Modules\IntegratedExternals\remotery\vaRemoteryIntegrationSpecifics.h</ForcedIncludeFiles>
+    </ClCompile>
     <ClCompile Include="..\..\Modules\IntegratedExternals\tinyxml2\tinyxml2.cpp" />
     <ClCompile Include="..\..\Modules\IntegratedExternals\vaEnkiTSIntegration.cpp" />
     <ClCompile Include="..\..\Modules\IntegratedExternals\vaImguiIntegration.cpp" />
@@ -184,6 +192,8 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Modules\IntegratedExternals\assimp\config.h" />
+    <ClInclude Include="..\..\Modules\IntegratedExternals\assimp\vaAssimpIntegrationSpecifics.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DDSTextureLoader\DDSTextureLoader.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DDSTextureLoader\DDSTextureLoader12.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DDSView\shaders\ps1D.h" />
@@ -195,7 +205,6 @@
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DDSView\shaders\vs.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DirectXTex\BC.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DirectXTex\BCDirectCompute.h" />
-    <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DirectXTex\d3dx12.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DirectXTex\DDS.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DirectXTex\DirectXTex.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DirectXTex\DirectXTexP.h" />
@@ -207,18 +216,24 @@
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\WICTextureLoader\WICTextureLoader12.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\enkiTS\LockLessMultiReadPipe.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\enkiTS\TaskScheduler.h" />
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_dx11.h" />
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_dx12.h" />
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_win32.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\imconfig.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\imgui.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\imgui_internal.h" />
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\imstb_truetype.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\stb_rect_pack.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\stb_textedit.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\stb_truetype.h" />
+    <ClInclude Include="..\..\Modules\IntegratedExternals\remotery\lib\Remotery.h" />
+    <ClInclude Include="..\..\Modules\IntegratedExternals\remotery\vaRemoteryIntegrationSpecifics.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\tinyxml2\tinyxml2.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\vaAssimpIntegration.h" />
-    <ClInclude Include="..\..\Modules\IntegratedExternals\vaBulletPhysicsIntegration.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\vaEnkiTSIntegration.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\vaImguiIntegration.h" />
-    <ClInclude Include="..\..\Modules\IntegratedExternals\vaLibTIFFIntegration.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\vaRemoteryIntegration.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\vaTinyxml2Integration.h" />
     <ClInclude Include="..\..\Modules\IntegratedExternals\vaZlibIntegration.h" />
@@ -247,12 +262,23 @@
     <None Include="..\..\Modules\IntegratedExternals\DirectXTex\DirectXTex\Shaders\Compiled\BC7Encode_TryMode456CS.inc" />
     <None Include="..\..\Modules\IntegratedExternals\imgui\LICENSE" />
     <None Include="..\..\Modules\IntegratedExternals\imgui\README.md" />
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\Console.js" />
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\DataViewReader.js" />
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\PixelTimeRange.js" />
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\Remotery.js" />
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\SampleWindow.js" />
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\ThreadFrame.js" />
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\TimelineRow.js" />
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\TimelineWindow.js" />
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\TitleWindow.js" />
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\WebSocketConnection.js" />
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\index.html" />
     <None Include="..\..\Modules\IntegratedExternals\zlib\README" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{FBC754F5-B277-47AC-8F08-1AFE7D93F040}</ProjectGuid>
     <RootNamespace>VertexAsylum</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">

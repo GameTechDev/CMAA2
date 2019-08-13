@@ -61,17 +61,17 @@ vaPostProcessBlur::vaPostProcessBlur( const vaRenderingModuleParams & params )
 
     m_constantsBufferNeedsUpdate = true;
 
-    m_PSGaussHorizontal->CreateShaderFromFile( L"vaPostProcessBlur.hlsl", "ps_5_0", "PSGaussHorizontal", m_staticShaderMacros );
-    m_PSGaussVertical->CreateShaderFromFile( L"vaPostProcessBlur.hlsl", "ps_5_0", "PSGaussVertical", m_staticShaderMacros );
+    m_PSGaussHorizontal->CreateShaderFromFile( L"vaPostProcessBlur.hlsl", "ps_5_0", "PSGaussHorizontal", m_staticShaderMacros, false );
+    m_PSGaussVertical->CreateShaderFromFile( L"vaPostProcessBlur.hlsl", "ps_5_0", "PSGaussVertical", m_staticShaderMacros, false );
 }
 
 vaPostProcessBlur::~vaPostProcessBlur( )
 {
 }
 
-void vaPostProcessBlur::UpdateShaders( vaRenderDeviceContext & apiContext )
+void vaPostProcessBlur::UpdateShaders( vaRenderDeviceContext & renderContext )
 {
-    apiContext; // unreferenced
+    renderContext; // unreferenced
 
     //if( newShaderMacros != m_staticShaderMacros )
     //{
@@ -88,7 +88,7 @@ void vaPostProcessBlur::UpdateShaders( vaRenderDeviceContext & apiContext )
     }
 }
 
-void vaPostProcessBlur::UpdateGPUConstants( vaRenderDeviceContext & apiContext, float factor0 )
+void vaPostProcessBlur::UpdateGPUConstants( vaRenderDeviceContext & renderContext, float factor0 )
 {
     if( !m_constantsBufferNeedsUpdate )
         return;
@@ -115,7 +115,7 @@ void vaPostProcessBlur::UpdateGPUConstants( vaRenderDeviceContext & apiContext, 
                 consts.GaussOffsetsWeights[i] = vaVector4( 0.0f, 0.0f, 0.0f, 0.0f );
         }
 
-        m_constantsBuffer.Update( apiContext, consts );
+        m_constantsBuffer.Update( renderContext, consts );
     }
 }
 
@@ -259,9 +259,9 @@ bool vaPostProcessBlur::UpdateKernel( float gaussSigma, int gaussRadius )
     return true;
 }
 
-void vaPostProcessBlur::UpdateTextures( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcInput )
+void vaPostProcessBlur::UpdateTextures( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcInput )
 {
-    apiContext; // unreferenced
+    renderContext; // unreferenced
 
     vaResourceFormat srcFormat = srcInput->GetSRVFormat();
 
@@ -279,89 +279,91 @@ void vaPostProcessBlur::UpdateTextures( vaRenderDeviceContext & apiContext, cons
     // textures being updated multiple times per frame? that's bad: use separate vaPostProcessBlur instead
     assert( m_texturesUpdatedCounter < 10 );
 
-    m_fullresPingTexture = vaTexture::Create2D( GetRenderDevice(), m_textureFormat, m_textureSize.x, m_textureSize.y, 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource, vaTextureAccessFlags::None );
-    m_fullresPongTexture = vaTexture::Create2D( GetRenderDevice(), m_textureFormat, m_textureSize.x, m_textureSize.y, 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource, vaTextureAccessFlags::None );
+    m_fullresPingTexture = vaTexture::Create2D( GetRenderDevice(), m_textureFormat, m_textureSize.x, m_textureSize.y, 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default );
+    m_fullresPongTexture = vaTexture::Create2D( GetRenderDevice(), m_textureFormat, m_textureSize.x, m_textureSize.y, 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default );
     m_lastScratchTexture = nullptr;
 }
 
-vaDrawResultFlags vaPostProcessBlur::Blur( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcInput, float gaussSigma, int gaussRadius )
+vaDrawResultFlags vaPostProcessBlur::Blur( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcInput, float gaussSigma, int gaussRadius )
 {
     if( !UpdateKernel( gaussSigma, gaussRadius ) )
         return vaDrawResultFlags::UnspecifiedError;
 
-    UpdateTextures( apiContext, srcInput );
+    UpdateTextures( renderContext, srcInput );
 
     m_lastScratchTexture = nullptr;
-    return BlurInternal( apiContext, srcInput, false );
+    return BlurInternal( renderContext, srcInput, false );
 }
 
 // output goes into m_lastScratchTexture which remains valid until next call to Blur or BlurToScratch or device reset
-vaDrawResultFlags vaPostProcessBlur::BlurToScratch( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcInput, float gaussSigma, int gaussRadius )
+vaDrawResultFlags vaPostProcessBlur::BlurToScratch( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcInput, float gaussSigma, int gaussRadius )
 {
     if( !UpdateKernel( gaussSigma, gaussRadius ) )
         return vaDrawResultFlags::UnspecifiedError;
 
-    UpdateTextures( apiContext, srcInput );
+    UpdateTextures( renderContext, srcInput );
 
     m_lastScratchTexture = nullptr;
-    return BlurInternal( apiContext, srcInput, true );
+    return BlurInternal( renderContext, srcInput, true );
 }
 
-vaDrawResultFlags vaPostProcessBlur::BlurInternal( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcInput, bool blurToScratch )
+vaDrawResultFlags vaPostProcessBlur::BlurInternal( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcInput, bool blurToScratch )
 {
-    VA_SCOPE_CPUGPU_TIMER( PP_Blur, apiContext );
+    VA_SCOPE_CPUGPU_TIMER( PP_Blur, renderContext );
 
     vaDrawResultFlags renderResults = vaDrawResultFlags::None;
 
-    vaRenderDeviceContext::RenderOutputsState backupOutputs = apiContext.GetOutputs( );
+    vaRenderDeviceContext::RenderOutputsState backupOutputs = renderContext.GetOutputs( );
 
     // Setup
-    UpdateShaders( apiContext );
+    UpdateShaders( renderContext );
 
-    vaRenderItem renderItem;
-    apiContext.FillFullscreenPassRenderItem( renderItem );
+    vaGraphicsItem renderItem;
+    renderContext.FillFullscreenPassRenderItem( renderItem );
 
-    renderItem.ConstantBuffers[ POSTPROCESS_BLUR_CONSTANTS_BUFFERSLOT ]   = m_constantsBuffer.GetBuffer();
+    renderItem.ConstantBuffers[ POSTPROCESS_BLUR_CONSTANTSBUFFERSLOT ]   = m_constantsBuffer.GetBuffer();
 
     // Separable Gauss blur
 //    if( (int)m_currentGaussOffsets.size( ) > 0 )
     {
-        UpdateGPUConstants( apiContext, 0.0f );
+        UpdateGPUConstants( renderContext, 0.0f );
 
-        apiContext.BeginItems();
+        renderContext.BeginItems( vaRenderTypeFlags::Graphics );
 
-        apiContext.SetRenderTarget( m_fullresPongTexture, nullptr, true );
+        renderContext.SetRenderTarget( m_fullresPongTexture, nullptr, true );
 
         renderItem.ShaderResourceViews[ POSTPROCESS_BLUR_TEXTURE_SLOT0 ]    = srcInput;
 
+        m_PSGaussHorizontal->WaitFinishIfBackgroundCreateActive();
         renderItem.PixelShader = m_PSGaussHorizontal.get();
 
-        renderResults |= apiContext.ExecuteItem( renderItem );
+        renderResults |= renderContext.ExecuteItem( renderItem );
 
         renderItem.ShaderResourceViews[ POSTPROCESS_BLUR_TEXTURE_SLOT0 ]    = nullptr;
 
         if( blurToScratch )
         {
-            apiContext.SetRenderTarget( m_fullresPingTexture, nullptr, true );
+            renderContext.SetRenderTarget( m_fullresPingTexture, nullptr, true );
             m_lastScratchTexture = m_fullresPingTexture;
         }
         else
         {
-            apiContext.SetOutputs( backupOutputs );
+            renderContext.SetOutputs( backupOutputs );
             m_lastScratchTexture = nullptr;
         }
 
         renderItem.ShaderResourceViews[ POSTPROCESS_BLUR_TEXTURE_SLOT0 ]    = m_fullresPongTexture;
 
+        m_PSGaussVertical->WaitFinishIfBackgroundCreateActive();
         renderItem.PixelShader = m_PSGaussVertical.get();
 
-        renderResults |= apiContext.ExecuteItem( renderItem );
+        renderResults |= renderContext.ExecuteItem( renderItem );
 
-        apiContext.EndItems();
+        renderContext.EndItems();
     }
 
     if( blurToScratch )
-        apiContext.SetOutputs( backupOutputs );
+        renderContext.SetOutputs( backupOutputs );
 
     return renderResults;
 }

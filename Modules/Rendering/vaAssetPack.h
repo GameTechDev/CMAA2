@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Core/vaCoreIncludes.h"
+#include "Core/vaUI.h"
 
 #include "vaRendering.h"
 
@@ -27,8 +28,6 @@
 #include "vaTexture.h"
 
 #include "Rendering/Shaders/vaSharedTypes.h"
-
-#include "IntegratedExternals/vaImguiIntegration.h"
 
 // vaRenderMesh and vaRenderMeshManager are a generic render mesh implementation
 
@@ -49,7 +48,7 @@ namespace VertexAsylum
     class vaAssetPack;
 
     // this needs to be converted to a class, along with type names and other stuff (it started as a simple struct)
-    struct vaAsset : public vaImguiHierarchyObject
+    struct vaAsset : public vaUIPropertiesItem
     {
     protected:
         friend class vaAssetPack;
@@ -86,8 +85,8 @@ namespace VertexAsylum
         static string                                   GetTypeNameString( vaAssetType );
 
     protected:
-        virtual string                                  IHO_GetInstanceName( ) const            { return vaStringTools::Format( "%s", m_name.c_str() ); }
-        virtual void                                    IHO_Draw( );
+        virtual string                                  UIPropertiesItemGetDisplayName( ) const override { return vaStringTools::Format( "%s", m_name.c_str() ); }
+        virtual void                                    UIPropertiesItemDraw( ) override;
     };
 
     struct vaAssetTexture : public vaAsset
@@ -106,8 +105,8 @@ namespace VertexAsylum
         static shared_ptr<vaAssetTexture>               SafeCast( const shared_ptr<vaAsset> & asset ) { assert( asset->Type == vaAssetType::RenderMesh ); return std::dynamic_pointer_cast<vaAssetTexture, vaAsset>( asset ); }
 
     private:
-        virtual string                                  IHO_GetInstanceName( ) const override   { return vaStringTools::Format( "texture: %s ", Name().c_str() ); }
-        virtual void                                    IHO_Draw( ) override;
+        virtual string                                  UIPropertiesItemGetDisplayName( ) const override   { return vaStringTools::Format( "texture: %s ", Name().c_str() ); }
+        virtual void                                    UIPropertiesItemDraw( ) override;
     };
 
     struct vaAssetRenderMesh : public vaAsset
@@ -126,8 +125,8 @@ namespace VertexAsylum
         static shared_ptr<vaAssetRenderMesh>            SafeCast( const shared_ptr<vaAsset> & asset ) { assert( asset->Type == vaAssetType::RenderMesh ); return std::dynamic_pointer_cast<vaAssetRenderMesh, vaAsset>( asset ); }
 
     private:
-        virtual string                                  IHO_GetInstanceName( ) const override   { return vaStringTools::Format( "mesh: %s ", Name().c_str() ); }
-        virtual void                                    IHO_Draw( ) override;
+        virtual string                                  UIPropertiesItemGetDisplayName( ) const override   { return vaStringTools::Format( "mesh: %s ", Name().c_str() ); }
+        virtual void                                    UIPropertiesItemDraw( ) override;
     };
 
     struct vaAssetRenderMaterial : public vaAsset
@@ -146,11 +145,11 @@ namespace VertexAsylum
         static shared_ptr<vaAssetRenderMaterial>        SafeCast( const shared_ptr<vaAsset> & asset ) { assert( asset->Type == vaAssetType::RenderMaterial ); return std::dynamic_pointer_cast<vaAssetRenderMaterial, vaAsset>( asset ); }
 
     private:
-        virtual string                                  IHO_GetInstanceName( ) const override   { return vaStringTools::Format( "material: %s ", Name().c_str() ); }
-        virtual void                                    IHO_Draw( ) override;
+        virtual string                                  UIPropertiesItemGetDisplayName( ) const override   { return vaStringTools::Format( "material: %s ", Name().c_str() ); }
+        virtual void                                    UIPropertiesItemDraw( ) override;
     };
 
-    class vaAssetPack : public vaImguiHierarchyObject//, public std::enable_shared_from_this<vaAssetPack>
+    class vaAssetPack : public vaUIPanel//, public std::enable_shared_from_this<vaAssetPack>
     {
         enum class StorageMode
         {
@@ -211,7 +210,7 @@ namespace VertexAsylum
         shared_ptr<vaAssetRenderMesh>                       Add( const shared_ptr<vaRenderMesh> & mesh, const string & name, bool lockMutex );
         shared_ptr<vaAssetRenderMaterial>                   Add( const shared_ptr<vaRenderMaterial> & material, const string & name, bool lockMutex );
 
-        string                                              Name( ) const         { assert(vaThreading::IsMainThread()); return m_name; }
+        string                                              GetName( ) const                            { assert(vaThreading::IsMainThread()); return m_name; }
 
         bool                                                RenameAsset( vaAsset & asset, const string & newName, bool lockMutex );
 
@@ -224,8 +223,11 @@ namespace VertexAsylum
         bool                                                IsBackgroundTaskActive( ) const;
 
     protected:
-        virtual string                                      IHO_GetInstanceName( ) const                { return vaStringTools::Format("Asset Pack '%s'", Name().c_str() ); }
-        virtual void                                        IHO_Draw( );
+        // these are leftovers - need to be removed 
+        // virtual string                                      IHO_GetInstanceName( ) const                { return vaStringTools::Format("Asset Pack '%s'", Name().c_str() ); }
+        //virtual void                                        IHO_Draw( );
+        virtual string                                      UIPanelGetDisplayName( ) const override     { return m_name; }
+        virtual void                                        UIPanelDraw( ) override;
 
     private:
         void                                                InsertAndTrackMe( shared_ptr<vaAsset> newAsset, bool lockMutex );
@@ -235,7 +237,7 @@ namespace VertexAsylum
 
     class vaAssetImporter;
 
-    class vaAssetPackManager : public vaImguiHierarchyObject
+    class vaAssetPackManager// : public vaUIPanel
     {
         // contains some standard meshes, etc.
         weak_ptr<vaAssetPack>                               m_defaultPack;
@@ -246,6 +248,8 @@ namespace VertexAsylum
 
     protected:
         vector<shared_ptr<vaAssetPack>>                     m_assetPacks;           // tracks all vaAssetPacks that belong to this vaAssetPackManager
+        int                                                 m_UIAssetPackIndex      = 0;
+
 
     public:
                                                             vaAssetPackManager( vaRenderDevice & renderDevice );
@@ -279,9 +283,8 @@ namespace VertexAsylum
         friend class vaDirectXCore; // <- these should be reorganized so that this is not called from anything that is API-specific
         void                                                OnRenderingAPIAboutToShutdown( );
 
-    public:
-        virtual string                                      IHO_GetInstanceName( ) const { return "Asset Pack Manager"; }
-        virtual void                                        IHO_Draw( );
+    //public:
+    //    virtual void                                        UIPanelDraw( ) override;
     };
 
 

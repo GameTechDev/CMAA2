@@ -9,7 +9,7 @@
 // http://go.microsoft.com/fwlink/?LinkId=248926
 //-------------------------------------------------------------------------------------
 
-#include "directxtexp.h"
+#include "DirectXTexp.h"
 
 //
 // The implementation here has the following limitations:
@@ -41,8 +41,6 @@ namespace
         TGA_FLAGS_INTERLEAVED_2WAY = 0x40, // Deprecated
         TGA_FLAGS_INTERLEAVED_4WAY = 0x80, // Deprecated
     };
-
-    const char* g_TGA20_Signature = "TRUEVISION-XFILE.";
 
 #pragma pack(push,1)
     struct TGA_HEADER
@@ -274,7 +272,9 @@ namespace
         else
         {
             size_t slicePitch;
-            ComputePitch(image->format, image->width, image->height, rowPitch, slicePitch, CP_FLAGS_NONE);
+            HRESULT hr = ComputePitch(image->format, image->width, image->height, rowPitch, slicePitch, CP_FLAGS_NONE);
+            if (FAILED(hr))
+                return hr;
         }
 
         auto sPtr = static_cast<const uint8_t*>(pSource);
@@ -373,7 +373,7 @@ namespace
                         if (sPtr + 1 >= endPtr)
                             return E_FAIL;
 
-                        uint16_t t = *sPtr | (*(sPtr + 1) << 8);
+                        auto t = static_cast<uint16_t>(unsigned(*sPtr) | (*(sPtr + 1u) << 8));
                         if (t & 0x8000)
                             nonzeroa = true;
                         sPtr += 2;
@@ -405,7 +405,7 @@ namespace
                             if (x >= image->width)
                                 return E_FAIL;
 
-                            uint16_t t = *sPtr | (*(sPtr + 1) << 8);
+                            auto t = static_cast<uint16_t>(unsigned(*sPtr) | (*(sPtr + 1u) << 8));
                             if (t & 0x8000)
                                 nonzeroa = true;
                             sPtr += 2;
@@ -598,7 +598,9 @@ namespace
         else
         {
             size_t slicePitch;
-            ComputePitch(image->format, image->width, image->height, rowPitch, slicePitch, CP_FLAGS_NONE);
+            HRESULT hr = ComputePitch(image->format, image->width, image->height, rowPitch, slicePitch, CP_FLAGS_NONE);
+            if (FAILED(hr))
+                return hr;
         }
 
         auto sPtr = static_cast<const uint8_t*>(pSource);
@@ -650,7 +652,7 @@ namespace
                     if (sPtr + 1 >= endPtr)
                         return E_FAIL;
 
-                    uint16_t t = *sPtr | (*(sPtr + 1) << 8);
+                    auto t = static_cast<uint16_t>(unsigned(*sPtr) | (*(sPtr + 1u) << 8));
                     sPtr += 2;
                     *dPtr = t;
 
@@ -750,8 +752,8 @@ namespace
     {
         memset(&header, 0, sizeof(TGA_HEADER));
 
-        if ((image.width > 0xFFFF)
-            || (image.height > 0xFFFF))
+        if ((image.width > UINT16_MAX)
+            || (image.height > UINT16_MAX))
         {
             return HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED);
         }
@@ -860,7 +862,7 @@ HRESULT DirectX::GetMetadataFromTGAMemory(
         return E_INVALIDARG;
 
     size_t offset;
-    return DecodeTGAHeader(pSource, size, metadata, offset, 0);
+    return DecodeTGAHeader(pSource, size, metadata, offset, nullptr);
 }
 
 _Use_decl_annotations_
@@ -908,7 +910,7 @@ HRESULT DirectX::GetMetadataFromTGAFile(const wchar_t* szFile, TexMetadata& meta
     }
 
     size_t offset;
-    return DecodeTGAHeader(header, bytesRead, metadata, offset, 0);
+    return DecodeTGAHeader(header, bytesRead, metadata, offset, nullptr);
 }
 
 
@@ -1029,7 +1031,7 @@ HRESULT DirectX::LoadFromTGAFile(
         return hr;
 
     // Read the pixels
-    DWORD remaining = static_cast<DWORD>(fileInfo.EndOfFile.LowPart - offset);
+    auto remaining = static_cast<DWORD>(fileInfo.EndOfFile.LowPart - offset);
     if (remaining == 0)
         return E_FAIL;
 
@@ -1037,7 +1039,7 @@ HRESULT DirectX::LoadFromTGAFile(
     {
         // Skip past the id string
         LARGE_INTEGER filePos = { { static_cast<DWORD>(offset), 0 } };
-        if (!SetFilePointerEx(hFile.get(), filePos, 0, FILE_BEGIN))
+        if (!SetFilePointerEx(hFile.get(), filePos, nullptr, FILE_BEGIN))
         {
             return HRESULT_FROM_WIN32(GetLastError());
         }
@@ -1052,6 +1054,18 @@ HRESULT DirectX::LoadFromTGAFile(
     if (!(convFlags & (CONV_FLAGS_RLE | CONV_FLAGS_EXPAND | CONV_FLAGS_INVERTX)) && (convFlags & CONV_FLAGS_INVERTY))
     {
         // This case we can read directly into the image buffer in place
+        if (remaining < image.GetPixelsSize())
+        {
+            image.Release();
+            return HRESULT_FROM_WIN32(ERROR_HANDLE_EOF);
+        }
+
+        if (image.GetPixelsSize() > UINT32_MAX)
+        {
+            image.Release();
+            return HRESULT_FROM_WIN32(ERROR_ARITHMETIC_OVERFLOW);
+        }
+
         if (!ReadFile(hFile.get(), image.GetPixels(), static_cast<DWORD>(image.GetPixelsSize()), &bytesRead, nullptr))
         {
             image.Release();
@@ -1091,7 +1105,7 @@ HRESULT DirectX::LoadFromTGAFile(
 
             for (size_t h = 0; h < img->height; ++h)
             {
-                const uint32_t* sPtr = reinterpret_cast<const uint32_t*>(pPixels);
+                auto sPtr = reinterpret_cast<const uint32_t*>(pPixels);
 
                 for (size_t x = 0; x < img->width; ++x)
                 {
@@ -1149,7 +1163,7 @@ HRESULT DirectX::LoadFromTGAFile(
 
             for (size_t h = 0; h < img->height; ++h)
             {
-                const uint16_t* sPtr = reinterpret_cast<const uint16_t*>(pPixels);
+                auto sPtr = reinterpret_cast<const uint16_t*>(pPixels);
 
                 for (size_t x = 0; x < img->width; ++x)
                 {
@@ -1255,7 +1269,9 @@ HRESULT DirectX::SaveToTGAMemory(const Image& image, Blob& blob)
     }
     else
     {
-        ComputePitch(image.format, image.width, image.height, rowPitch, slicePitch, CP_FLAGS_NONE);
+        hr = ComputePitch(image.format, image.width, image.height, rowPitch, slicePitch, CP_FLAGS_NONE);
+        if (FAILED(hr))
+            return hr;
     }
 
     hr = blob.Initialize(sizeof(TGA_HEADER) + slicePitch);
@@ -1264,7 +1280,7 @@ HRESULT DirectX::SaveToTGAMemory(const Image& image, Blob& blob)
 
     // Copy header
     auto dPtr = static_cast<uint8_t*>(blob.GetBufferPointer());
-    assert(dPtr != 0);
+    assert(dPtr != nullptr);
     memcpy_s(dPtr, blob.GetBufferSize(), &tga_header, sizeof(TGA_HEADER));
     dPtr += sizeof(TGA_HEADER);
 
@@ -1330,12 +1346,25 @@ HRESULT DirectX::SaveToTGAFile(const Image& image, const wchar_t* szFile)
     size_t rowPitch, slicePitch;
     if (convFlags & CONV_FLAGS_888)
     {
-        rowPitch = image.width * 3;
-        slicePitch = image.height * rowPitch;
+        uint64_t pitch = uint64_t(image.width) * 3u;
+        uint64_t slice = uint64_t(image.height) * pitch;
+
+#if defined(_M_IX86) || defined(_M_ARM) || defined(_M_HYBRID_X86_ARM64)
+        static_assert(sizeof(size_t) == 4, "Not a 32-bit platform!");
+        if (pitch > UINT32_MAX || slice > UINT32_MAX)
+            return HRESULT_FROM_WIN32(ERROR_ARITHMETIC_OVERFLOW);
+#else
+        static_assert(sizeof(size_t) == 8, "Not a 64-bit platform!");
+#endif
+
+        rowPitch = static_cast<size_t>(pitch);
+        slicePitch = static_cast<size_t>(slice);
     }
     else
     {
-        ComputePitch(image.format, image.width, image.height, rowPitch, slicePitch, CP_FLAGS_NONE);
+        hr = ComputePitch(image.format, image.width, image.height, rowPitch, slicePitch, CP_FLAGS_NONE);
+        if (FAILED(hr))
+            return hr;
     }
 
     if (slicePitch < 65535)
@@ -1376,6 +1405,9 @@ HRESULT DirectX::SaveToTGAFile(const Image& image, const wchar_t* szFile)
 
         if (bytesWritten != sizeof(TGA_HEADER))
             return E_FAIL;
+
+        if (rowPitch > UINT32_MAX)
+            return HRESULT_FROM_WIN32(ERROR_ARITHMETIC_OVERFLOW);
 
         // Write pixels
         const uint8_t* pPixels = image.pixels;

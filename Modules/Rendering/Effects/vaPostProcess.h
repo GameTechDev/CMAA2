@@ -75,39 +75,33 @@ namespace VertexAsylum
     public:
         virtual ~vaPostProcess( );
 
-    private:
-        friend class vaPostProcessDX11;
-
     protected:
         void UpdateShaders( );
 
     public:
-        // these are here as I've got no better place for them at the moment - maybe they should go into something like vaImageTools, or simply to vaTexture
-        virtual bool                                SaveTextureToDDSFile( vaRenderDeviceContext & apiContext, const wstring & path, vaTexture & texture ) = 0;
-        virtual bool                                SaveTextureToPNGFile( vaRenderDeviceContext & apiContext, const wstring & path, vaTexture & texture ) = 0;
+        virtual vaDrawResultFlags                   DrawSingleSampleFromMSTexture( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcTexture, int sampleIndex );
 
-        virtual vaDrawResultFlags                   DrawSingleSampleFromMSTexture( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcTexture, int sampleIndex );
+        virtual vaDrawResultFlags                   StretchRect( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcTexture, const vaVector4 & srcRect, const vaVector4 & dstRect, bool linearFilter, vaBlendMode blendMode = vaBlendMode::Opaque, const vaVector4 & colorMul = vaVector4( 1.0f, 1.0f, 1.0f, 1.0f ), const vaVector4 & colorAdd = vaVector4( 0.0f, 0.0f, 0.0f, 0.0f ) );
 
-        virtual vaDrawResultFlags                   StretchRect( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcTexture, const vaVector4 & srcRect, const vaVector4 & dstRect, bool linearFilter, vaBlendMode blendMode = vaBlendMode::Opaque, const vaVector4 & colorMul = vaVector4( 1.0f, 1.0f, 1.0f, 1.0f ), const vaVector4 & colorAdd = vaVector4( 0.0f, 0.0f, 0.0f, 0.0f ) );
+        // virtual void                                ColorProcess( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> &  srcTexture, float someSetting );
 
-        // virtual void                                ColorProcess( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> &  srcTexture, float someSetting );
-
+        // Copies srcTexture into current render target (no stretching) while applying the Hue Saturation Brightness Contrast;
         // hue goes from [-1,1], saturation goes from [-1, 1], brightness goes from [-1, 1], contrast goes from [-1, 1]
-        virtual vaDrawResultFlags                   ColorProcessHSBC( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcTexture, float hue, float saturation, float brightness, float contrast );
+        virtual vaDrawResultFlags                   ColorProcessHSBC( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcTexture, float hue, float saturation, float brightness, float contrast );
 
         // simple blur/sharpen filter with a 3x3 kernel; sharpen is in range of [-1, 1] (negative: blur, positive: sharpen); this is not to be used for resampling so it requires source & destination to be of the same size
-        virtual vaDrawResultFlags                   SimpleBlurSharpen( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & dstTexture, const shared_ptr<vaTexture> & srcTexture, float sharpen );
+        virtual vaDrawResultFlags                   SimpleBlurSharpen( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & dstTexture, const shared_ptr<vaTexture> & srcTexture, float sharpen );
 
         // see RGBToLumaForEdges() in vaShared.hlsl
-        virtual vaDrawResultFlags                   ComputeLumaForEdges( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcTexture );
+        virtual vaDrawResultFlags                   ComputeLumaForEdges( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcTexture );
 
         // Returned .x is MSE, .y is PSNR
-        virtual vaVector4                           CompareImages( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & textureA, const shared_ptr<vaTexture> & textureB, bool compareInSRGB = true );
+        virtual vaVector4                           CompareImages( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & textureA, const shared_ptr<vaTexture> & textureB, bool compareInSRGB = true );
 
         // So far only used for 4x4 supersampling - sharpen goes from 0, 1 (1 uses only 4 inner values, 0 uses all 16 equally)
-        virtual vaDrawResultFlags                   Downsample4x4to1x1( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & dstTexture, const shared_ptr<vaTexture> & srcTexture, float sharpen = 0.0f );
+        virtual vaDrawResultFlags                   Downsample4x4to1x1( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & dstTexture, const shared_ptr<vaTexture> & srcTexture, float sharpen = 0.0f );
 
-//        virtual void                                GenerateNormalmap( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & depthTexture ) = 0;
+//        virtual void                                GenerateNormalmap( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & depthTexture ) = 0;
     };
 
 }

@@ -23,6 +23,8 @@
 
 #include "Rendering/vaAssetPack.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
 bool vaTextureReductionTestTool::s_supportedByApp                = false;
@@ -99,7 +101,7 @@ vaTextureReductionTestTool::~vaTextureReductionTestTool( )
     }
 }
 
-void vaTextureReductionTestTool::SaveAsReference( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorBuffer )
+void vaTextureReductionTestTool::SaveAsReference( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorBuffer )
 {
     if( ( m_referenceTexture == nullptr ) || ( m_referenceTexture->GetSizeX( ) != colorBuffer->GetSizeX( ) ) || ( m_referenceTexture->GetSizeY( ) != colorBuffer->GetSizeY( ) ) || ( m_referenceTexture->GetResourceFormat( ) != colorBuffer->GetResourceFormat( ) ) )
     {
@@ -107,11 +109,11 @@ void vaTextureReductionTestTool::SaveAsReference( vaRenderDeviceContext & apiCon
         assert( colorBuffer->GetMipLevels( ) == 1 );
         assert( colorBuffer->GetSizeZ( ) == 1 );
         assert( colorBuffer->GetSampleCount( ) == 1 );
-        m_referenceTexture = vaTexture::Create2D( apiContext.GetRenderDevice(), colorBuffer->GetResourceFormat( ), colorBuffer->GetSizeX( ), colorBuffer->GetSizeY( ), 1, 1, 1, vaResourceBindSupportFlags::ShaderResource,
-            vaTextureAccessFlags::None, colorBuffer->GetSRVFormat( ) );
+        m_referenceTexture = vaTexture::Create2D( renderContext.GetRenderDevice(), colorBuffer->GetResourceFormat( ), colorBuffer->GetSizeX( ), colorBuffer->GetSizeY( ), 1, 1, 1, vaResourceBindSupportFlags::ShaderResource,
+            vaResourceAccessFlags::Default, colorBuffer->GetSRVFormat( ) );
     }
 
-    m_referenceTexture->CopyFrom( apiContext, colorBuffer );
+    m_referenceTexture->CopyFrom( renderContext, colorBuffer );
 }
 
 void vaTextureReductionTestTool::ResetTextureOverrides( )
@@ -183,15 +185,15 @@ void vaTextureReductionTestTool::TickCPU( const shared_ptr<vaCameraBase> & camer
 
 }
 
-void vaTextureReductionTestTool::TickGPU( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorBuffer, shared_ptr<vaPostProcess> & postProcess )
+void vaTextureReductionTestTool::TickGPU( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorBuffer, shared_ptr<vaPostProcess> & postProcess )
 {
-    apiContext;
+    renderContext;
     colorBuffer;
 
     if( m_downscaleTextureButtonClicks == 0 )
     {
         assert( !m_runningTests );
-        DownscaleAll( apiContext );
+        DownscaleAll( renderContext );
         return;
     }
 
@@ -244,19 +246,19 @@ void vaTextureReductionTestTool::TickGPU( vaRenderDeviceContext & apiContext, co
         {
             assert( m_currentlyOverriddenTexture == nullptr );
             // camera correctly set, capture reference
-            SaveAsReference( apiContext, colorBuffer );
+            SaveAsReference( renderContext, colorBuffer );
         }
         else
         {
             static bool compareInSRGB = true;
-            vaVector4 val = postProcess->CompareImages( apiContext, m_referenceTexture, colorBuffer, compareInSRGB );
+            vaVector4 val = postProcess->CompareImages( renderContext, m_referenceTexture, colorBuffer, compareInSRGB );
             // m_resultsMSR[m_currentTextLoopStep].push_back( val.x );
             // m_resultsPSNR[m_currentTextLoopStep].push_back( val.y );
             if( val.y < m_targetPSNRThreshold )
             {
                 timeToEndThisCamera = true;
-                // postProcess->SaveTextureToPNGFile( apiContext, vaCore::GetExecutableDirectory() + L"!!A.png", *m_referenceTexture );
-                // postProcess->SaveTextureToPNGFile( apiContext, vaCore::GetExecutableDirectory() + L"!!B.png", colorBuffer );
+                // postProcess->SaveTextureToPNGFile( renderContext, vaCore::GetExecutableDirectory() + L"!!A.png", *m_referenceTexture );
+                // postProcess->SaveTextureToPNGFile( renderContext, vaCore::GetExecutableDirectory() + L"!!B.png", colorBuffer );
             }
         }
         
@@ -267,7 +269,7 @@ void vaTextureReductionTestTool::TickGPU( vaRenderDeviceContext & apiContext, co
             // set next reduction level (MIP)
             // assert( m_currentlyOverriddenTexture == nullptr );
             m_currentlyOverriddenTexture = m_textures[m_currentTexture].first;
-            m_currentOverrideView = vaTexture::CreateView( *m_currentlyOverriddenTexture,
+            m_currentOverrideView = vaTexture::CreateView( m_currentlyOverriddenTexture,
                 vaResourceBindSupportFlags::ShaderResource, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None,
                 m_currentSearchReductionCount );
             m_currentlyOverriddenTexture->SetOverrideView( m_currentOverrideView );
@@ -323,7 +325,7 @@ void vaTextureReductionTestTool::OverrideAllWithCurrentStates( )
     m_overrideAll = true;
     for( int i = 0; i < (int)m_textures.size(); i++ )
     {
-        auto overrideTex = vaTexture::CreateView( *m_textures[i].first,
+        auto overrideTex = vaTexture::CreateView( m_textures[i].first,
             vaResourceBindSupportFlags::ShaderResource, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None,
             m_texturesMaxFoundReduction[i], 1 );
         m_textures[i].first->SetOverrideView( overrideTex );
@@ -399,7 +401,7 @@ void vaTextureReductionTestTool::ResetCamera( const shared_ptr<vaCameraBase> & c
     }
 }
 
-void vaTextureReductionTestTool::DownscaleAll( vaRenderDeviceContext & apiContext )
+void vaTextureReductionTestTool::DownscaleAll( vaRenderDeviceContext & renderContext )
 {
     ResetTextureOverrides( );
 
@@ -419,7 +421,7 @@ void vaTextureReductionTestTool::DownscaleAll( vaRenderDeviceContext & apiContex
             dbg++;
         }
         
-        shared_ptr<vaTexture> newTexture = shared_ptr<vaTexture>( m_textures[i].first->CreateLowerResFromMIPs( apiContext, m_texturesMaxFoundReduction[i] ) );
+        shared_ptr<vaTexture> newTexture = shared_ptr<vaTexture>( m_textures[i].first->CreateLowerResFromMIPs( renderContext, m_texturesMaxFoundReduction[i] ) );
         if( newTexture != nullptr )
         {
             VA_LOG( "  texture '%s' - downscaling from (%d, %d, %d) to (%d, %d, %d).", m_textures[i].second.c_str( ), 
@@ -439,6 +441,8 @@ void vaTextureReductionTestTool::DownscaleAll( vaRenderDeviceContext & apiContex
 
 void vaTextureReductionTestTool::DrawUI( vaRenderDevice & device, const shared_ptr<vaCameraBase> & camera )
 {
+    device; camera;
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     if( !m_enabled )
         return;
 
@@ -646,4 +650,5 @@ void vaTextureReductionTestTool::DrawUI( vaRenderDevice & device, const shared_p
 
         ImGui::EndPopup( );
     }
+#endif
 }

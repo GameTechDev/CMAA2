@@ -23,6 +23,8 @@
 
 #include "Core/vaInput.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
 void vaCameraControllerBase::CameraAttached( const shared_ptr<vaCameraBase> & camera )
@@ -306,11 +308,13 @@ void vaCameraControllerFlythrough::AddKey( const Keyframe & newKey )
     m_totalTime = m_keys.back().Time;
 }
 
-void vaCameraControllerFlythrough::IHO_Draw( )
+void vaCameraControllerFlythrough::UIPropertiesItemDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     //ImGui::Text( "Time: %", m_currentTime );
     ImGui::SliderFloat( "Playback position", &m_currentTime, 0.0f, m_totalTime );
     m_currentTime = vaMath::Clamp( m_currentTime, 0.0f, m_totalTime );
     ImGui::InputFloat( "Playback speed", &m_playSpeed, 0.2f );
     m_playSpeed = vaMath::Clamp( m_playSpeed, -10.0f, 10.0f );
+#endif
 }

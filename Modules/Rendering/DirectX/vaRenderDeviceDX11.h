@@ -21,46 +21,36 @@
 
 #include "Rendering/vaRenderDevice.h"
 #include "Rendering/vaRendering.h"
-#include "Rendering/vaDebugCanvas.h"
 
 #include "Rendering/DirectX/vaDirectXIncludes.h"
-//#include "Rendering/DirectX/vaDebugCanvas2DDX11.h"
-//#include "Rendering/DirectX/vaDebugCanvas3DDX11.h"
 
 namespace VertexAsylum
 {
-    class vaApplicationWin;
-
     class vaRenderDeviceDX11 : public vaRenderDevice
     {
     private:
+        string                      m_preferredAdapterNameID = "";
         IDXGIFactory1 *             m_DXGIFactory;
         ID3D11Device *              m_device;
         ID3D11DeviceContext *       m_deviceImmediateContext;
         IDXGISwapChain *            m_swapChain;
-        IDXGIOutput *               m_mainOutput;
+        IDXGIOutput *               m_mainOutput;   // no longer needed really!
 
         ID3D11RenderTargetView *    m_mainRenderTargetView;
         D3D11_TEXTURE2D_DESC        m_backbufferTextureDesc;
-
-        ID3D11Texture2D *           m_mainDepthStencil;
-        ID3D11DepthStencilView *    m_mainDepthStencilView;
-        ID3D11ShaderResourceView *  m_mainDepthSRV;
-
-        vaApplicationWin *          m_application;
 
         vaNestedProfilerNode *      m_frameProfilingNode = nullptr;
 
         HWND                        m_hwnd                  = 0;
 
-//    private:
-//        vaDirectXCore               m_directXCore;
+        shared_ptr<vaTexture>       m_mainColor;    // aka backbuffer
 
-    private:
-        //static vaRenderDeviceDX11 *    s_mainDevice;
+        vector< std::function<void( vaRenderDeviceDX11 & device )> >
+                                    m_beginFrameCallbacks;
 
     public:
-        vaRenderDeviceDX11( const vector<wstring> & shaderSearchPaths = { vaCore::GetExecutableDirectory( ) } );
+        // adapterNameID is a mix of .Description and [.SubSysId]
+        vaRenderDeviceDX11( const string & preferredAdapterNameID = "", const vector<wstring> & shaderSearchPaths = { vaCore::GetExecutableDirectory( ), vaCore::GetExecutableDirectory( ) + L"../../Modules/Rendering/Shaders" } );
         virtual ~vaRenderDeviceDX11( void );
 
     public:
@@ -71,37 +61,50 @@ namespace VertexAsylum
         void                        Deinitialize( );
 
     protected:
-        virtual void                CreateSwapChain( int width, int height, bool windowed, HWND hwnd );
-        virtual bool                ResizeSwapChain( int width, int height, bool windowed );                    // returns true if actually resized
+        virtual void                CreateSwapChain( int width, int height, HWND hwnd, vaFullscreenState fullscreenState ) override;
+        virtual bool                ResizeSwapChain( int width, int height, vaFullscreenState fullscreenState ) override;       // returns true if actually resized
+        virtual void                SetWindowed( ) override;
 
-        virtual bool                IsFullscreen( );
-        virtual bool                IsSwapChainCreated( ) const                                                 { return m_swapChain != NULL; }
+        //virtual bool                IsFullscreen( );
+        virtual bool                IsSwapChainCreated( ) const override                                    { return m_swapChain != NULL; }
 
-        virtual void                FindClosestFullscreenMode( int & width, int & height );
+        // virtual void                FindClosestFullscreenMode( int & width, int & height );
 
         virtual void                BeginFrame( float deltaTime );
         virtual void                EndAndPresentFrame( int vsyncInterval = 0 );
 
+        virtual shared_ptr<vaTexture>   GetCurrentBackbuffer( ) const override                              { return m_mainColor; }
+
+
     public:
 
-        ID3D11DeviceContext *       GetImmediateRenderContext( ) const                                          { assert( vaThreading::IsMainThread() ); return m_deviceImmediateContext; }
-        ID3D11Device *              GetPlatformDevice( ) const                                                  { return m_device; }
+        ID3D11DeviceContext *       GetImmediateRenderContext( ) const                                      { assert( vaThreading::IsMainThread() ); return m_deviceImmediateContext; }
+        ID3D11Device *              GetPlatformDevice( ) const                                              { return m_device; }
 
         virtual vaShaderManager &   GetShaderManager( ) override;
-
-        void                        SetMainRenderTargetToImmediateContext( );
-
-        //static vaRenderDeviceDX11 &    GetMainInstance( )                                                     { assert( s_mainDevice != NULL ); return *s_mainDevice; }
 
         void                        NameObject( ID3D11DeviceChild * object, const char * permanentNameString );
         void                        NameObject( ID3D11Resource * resource, const char * permanentNameString );
 
+        void                        ExecuteAtBeginFrame( const std::function<void( vaRenderDeviceDX11 & device )> & callback )  { assert( vaThreading::IsMainThread() );  m_beginFrameCallbacks.push_back( callback );  }
 
     private:
         void                        CreateSwapChainRelatedObjects( );
         void                        ReleaseSwapChainRelatedObjects( );
 
         static void                 RegisterModules( );
+
+    protected:
+        virtual void                ImGuiCreate( ) override;
+        virtual void                ImGuiDestroy( ) override;
+        virtual void                ImGuiNewFrame( ) override;
+        // ImGui gets drawn into the main device context ( GetMainContext() ) - this is fixed for now but could be a parameter
+        virtual void                ImGuiEndFrameAndRender( vaRenderDeviceContext & renderContext ) override;
+
+    public:
+        virtual string              GetAPIName( ) const override                                            { return StaticGetAPIName(); }
+        static string               StaticGetAPIName( )                                                     { return "DirectX11"; }
+        static void                 StaticEnumerateAdapters( vector<pair<string, string>> & outAdapters );
     };
 
 }

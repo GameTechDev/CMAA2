@@ -20,9 +20,11 @@
 
 #include "vaCMAA2.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
-vaCMAA2::vaCMAA2( const vaRenderingModuleParams & params ) : vaRenderingModule( params )
+vaCMAA2::vaCMAA2( const vaRenderingModuleParams & params ) : vaRenderingModule( params ), vaUIPanel( "CMAA2", 0, false )
 { 
     m_debugShowEdges = false;
 }
@@ -31,8 +33,9 @@ vaCMAA2::~vaCMAA2( )
 {
 }
 
-void vaCMAA2::IHO_Draw( )
+void vaCMAA2::UIPanelDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     ImGui::PushItemWidth( 120.0f );
 
     ImGui::Checkbox( "Extra sharp", &m_settings.ExtraSharpness );
@@ -40,10 +43,6 @@ void vaCMAA2::IHO_Draw( )
     ImGui::Checkbox( "Show edges", &m_debugShowEdges );
 
     ImGui::PopItemWidth();
-}
-
-void vaCMAA2::UpdateConstants( vaRenderDeviceContext & apiContext )
-{
-    apiContext;
+#endif
 }
 

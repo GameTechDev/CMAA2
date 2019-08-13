@@ -20,46 +20,46 @@
 #pragma once
 
 #include "Core/vaCoreIncludes.h"
-
-#include "IntegratedExternals/vaImguiIntegration.h"
+#include "Core/vaUI.h"
 
 namespace VertexAsylum
 {
     class vaCameraControllerBase;
 
-    class vaCameraBase : public vaImguiHierarchyObject, public std::enable_shared_from_this<vaCameraBase>
+    class vaCameraBase : public vaUIPanel, public std::enable_shared_from_this<vaCameraBase>
     {
     protected:
         // attached controller
         std::shared_ptr < vaCameraControllerBase >
             m_controller;
+        //
+        bool const                      m_visibleInUI;
         //                      
         // Primary values
+        bool                            m_YFOVMain;
+        bool                            m_useReversedZ;
         float                           m_YFOV;
         float                           m_XFOV;
-        bool                            m_YFOVMain;
         float                           m_aspect;
         float                           m_nearPlane;
         float                           m_farPlane;
         int                             m_viewportWidth;
         int                             m_viewportHeight;
-        bool                            m_useReversedZ;
         //
-
+        vaVector2                       m_subpixelOffset;   // a.k.a. jitter!
+        //
         // in world space
         vaVector3                       m_position;
         vaQuaternion                    m_orientation;
         //                            
         // Secondary values (updated by Tick() )
+        vaVector3                       m_direction;
         vaMatrix4x4                     m_worldTrans;
         vaMatrix4x4                     m_viewTrans;
         vaMatrix4x4                     m_projTrans;
-        vaVector3                       m_direction;
-        //
-        vaVector2                       m_subpixelOffset;   // a.k.a. jitter!
         //
     public:
-        vaCameraBase( );
+        vaCameraBase( bool visibleInUI );
         virtual ~vaCameraBase( );
         //
         // everything but the m_controller gets copied!
@@ -127,7 +127,8 @@ namespace VertexAsylum
         const std::shared_ptr<vaCameraControllerBase> &
                                         GetAttachedController( )                    { return m_controller; }
         void                            AttachController( const std::shared_ptr<vaCameraControllerBase> & cameraController );
-        //
+        
+        // hasFocus only relevant if there's an attached controller - perhaps the controller should get this state from elsewhere
         void                            Tick( float deltaTime, bool hasFocus );
 
 		// if getting all camera setup from outside (such as from VR headset), use this to set the pose and projection and update all dependencies
@@ -139,9 +140,10 @@ namespace VertexAsylum
         void                            GetScreenWorldRay( const vaVector2i & screenPos, vaVector3 & outRayPos, vaVector3 & outRayDir )         { return GetScreenWorldRay( vaVector2( screenPos.x + 0.5f, screenPos.y + 0.5f ), outRayPos, outRayDir ); }
 
     private:
-        // vaImguiHierarchyObject
-        virtual string                  IHO_GetInstanceName( ) const;
-        virtual void                    IHO_Draw( );
+        // vaUIPanel
+        // virtual string                  UIPanelGetDisplayName( ) const;
+        virtual bool                    UIPanelIsListed( ) const                    { return m_visibleInUI; }
+        virtual void                    UIPanelDraw( ) override;
 
     protected:
         void                            UpdateSecondaryFOV( );

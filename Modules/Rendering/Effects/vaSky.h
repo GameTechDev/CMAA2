@@ -23,7 +23,9 @@
 
 #include "Rendering/vaRenderingIncludes.h"
 
+#ifndef __INTELLISENSE__
 #include "Rendering/Shaders/vaSky.hlsl"
+#endif
 
 namespace VertexAsylum
 {

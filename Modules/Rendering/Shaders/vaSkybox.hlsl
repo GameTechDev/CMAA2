@@ -8,7 +8,7 @@
 
 #include "vaSharedTypes.h"
 
-#define SIMPLESKY_CONSTANTS_BUFFERSLOT                      4
+#define SIMPLESKY_CONSTANTSBUFFERSLOT                      4
 #define SKYBOX_TEXTURE_SLOT0                                0
 
 #ifdef __cplusplus
@@ -32,7 +32,7 @@ struct SkyboxConstants
 
 #include "vaShared.hlsl"
 
-cbuffer SkyboxConstantsBuffer                    : register( B_CONCATENATER( SIMPLESKY_CONSTANTS_BUFFERSLOT ) )
+cbuffer SkyboxConstantsBuffer                    : register( B_CONCATENATER( SIMPLESKY_CONSTANTSBUFFERSLOT ) )
 {
     SkyboxConstants                      g_SkyboxGlobal;
 }

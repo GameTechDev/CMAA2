@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2018, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -23,13 +23,1836 @@
 #include "Core/Misc/vaProfiler.h"
 #include "Rendering/vaShader.h"
 #include "Rendering/DirectX/vaRenderDeviceDX11.h"
+#include "Rendering/DirectX/vaRenderDeviceDX12.h"
 #include "Rendering/vaAssetPack.h"
+
+#include "IntegratedExternals/vaImguiIntegration.h"
 
 #include <iomanip>
 #include <sstream> // stringstream
 
 using namespace VertexAsylum;
 
+static void Simple00_BlueScreen( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    if( shuttingDown )
+        return;
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    renderDevice.GetCurrentBackbuffer()->ClearRTV( *renderDevice.GetMainContext(), vaVector4( 0.0f, 0.0f, 1.0f, 1.0f ) );
+
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+static void Simple01_FullscreenPass( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    static bool                         initialized = false;
+    static shared_ptr<vaPixelShader>    pixelShader;
+    if( !initialized && !shuttingDown )
+    {
+        initialized = true;
+        pixelShader = VA_RENDERING_MODULE_CREATE_SHARED( vaPixelShader, vaRenderingModuleParams ( renderDevice ) );
+        pixelShader->CreateShaderFromBuffer( 
+            "Texture2D g_source           : register( t0 );                         \n"
+            "float4 main( in const float4 xPos : SV_Position ) : SV_Target          \n"
+            "{                                                                      \n"
+            "   return float4( frac(xPos.x / 256.0), frac(xPos.y / 256.0), 0, 1 );  \n"
+            "}                                                                      \n"
+            , "ps_5_0", "main", vaShaderMacroContaner(), true );
+    }
+    
+    if( shuttingDown )
+    {
+        pixelShader = nullptr;
+        initialized = false;
+        return;
+    }
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    // no need to clear, we're doing a fullscreen pass
+    // renderDevice.GetCurrentBackbuffer()->ClearRTV( *renderDevice.GetMainContext(), vaVector4( 0.0f, 0.0f, 1.0f, 1.0f ) );
+
+    vaGraphicsItem renderItem;
+    renderDevice.FillFullscreenPassRenderItem( renderItem );
+    renderItem.PixelShader = pixelShader;
+    //renderItem.PixelShader->WaitFinishIfBackgroundCreateActive();
+    renderDevice.GetMainContext()->ExecuteSingleItem( renderItem );
+
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+static void Simple02_JustATriangle( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    static bool                         initialized = false;
+    static shared_ptr<vaVertexShader>   vertexShader;
+    static shared_ptr<vaVertexBuffer>   vertexBuffer;
+    static shared_ptr<vaPixelShader>    pixelShader;
+    if( !initialized && !shuttingDown )
+    {
+        initialized = true;
+
+        // vertex shader
+        vertexShader = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexShader, renderDevice ); // get the platform dependent object
+        std::vector<vaVertexInputElementDesc> inputElements = { 
+            { "SV_Position", 0,    vaResourceFormat::R32G32B32A32_FLOAT,    0,  0, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 }, 
+            { "TEXCOORD", 0,       vaResourceFormat::R32G32_FLOAT,          0, 16, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } };
+        vertexShader->CreateShaderAndILFromBuffer( 
+            "void main( inout const float4 xPos : SV_Position, inout float2 UV : TEXCOORD0 ) { }"
+            , "vs_5_0", "main", inputElements, vaShaderMacroContaner(), true );
+
+        // pixel shader
+        pixelShader = VA_RENDERING_MODULE_CREATE_SHARED( vaPixelShader, renderDevice ); // get the platform dependent object
+        pixelShader->CreateShaderFromBuffer( 
+            "Texture2D g_source           : register( t0 );                                                 \n"
+            "float4 main( in const float4 xPos : SV_Position, in const float2 UV : TEXCOORD0  ) : SV_Target \n"
+            "{                                                                                              \n"
+            "   return float4( UV.x, UV.y, 0, 1 );                                                          \n"
+            "}                                                                                              \n"
+            , "ps_5_0", "main", vaShaderMacroContaner(), true );
+
+        // vertex buffer
+        struct SimpleVertex
+        {
+            float   Position[4];
+            float   UV[2];
+        };
+        SimpleVertex triangleVerts[3] = {
+            {  0.0f,   0.3f, 0.0f, 1.0f, 0.0f, 0.0f },
+            {  0.25f, -0.2f, 0.0f, 1.0f, 2.0f, 0.0f },
+            { -0.25f, -0.2f, 0.0f, 1.0f, 0.0f, 2.0f },
+        };
+        vertexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexBuffer, renderDevice ); // get the platform dependent object
+        vertexBuffer->Create( _countof(triangleVerts), sizeof(SimpleVertex), triangleVerts, false );
+    }
+    
+    if( shuttingDown )
+    {
+        pixelShader = nullptr;
+        vertexShader = nullptr;
+        vertexBuffer = nullptr;
+        initialized = false;
+        return;
+    }
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    renderDevice.GetCurrentBackbuffer()->ClearRTV( *renderDevice.GetMainContext(), vaVector4( 0.8f, 0.8f, 0.9f, 1.0f ) );
+
+    vaGraphicsItem renderItem;
+    renderItem.Topology         = vaPrimitiveTopology::TriangleList;
+    renderItem.VertexShader     = vertexShader;
+    renderItem.VertexBuffer     = vertexBuffer;
+    renderItem.PixelShader      = pixelShader;
+    renderItem.DrawType         = vaGraphicsItem::DrawType::DrawSimple;
+    renderItem.DrawSimpleParams.VertexCount = 3;
+
+    renderDevice.GetMainContext()->ExecuteSingleItem( renderItem );
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+static void Simple03_TexturedTriangle( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    static bool                         initialized = false;
+    static shared_ptr<vaVertexShader>   vertexShader;
+    static shared_ptr<vaVertexBuffer>   vertexBuffer;
+    static shared_ptr<vaPixelShader>    pixelShader;
+    static shared_ptr<vaTexture>        texture;
+
+    if( !initialized && !shuttingDown )
+    {
+        initialized = true;
+
+        // vertex shader
+        vertexShader = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexShader, renderDevice ); // get the platform dependent object
+        std::vector<vaVertexInputElementDesc> inputElements = { 
+            { "SV_Position", 0,    vaResourceFormat::R32G32B32A32_FLOAT,    0,  0, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 }, 
+            { "TEXCOORD", 0,       vaResourceFormat::R32G32_FLOAT,          0, 16, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } };
+        vertexShader->CreateShaderAndILFromBuffer( 
+            "void main( inout const float4 xPos : SV_Position, inout float2 UV : TEXCOORD0 ) { }"
+            , "vs_5_0", "main", inputElements, vaShaderMacroContaner(), true );
+
+        // pixel shader
+        pixelShader = VA_RENDERING_MODULE_CREATE_SHARED( vaPixelShader, renderDevice ); // get the platform dependent object
+        pixelShader->CreateShaderFromBuffer( 
+            "#include \"vaShared.hlsl\"                                                                     \n" // this defines g_samplerLinearClamp and bunch of other stuff
+            "Texture2D g_source           : register( t0 );                                                 \n"
+            "float4 main( in const float4 xPos : SV_Position, in const float2 UV : TEXCOORD0  ) : SV_Target \n"
+            "{                                                                                              \n"
+            "   return g_source.Sample( g_samplerPointClamp, UV );                                         \n"
+            "}                                                                                              \n"
+            , "ps_5_0", "main", vaShaderMacroContaner(), true );
+
+        // vertex buffer
+        struct SimpleVertex
+        {
+            float   Position[4];
+            float   UV[2];
+        };
+        SimpleVertex triangleVerts[3] = {
+            {  0.0f,   0.141f, 0.0f, 1.0f, 0.0f, 0.0f },
+            {  0.2f,  -0.141f, 0.0f, 1.0f, 1.0f, 0.0f },
+            { -0.2f,  -0.141f, 0.0f, 1.0f, 0.0f, 1.0f },
+        };
+        vertexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexBuffer, renderDevice ); // get the platform dependent object
+        vertexBuffer->Create( _countof(triangleVerts), sizeof(SimpleVertex), triangleVerts, false );
+        // texture
+        {
+            uint32 initialData[16*16];
+            for( int y = 0; y < 16; y++ )
+                for( int x = 0; x < 16; x++ )
+                    initialData[ y * 16 + x ] = (((x+y)%2) == 0)?(0xFFFFFFFF):(0x00000000);
+            texture = vaTexture::Create2D( renderDevice, vaResourceFormat::R8G8B8A8_UNORM, 16, 16, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialData, 16*sizeof( uint32 ) );
+        }
+    }
+    
+    if( shuttingDown )
+    {
+        pixelShader = nullptr;
+        vertexShader = nullptr;
+        vertexBuffer = nullptr;
+        texture = nullptr;
+        initialized = false;
+        return;
+    }
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    renderDevice.GetCurrentBackbuffer()->ClearRTV( *renderDevice.GetMainContext(), vaVector4( 0.3f, 0.5f, 0.9f, 1.0f ) );
+
+    vaGraphicsItem renderItem;
+    renderItem.Topology         = vaPrimitiveTopology::TriangleList;
+    renderItem.VertexShader     = vertexShader;
+    renderItem.PixelShader      = pixelShader;
+    renderItem.DrawType         = vaGraphicsItem::DrawType::DrawSimple;
+    renderItem.DrawSimpleParams.VertexCount = 3;
+    renderItem.ShaderResourceViews[0] = texture;
+
+    renderDevice.GetMainContext()->ExecuteSingleItem( renderItem );
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+static void Simple04_ConstantBuffer( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    static bool                         initialized = false;
+    static shared_ptr<vaVertexShader>   vertexShader;
+    static shared_ptr<vaVertexBuffer>   vertexBuffer;
+    static shared_ptr<vaIndexBuffer>    indexBuffer;
+    static shared_ptr<vaPixelShader>    pixelShader;
+    static shared_ptr<vaTexture>        texture;
+
+    struct ShaderConstants
+    {
+        float UVOffset[2];
+        float AspectRatio;
+        float SomethingElse;
+    };
+    static shared_ptr<vaTypedConstantBufferWrapper<ShaderConstants>> constantBuffer;
+
+    if( !initialized && !shuttingDown )
+    {
+        initialized = true;
+
+        // vertex shader
+        vertexShader = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexShader, renderDevice ); // get the platform dependent object
+        std::vector<vaVertexInputElementDesc> inputElements = { 
+            { "SV_Position", 0,    vaResourceFormat::R32G32B32A32_FLOAT,    0,  0, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 }, 
+            { "TEXCOORD", 0,       vaResourceFormat::R32G32_FLOAT,          0, 16, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } };
+        vertexShader->CreateShaderAndILFromBuffer( 
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float SomethingElse; };                           \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                                        \n"
+            "void main( inout float4 xPos : SV_Position, inout float2 UV : TEXCOORD0 ) { xPos.y *= g_globals.AspectRatio; }   \n"
+            , "vs_5_0", "main", inputElements, vaShaderMacroContaner(), true );
+
+        // pixel shader
+        pixelShader = VA_RENDERING_MODULE_CREATE_SHARED( vaPixelShader, renderDevice ); // get the platform dependent object
+        pixelShader->CreateShaderFromBuffer( 
+            "#include \"vaShared.hlsl\"                                                                             \n" // this defines g_samplerLinearClamp and bunch of other stuff
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float SomethingElse; };           \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                        \n"
+            "Texture2D g_source           : register( t0 );                                                         \n"
+            "float4 main( in const float4 xPos : SV_Position, in const float2 UV : TEXCOORD0  ) : SV_Target         \n"
+            "{                                                                                                      \n"
+            "   return g_source.Sample( g_samplerPointWrap, UV+g_globals.UVOffset );                                \n"
+            "}                                                                                                      \n"
+            , "ps_5_0", "main", vaShaderMacroContaner(), true );
+
+        // vertex buffer
+        struct SimpleVertex
+        {
+            float   Position[4];
+            float   UV[2];
+        };
+        SimpleVertex triangleVerts[3] = {
+            {  0.0f,   0.141f, 0.0f, 1.0f, 0.0f, 0.0f },
+            {  0.2f,  -0.141f, 0.0f, 1.0f, 1.0f, 0.0f },
+            { -0.2f,  -0.141f, 0.0f, 1.0f, 0.0f, 1.0f },
+        };
+        vertexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexBuffer, renderDevice ); // get the platform dependent object
+        vertexBuffer->Create( _countof(triangleVerts), sizeof(SimpleVertex), triangleVerts, false );
+
+        uint32 indices[3] = { 0, 2, 1 };
+        indexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaIndexBuffer, renderDevice ); // get the platform dependent object
+        indexBuffer->Create( 3, indices );
+
+        // texture
+        {
+            uint32 initialData[16*16];
+            for( int y = 0; y < 16; y++ )
+                for( int x = 0; x < 16; x++ )
+                    initialData[ y * 16 + x ] = (((x+y)%2) == 0)?(0xFFFFFFFF):(0x00000000);
+            texture = vaTexture::Create2D( renderDevice, vaResourceFormat::R8G8B8A8_UNORM, 16, 16, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialData, 16*sizeof( uint32 ) );
+        }
+        constantBuffer = std::make_shared<vaTypedConstantBufferWrapper<ShaderConstants>>( renderDevice );
+    }
+    
+    if( shuttingDown )
+    {
+        pixelShader = nullptr;
+        vertexShader = nullptr;
+        vertexBuffer = nullptr;
+        indexBuffer = nullptr;
+        texture = nullptr;
+        constantBuffer = nullptr;
+        initialized = false;
+        return;
+    }
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    renderDevice.GetCurrentBackbuffer()->ClearRTV( *renderDevice.GetMainContext(), vaVector4( 0.8f, 0.8f, 0.9f, 1.0f ) );
+
+    ShaderConstants consts = { };
+    consts.AspectRatio = (float)application.GetWindowClientAreaSize().x / (float)application.GetWindowClientAreaSize().y;
+    consts.UVOffset[0] = 0.5f*(float)cos(application.GetTimeFromStart());
+    consts.UVOffset[1] = 0.5f*(float)sin(application.GetTimeFromStart());
+    constantBuffer->Update(*renderDevice.GetMainContext(), consts);
+
+    vaGraphicsItem renderItem;
+    renderItem.Topology         = vaPrimitiveTopology::TriangleList;
+    renderItem.VertexShader     = vertexShader;
+    renderItem.VertexBuffer     = vertexBuffer;
+    renderItem.IndexBuffer      = indexBuffer;
+    renderItem.PixelShader      = pixelShader;
+    renderItem.FrontCounterClockwise = true; // just to prove index buffer works
+    renderItem.DrawType         = vaGraphicsItem::DrawType::DrawIndexed;
+    renderItem.DrawIndexedParams.IndexCount = 3;
+    renderItem.ShaderResourceViews[0] = texture;
+    renderItem.ConstantBuffers[0] = constantBuffer->GetBuffer();
+
+    renderDevice.GetMainContext()->ExecuteSingleItem( renderItem );
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+static void Simple05_RenderToTexture( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    static bool                         initialized = false;
+    static shared_ptr<vaVertexShader>   vertexShader;
+    static shared_ptr<vaVertexBuffer>   vertexBuffer;
+    static shared_ptr<vaIndexBuffer>    indexBuffer;
+    static shared_ptr<vaPixelShader>    pixelShader;
+    static shared_ptr<vaTexture>        texture;
+    static shared_ptr<vaPixelShader>    texturePixelShader;
+    static shared_ptr<vaTexture>        tempRTtexture;
+
+    struct ShaderConstants
+    {
+        float UVOffset[2];
+        float AspectRatio;
+        float Time;
+    };
+    static shared_ptr<vaTypedConstantBufferWrapper<ShaderConstants>> constantBuffer;
+
+    if( !initialized && !shuttingDown )
+    {
+        initialized = true;
+
+        // vertex shader
+        vertexShader = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexShader, renderDevice ); // get the platform dependent object
+        std::vector<vaVertexInputElementDesc> inputElements = { 
+            { "SV_Position", 0,    vaResourceFormat::R32G32B32A32_FLOAT,    0,  0, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 }, 
+            { "TEXCOORD", 0,       vaResourceFormat::R32G32_FLOAT,          0, 16, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } };
+        vertexShader->CreateShaderAndILFromBuffer( 
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float SomethingElse; };                           \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                                        \n"
+            "void main( inout float4 xPos : SV_Position, inout float2 UV : TEXCOORD0 ) { xPos.y *= g_globals.AspectRatio; }   \n"
+            , "vs_5_0", "main", inputElements, vaShaderMacroContaner(), true );
+
+        // pixel shader
+        pixelShader = VA_RENDERING_MODULE_CREATE_SHARED( vaPixelShader, renderDevice ); // get the platform dependent object
+        pixelShader->CreateShaderFromBuffer( 
+            "#include \"vaShared.hlsl\"                                                                             \n" // this defines g_samplerLinearClamp and bunch of other stuff
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float SomethingElse; };           \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                        \n"
+            "Texture2D g_source           : register( t0 );                                                         \n"
+            "float4 main( in const float4 xPos : SV_Position, in const float2 UV : TEXCOORD0  ) : SV_Target         \n"
+            "{                                                                                                      \n"
+            "   return g_source.Sample( g_samplerLinearWrap, UV+g_globals.UVOffset );                               \n"
+            "}                                                                                                      \n"
+            , "ps_5_0", "main", vaShaderMacroContaner(), true );
+
+        // texture pixel shader
+        texturePixelShader = VA_RENDERING_MODULE_CREATE_SHARED( vaPixelShader, renderDevice ); // get the platform dependent object
+        texturePixelShader->CreateShaderFromBuffer( 
+            "#include \"vaShared.hlsl\"                                                                             \n" // this defines g_samplerLinearClamp and bunch of other stuff
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float Time; };                    \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                        \n"
+            ""
+            "" // https://www.shadertoy.com/view/ldBGRR
+            "" // Created by Kastor in 2013-10-22
+            "" // main code, *original shader by: 'Plasma' by Viktor Korsun (2011)
+            ""
+            "float4 main( in const float4 xPos : SV_Position, in const float2 UV : TEXCOORD0  ) : SV_Target         \n"
+            "{                                                                                                      \n"
+            "float x = UV.x;                                                                                        \n"
+            "float y = UV.y;                                                                                        \n"
+            "float mov0 = x+y+cos(sin(g_globals.Time)*2.0)*100.+sin(x/100.)*1000.;                                  \n"
+            "float mov1 = y / 0.9 +  g_globals.Time;                                                                \n"
+            "float mov2 = x / 0.2;                                                                                  \n"
+            "float c1 = abs(sin(mov1+g_globals.Time)/2.+mov2/2.-mov1-mov2+g_globals.Time);                          \n"
+            "float c2 = abs(sin(c1+sin(mov0/1000.+g_globals.Time)+sin(y/40.+g_globals.Time)+sin((x+y)/100.)*3.));   \n"
+            "float c3 = abs(sin(c2+cos(mov1+mov2+c2)+cos(mov2)+sin(x/1000.)));                                      \n"
+            "return float4(c1,c2,c3,1);                                                                             \n"
+            "}                                                                                                      \n"
+            , "ps_5_0", "main", vaShaderMacroContaner(), true );
+
+        // vertex buffer
+        struct SimpleVertex
+        {
+            float   Position[4];
+            float   UV[2];
+        };
+        SimpleVertex triangleVerts[3] = {
+            {  0.0f,   0.141f, 0.0f, 1.0f, 0.0f, 0.0f },
+            {  0.2f,  -0.141f, 0.0f, 1.0f, 1.0f, 0.0f },
+            { -0.2f,  -0.141f, 0.0f, 1.0f, 0.0f, 1.0f },
+        };
+        vertexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexBuffer, renderDevice ); // get the platform dependent object
+        vertexBuffer->Create( _countof(triangleVerts), sizeof(SimpleVertex), triangleVerts, false );
+
+        uint32 indices[3] = { 0, 2, 1 };
+        indexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaIndexBuffer, renderDevice ); // get the platform dependent object
+        indexBuffer->Create( 3, indices );
+
+        // textures
+        {
+            uint32 initialData[32*32];
+            for( int y = 0; y < 32; y++ )
+                for( int x = 0; x < 32; x++ )
+                    initialData[ y * 32 + x ] = (((x+y)%2) == 0)?(0xFFFFFFFF):(0x00000000);
+            texture = vaTexture::Create2D( renderDevice, vaResourceFormat::R8G8B8A8_UNORM_SRGB, 32, 32, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::RenderTarget, vaResourceAccessFlags::Default, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialData, 32*sizeof(uint32) );
+        }
+        constantBuffer = std::make_shared<vaTypedConstantBufferWrapper<ShaderConstants>>( renderDevice );
+    }
+    
+    if( shuttingDown )
+    {
+        pixelShader = nullptr;
+        vertexShader = nullptr;
+        vertexBuffer = nullptr;
+        indexBuffer = nullptr;
+        texture = nullptr;
+        constantBuffer = nullptr;
+        texturePixelShader = nullptr;
+        initialized = false;
+        return;
+    }
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    renderDevice.GetCurrentBackbuffer()->ClearRTV( *renderDevice.GetMainContext(), vaVector4( 0.8f, 0.8f, 0.9f, 1.0f ) );
+
+    ShaderConstants consts = { };
+    consts.AspectRatio  = (float)application.GetWindowClientAreaSize().x / (float)application.GetWindowClientAreaSize().y;
+    consts.UVOffset[0]  = 0.5f*(float)cos(application.GetTimeFromStart()*0.2f);
+    consts.UVOffset[1]  = 0.5f*(float)sin(application.GetTimeFromStart()*0.2f);
+    consts.Time         = (float)fmod( application.GetTimeFromStart(), 1000.0 );
+    constantBuffer->Update(*renderDevice.GetMainContext(), consts);
+
+    {
+        // save old render target(s) and stuff
+        vaRenderDeviceContext::RenderOutputsState backupOutputs = renderDevice.GetMainContext()->GetOutputs();
+    
+        // set offscreen texture and draw to it
+        renderDevice.GetMainContext()->SetRenderTarget( texture, nullptr, true );
+        vaGraphicsItem renderItem;
+        renderDevice.FillFullscreenPassRenderItem( renderItem );
+        renderItem.PixelShader = texturePixelShader;
+        renderItem.ConstantBuffers[0] = constantBuffer->GetBuffer();
+        renderDevice.GetMainContext()->ExecuteSingleItem( renderItem );
+
+        // restore old render target(s) and stuff
+        renderDevice.GetMainContext()->SetOutputs( backupOutputs );
+    }
+
+    {
+        vaGraphicsItem renderItem;
+        renderItem.Topology         = vaPrimitiveTopology::TriangleList;
+        renderItem.VertexShader     = vertexShader;
+        renderItem.VertexBuffer     = vertexBuffer;
+        renderItem.IndexBuffer      = indexBuffer;
+        renderItem.PixelShader      = pixelShader;
+        renderItem.FrontCounterClockwise = true; // just to prove index buffer works
+        renderItem.DrawType         = vaGraphicsItem::DrawType::DrawIndexed;
+        renderItem.DrawIndexedParams.IndexCount = 3;
+        renderItem.ShaderResourceViews[0] = texture;
+        renderItem.ConstantBuffers[0] = constantBuffer->GetBuffer();
+
+        renderDevice.GetMainContext()->ExecuteSingleItem( renderItem );
+    }
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+static void Simple06_RenderToTextureCS( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    static bool                         initialized = false;
+    static shared_ptr<vaVertexShader>   vertexShader;
+    static shared_ptr<vaVertexBuffer>   vertexBuffer;
+    static shared_ptr<vaIndexBuffer>    indexBuffer;
+    static shared_ptr<vaPixelShader>    pixelShader;
+    static shared_ptr<vaTexture>        texture;
+    static shared_ptr<vaComputeShader>  textureComputeShader;
+
+    struct ShaderConstants
+    {
+        float UVOffset[2];
+        float AspectRatio;
+        float Time;
+    };
+    static shared_ptr<vaTypedConstantBufferWrapper<ShaderConstants>> constantBuffer;
+
+    if( !initialized && !shuttingDown )
+    {
+        initialized = true;
+
+        // vertex shader
+        vertexShader = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexShader, renderDevice ); // get the platform dependent object
+        std::vector<vaVertexInputElementDesc> inputElements = { 
+            { "SV_Position", 0,    vaResourceFormat::R32G32B32A32_FLOAT,    0,  0, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 }, 
+            { "TEXCOORD", 0,       vaResourceFormat::R32G32_FLOAT,          0, 16, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } };
+        vertexShader->CreateShaderAndILFromBuffer( 
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float SomethingElse; };                           \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                                        \n"
+            "void main( inout float4 xPos : SV_Position, inout float2 UV : TEXCOORD0 ) { xPos.y *= g_globals.AspectRatio; }   \n"
+            , "vs_5_0", "main", inputElements, vaShaderMacroContaner(), true );
+
+        // pixel shader
+        pixelShader = VA_RENDERING_MODULE_CREATE_SHARED( vaPixelShader, renderDevice ); // get the platform dependent object
+        pixelShader->CreateShaderFromBuffer( 
+            "#include \"vaShared.hlsl\"                                                                             \n" // this defines g_samplerLinearClamp and bunch of other stuff
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float SomethingElse; };           \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                        \n"
+            "Texture2D g_source           : register( t0 );                                                         \n"
+            "float4 main( in const float4 xPos : SV_Position, in const float2 UV : TEXCOORD0  ) : SV_Target         \n"
+            "{                                                                                                      \n"
+            "   return g_source.Sample( g_samplerLinearWrap, UV+g_globals.UVOffset );                               \n"
+            "}                                                                                                      \n"
+            , "ps_5_0", "main", vaShaderMacroContaner(), true );
+
+        // texture pixel shader
+        textureComputeShader = VA_RENDERING_MODULE_CREATE_SHARED( vaComputeShader, renderDevice ); // get the platform dependent object
+        textureComputeShader->CreateShaderFromBuffer( 
+            "#include \"vaShared.hlsl\"                                                                             \n" // this defines g_samplerLinearClamp and bunch of other stuff
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float Time; };                    \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                        \n"
+            "RWTexture2D<uint>      g_textureUAV               : register( u0 );                                    \n"
+            ""
+            "" // https://www.shadertoy.com/view/ldBGRR
+            "" // Created by Kastor in 2013-10-22
+            "" // main code, *original shader by: 'Plasma' by Viktor Korsun (2011)
+            ""
+            "[numthreads( 16, 16, 1 )]"
+            "void main( uint2 dispatchThreadID : SV_DispatchThreadID )                                              \n"
+            "{                                                                                                      \n"
+            "float2 UV = (float2(dispatchThreadID) + 0.5)/32;                                                       \n"
+            "float x = UV.x;                                                                                        \n"
+            "float y = UV.y;                                                                                        \n"
+            "float mov0 = x+y+cos(sin(g_globals.Time)*2.0)*100.+sin(x/100.)*1000.;                                  \n"
+            "float mov1 = y / 0.9 +  g_globals.Time;                                                                \n"
+            "float mov2 = x / 0.2;                                                                                  \n"
+            "float c1 = abs(sin(mov1+g_globals.Time)/2.+mov2/2.-mov1-mov2+g_globals.Time);                          \n"
+            "float c2 = abs(sin(c1+sin(mov0/1000.+g_globals.Time)+sin(y/40.+g_globals.Time)+sin((x+y)/100.)*3.));   \n"
+            "float c3 = abs(sin(c2+cos(mov1+mov2+c2)+cos(mov2)+sin(x/1000.)));                                      \n"
+            "float3 color = LINEAR_to_SRGB( float3(c1,c2,c3) );                                                     \n"
+            "g_textureUAV[ dispatchThreadID ] = FLOAT4_to_R8G8B8A8_UNORM( float4( color, 1 ) );                     \n"
+            "}                                                                                                      \n"
+            , "cs_5_0", "main", vaShaderMacroContaner(), true );
+
+        // vertex buffer
+        struct SimpleVertex
+        {
+            float   Position[4];
+            float   UV[2];
+        };
+        SimpleVertex triangleVerts[3] = {
+            {  0.0f,   0.141f, 0.0f, 1.0f, 0.0f, 0.0f },
+            {  0.2f,  -0.141f, 0.0f, 1.0f, 1.0f, 0.0f },
+            { -0.2f,  -0.141f, 0.0f, 1.0f, 0.0f, 1.0f },
+        };
+        vertexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexBuffer, renderDevice ); // get the platform dependent object
+        vertexBuffer->Create( _countof(triangleVerts), sizeof(SimpleVertex), triangleVerts, false );
+
+        uint32 indices[3] = { 0, 2, 1 };
+        indexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaIndexBuffer, renderDevice ); // get the platform dependent object
+        indexBuffer->Create( 3, indices );
+
+        // texture
+        {
+            uint32 initialData[32*32];
+            for( int y = 0; y < 32; y++ )
+                for( int x = 0; x < 32; x++ )
+                    initialData[ y * 32 + x ] = (((x+y)%2) == 0)?(0xFFFFFFFF):(0x00000000);
+            texture = vaTexture::Create2D( renderDevice, vaResourceFormat::R8G8B8A8_TYPELESS, 32, 32, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::UnorderedAccess, vaResourceAccessFlags::Default, vaResourceFormat::R8G8B8A8_UNORM_SRGB, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::R32_UINT, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialData, 32*sizeof(uint32) );
+        }
+        constantBuffer = std::make_shared<vaTypedConstantBufferWrapper<ShaderConstants>>( renderDevice );
+    }
+    
+    if( shuttingDown )
+    {
+        pixelShader = nullptr;
+        vertexShader = nullptr;
+        vertexBuffer = nullptr;
+        indexBuffer = nullptr;
+        texture = nullptr;
+        constantBuffer = nullptr;
+        textureComputeShader = nullptr;
+        initialized = false;
+        return;
+    }
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    renderDevice.GetCurrentBackbuffer()->ClearRTV( *renderDevice.GetMainContext(), vaVector4( 0.8f, 0.8f, 0.9f, 1.0f ) );
+
+    ShaderConstants consts = { };
+    consts.AspectRatio  = (float)application.GetWindowClientAreaSize().x / (float)application.GetWindowClientAreaSize().y;
+    consts.UVOffset[0]  = 0.5f*(float)cos(application.GetTimeFromStart()*0.2f);
+    consts.UVOffset[1]  = 0.5f*(float)sin(application.GetTimeFromStart()*0.2f);
+    consts.Time         = (float)fmod( application.GetTimeFromStart(), 1000.0 );
+    constantBuffer->Update(*renderDevice.GetMainContext(), consts);
+
+    {
+        // draw to offscreen texture
+        vaComputeItem computeItem;
+        computeItem.ComputeShader = textureComputeShader;
+        computeItem.ConstantBuffers[0] = constantBuffer->GetBuffer();
+        computeItem.UnorderedAccessViews[0] = texture;
+        assert( texture->GetSizeX() == 32 && texture->GetSizeY() == 32 );
+        computeItem.SetDispatch( 32/16, 32/16, 1 );
+        renderDevice.GetMainContext()->ExecuteSingleItem( computeItem );
+    }
+
+    {
+        vaGraphicsItem renderItem;
+        renderItem.Topology         = vaPrimitiveTopology::TriangleList;
+        renderItem.VertexShader     = vertexShader;
+        renderItem.VertexBuffer     = vertexBuffer;
+        renderItem.IndexBuffer      = indexBuffer;
+        renderItem.PixelShader      = pixelShader;
+        renderItem.FrontCounterClockwise = true; // just to prove index buffer works
+        renderItem.DrawType         = vaGraphicsItem::DrawType::DrawIndexed;
+        renderItem.DrawIndexedParams.IndexCount = 3;
+        renderItem.ShaderResourceViews[0] = texture;
+        renderItem.ConstantBuffers[0] = constantBuffer->GetBuffer();
+
+        renderDevice.GetMainContext()->ExecuteSingleItem( renderItem );
+    }
+
+    // test canvas 2D too - do this separately later
+#if 0
+    static int sss = 0; sss++; if( sss > 100 ) sss = 0;
+    renderDevice.GetCanvas2D( ).FillRectangle( 100, 100+(float)sss, 150, 40, 0xFF00FFFF );
+    renderDevice.GetCanvas2D( ).Render( *renderDevice.GetMainContext(), application.GetWindowClientAreaSize().x, application.GetWindowClientAreaSize().y );
+#endif
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+static void Simple07_TextureUpload( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    static bool                         initialized = false;
+    static shared_ptr<vaVertexShader>   vertexShader;
+    static shared_ptr<vaVertexBuffer>   vertexBuffer;
+    static shared_ptr<vaIndexBuffer>    indexBuffer;
+    static shared_ptr<vaPixelShader>    pixelShader;
+    static shared_ptr<vaTexture>        texture;
+    static shared_ptr<vaTexture>        stagingTextures[vaRenderDevice::c_BackbufferCount];
+    static int                          currentStagingTexture = 0;
+
+    struct ShaderConstants
+    {
+        float UVOffset[2];
+        float AspectRatio;
+        float Time;
+    };
+    static shared_ptr<vaTypedConstantBufferWrapper<ShaderConstants>> constantBuffer;
+
+    if( !initialized && !shuttingDown )
+    {
+        initialized = true;
+
+        // vertex shader
+        vertexShader = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexShader, renderDevice ); // get the platform dependent object
+        std::vector<vaVertexInputElementDesc> inputElements = { 
+            { "SV_Position", 0,    vaResourceFormat::R32G32B32A32_FLOAT,    0,  0, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 }, 
+            { "TEXCOORD", 0,       vaResourceFormat::R32G32_FLOAT,          0, 16, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } };
+        vertexShader->CreateShaderAndILFromBuffer( 
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float SomethingElse; };                           \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                                        \n"
+            "void main( inout float4 xPos : SV_Position, inout float2 UV : TEXCOORD0 ) { xPos.y *= g_globals.AspectRatio; }   \n"
+            , "vs_5_0", "main", inputElements, vaShaderMacroContaner(), true );
+
+        // pixel shader
+        pixelShader = VA_RENDERING_MODULE_CREATE_SHARED( vaPixelShader, renderDevice ); // get the platform dependent object
+        pixelShader->CreateShaderFromBuffer( 
+            "#include \"vaShared.hlsl\"                                                                             \n" // this defines g_samplerLinearClamp and bunch of other stuff
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float SomethingElse; };           \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                        \n"
+            "Texture2D g_source           : register( t0 );                                                         \n"
+            "float4 main( in const float4 xPos : SV_Position, in const float2 UV : TEXCOORD0  ) : SV_Target         \n"
+            "{                                                                                                      \n"
+            "   return g_source.Sample( g_samplerLinearWrap, UV+g_globals.UVOffset );                               \n"
+            "}                                                                                                      \n"
+            , "ps_5_0", "main", vaShaderMacroContaner(), true );
+
+        // vertex buffer
+        struct SimpleVertex
+        {
+            float   Position[4];
+            float   UV[2];
+        };
+        SimpleVertex triangleVerts[3] = {
+            {  0.0f,   0.141f, 0.0f, 1.0f, 0.0f, 0.0f },
+            {  0.2f,  -0.141f, 0.0f, 1.0f, 1.0f, 0.0f },
+            { -0.2f,  -0.141f, 0.0f, 1.0f, 0.0f, 1.0f },
+        };
+        vertexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexBuffer, renderDevice ); // get the platform dependent object
+        vertexBuffer->Create( _countof(triangleVerts), sizeof(SimpleVertex), triangleVerts, false );
+
+        uint32 indices[3] = { 0, 2, 1 };
+        indexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaIndexBuffer, renderDevice ); // get the platform dependent object
+        indexBuffer->Create( 3, indices );
+
+        // textures
+        {
+            uint32 initialData[32*32];
+            for( int y = 0; y < 32; y++ )
+                for( int x = 0; x < 32; x++ )
+                    initialData[ y * 32 + x ] = (((x+y)%2) == 0)?(0xFFFFFFFF):(0x00000000);
+            texture = vaTexture::Create2D( renderDevice, vaResourceFormat::R8G8B8A8_UNORM_SRGB, 32, 32, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::RenderTarget, vaResourceAccessFlags::Default, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialData, 32*sizeof(uint32) );
+            for( int i = 0; i < _countof( stagingTextures ); i++ )
+                stagingTextures[i] = vaTexture::Create2D( renderDevice, vaResourceFormat::R8G8B8A8_TYPELESS, 32, 32, 1, 1, 1, vaResourceBindSupportFlags::None, vaResourceAccessFlags::CPUWrite, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialData, 32*sizeof(uint32) );
+        }
+
+        constantBuffer = std::make_shared<vaTypedConstantBufferWrapper<ShaderConstants>>( renderDevice );
+    }
+    
+    if( shuttingDown )
+    {
+        pixelShader = nullptr;
+        vertexShader = nullptr;
+        vertexBuffer = nullptr;
+        indexBuffer = nullptr;
+        texture = nullptr;
+        constantBuffer = nullptr;
+        for( int i = 0; i < _countof( stagingTextures ); i++ )
+            stagingTextures[i] = nullptr;
+        initialized = false;
+        return;
+    }
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    renderDevice.GetCurrentBackbuffer()->ClearRTV( *renderDevice.GetMainContext(), vaVector4( 0.8f, 0.8f, 0.9f, 1.0f ) );
+
+    ShaderConstants consts = { };
+    consts.AspectRatio  = (float)application.GetWindowClientAreaSize().x / (float)application.GetWindowClientAreaSize().y;
+    consts.UVOffset[0]  = 0.5f*(float)cos(application.GetTimeFromStart()*0.2f);
+    consts.UVOffset[1]  = 0.5f*(float)sin(application.GetTimeFromStart()*0.2f);
+    consts.Time         = (float)fmod( application.GetTimeFromStart(), 1000.0 );
+    constantBuffer->Update(*renderDevice.GetMainContext(), consts);
+
+    {
+        double time = application.GetTimeFromStart();
+
+        // loop to test for fence lock safety
+        //for( int zmz = 0; zmz < 99; zmz++ )
+        //{
+        //    static int mzm = 0; mzm = (mzm+1)%2;
+
+            if( stagingTextures[currentStagingTexture]->TryMap( *renderDevice.GetMainContext(), vaResourceMapType::Write ) )
+            {
+                vector<vaTextureMappedSubresource> & mappedData = stagingTextures[currentStagingTexture]->GetMappedData( );
+                assert( mappedData.size() == 1 );
+                for( int iy = 0; iy < mappedData[0].SizeY; iy++ )
+                    for( int ix = 0; ix < mappedData[0].SizeX; ix++ )
+                    {
+                        uint32 & pixel = mappedData[0].PixelAt<uint32>( ix, iy );
+
+                        // https://www.shadertoy.com/view/ldBGRR
+                        // Created by Kastor in 2013-10-22
+                        // main code, *original shader by: 'Plasma' by Viktor Korsun (2011)
+                        float x = (ix+0.5f)/(float)mappedData[0].SizeX;
+                        float y = (iy+0.5f)/(float)mappedData[0].SizeY;
+                        float mov0 = x+y+(float)cos(sin(time)*2.0f)*100.f+sin(x/100.f)*1000.f;
+                        double mov1 = y / 0.9f + time;
+                        float mov2 = x / 0.2f;
+                        float c1 = abs((float)(sin(mov1+time)/2.f+mov2/2.f-mov1-mov2+time));
+                        float c2 = abs((float)sin(c1+sin(mov0/1000.f+time)+sin(y/40.f+time)+sin((x+y)/100.f)*3.f));
+                        float c3 = abs((float)sin(c2+cos(mov1+mov2+c2)+cos(mov2)+sin(x/1000.f)));
+                        //if( mzm == 0 ) c1 = 0;
+                        //if( mzm == 0 ) c2 = 0;
+                        pixel = vaVector4::ToRGBA( vaMath::LinearToSRGB(vaMath::Saturate(c1)),vaMath::LinearToSRGB(vaMath::Saturate(c2)),vaMath::LinearToSRGB(vaMath::Saturate(c3)), 1 );
+                    }                                                   
+                                                                    
+                stagingTextures[currentStagingTexture]->Unmap( *renderDevice.GetMainContext() );
+
+                stagingTextures[currentStagingTexture]->CopyTo( *renderDevice.GetMainContext(), texture );
+
+                currentStagingTexture = (currentStagingTexture+1) % _countof(stagingTextures);
+            }
+            else
+            {
+                assert( false );
+            }
+        //}
+
+    }
+
+    {
+        vaGraphicsItem renderItem;
+        renderItem.Topology         = vaPrimitiveTopology::TriangleList;
+        renderItem.VertexShader     = vertexShader;
+        renderItem.VertexBuffer     = vertexBuffer;
+        renderItem.IndexBuffer      = indexBuffer;
+        renderItem.PixelShader      = pixelShader;
+        renderItem.FrontCounterClockwise = true; // just to prove index buffer works
+        renderItem.DrawType         = vaGraphicsItem::DrawType::DrawIndexed;
+        renderItem.DrawIndexedParams.IndexCount = 3;
+        renderItem.ShaderResourceViews[0] = texture;
+        renderItem.ConstantBuffers[0] = constantBuffer->GetBuffer();
+
+        renderDevice.GetMainContext()->ExecuteSingleItem( renderItem );
+    }
+
+    // test canvas 2D too - do this separately later
+#if 0
+    static int sss = 0; sss++; if( sss > 100 ) sss = 0;
+    renderDevice.GetCanvas2D( ).FillRectangle( 100, 100+(float)sss, 150, 40, 0xFF00FFFF );
+    renderDevice.GetCanvas2D( ).Render( *renderDevice.GetMainContext(), application.GetWindowClientAreaSize().x, application.GetWindowClientAreaSize().y );
+#endif
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+// + Canvas2D
+static void Simple08_TextureDownload( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    static bool                         initialized = false;
+    static shared_ptr<vaVertexShader>   vertexShader;
+    static shared_ptr<vaVertexBuffer>   vertexBuffer;
+    static shared_ptr<vaIndexBuffer>    indexBuffer;
+    static shared_ptr<vaPixelShader>    pixelShader;
+    static shared_ptr<vaTexture>        texture;
+    static shared_ptr<vaComputeShader>  textureComputeShader;
+    static shared_ptr<vaTexture>        stagingTextures[vaRenderDevice::c_BackbufferCount];
+    static int                          currentStagingTexture = 0;
+
+    struct ShaderConstants
+    {
+        float UVOffset[2];
+        float AspectRatio;
+        float Time;
+    };
+    static shared_ptr<vaTypedConstantBufferWrapper<ShaderConstants>> constantBuffer;
+
+    if( !initialized && !shuttingDown )
+    {
+        initialized = true;
+
+        // vertex shader
+        vertexShader = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexShader, renderDevice ); // get the platform dependent object
+        std::vector<vaVertexInputElementDesc> inputElements = { 
+            { "SV_Position", 0,    vaResourceFormat::R32G32B32A32_FLOAT,    0,  0, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 }, 
+            { "TEXCOORD", 0,       vaResourceFormat::R32G32_FLOAT,          0, 16, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } };
+        vertexShader->CreateShaderAndILFromBuffer( 
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float SomethingElse; };                           \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                                        \n"
+            "void main( inout float4 xPos : SV_Position, inout float2 UV : TEXCOORD0 ) { xPos.y *= g_globals.AspectRatio; }   \n"
+            , "vs_5_0", "main", inputElements, vaShaderMacroContaner(), true );
+
+        // pixel shader
+        pixelShader = VA_RENDERING_MODULE_CREATE_SHARED( vaPixelShader, renderDevice ); // get the platform dependent object
+        pixelShader->CreateShaderFromBuffer( 
+            "#include \"vaShared.hlsl\"                                                                             \n" // this defines g_samplerLinearClamp and bunch of other stuff
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float SomethingElse; };           \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                        \n"
+            "Texture2D g_source           : register( t0 );                                                         \n"
+            "float4 main( in const float4 xPos : SV_Position, in const float2 UV : TEXCOORD0  ) : SV_Target         \n"
+            "{                                                                                                      \n"
+            "   return g_source.Sample( g_samplerLinearWrap, UV+g_globals.UVOffset );                               \n"
+            "}                                                                                                      \n"
+            , "ps_5_0", "main", vaShaderMacroContaner(), true );
+
+        // texture pixel shader
+        textureComputeShader = VA_RENDERING_MODULE_CREATE_SHARED( vaComputeShader, renderDevice ); // get the platform dependent object
+        textureComputeShader->CreateShaderFromBuffer( 
+            "#include \"vaShared.hlsl\"                                                                             \n" // this defines g_samplerLinearClamp and bunch of other stuff
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float Time; };                    \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                        \n"
+            "RWTexture2D<uint>      g_textureUAV               : register( u0 );                                    \n"
+            ""
+            "" // https://www.shadertoy.com/view/ldBGRR
+            "" // Created by Kastor in 2013-10-22
+            "" // main code, *original shader by: 'Plasma' by Viktor Korsun (2011)
+            ""
+            "[numthreads( 16, 16, 1 )]"
+            "void main( uint2 dispatchThreadID : SV_DispatchThreadID )                                              \n"
+            "{                                                                                                      \n"
+            "float2 UV = (float2(dispatchThreadID) + 0.5)/32;                                                       \n"
+            "float x = UV.x;                                                                                        \n"
+            "float y = UV.y;                                                                                        \n"
+            "float mov0 = x+y+cos(sin(g_globals.Time)*2.0)*100.+sin(x/100.)*1000.;                                  \n"
+            "float mov1 = y / 0.9 +  g_globals.Time;                                                                \n"
+            "float mov2 = x / 0.2;                                                                                  \n"
+            "float c1 = abs(sin(mov1+g_globals.Time)/2.+mov2/2.-mov1-mov2+g_globals.Time);                          \n"
+            "float c2 = abs(sin(c1+sin(mov0/1000.+g_globals.Time)+sin(y/40.+g_globals.Time)+sin((x+y)/100.)*3.));   \n"
+            "float c3 = abs(sin(c2+cos(mov1+mov2+c2)+cos(mov2)+sin(x/1000.)));                                      \n"
+            "float3 color = LINEAR_to_SRGB( float3(c1,c2,c3) );                                                     \n"
+            "g_textureUAV[ dispatchThreadID ] = FLOAT4_to_R8G8B8A8_UNORM( float4( color, 1 ) );                     \n"
+            "}                                                                                                      \n"
+            , "cs_5_0", "main", vaShaderMacroContaner(), true );
+
+        // vertex buffer
+        struct SimpleVertex
+        {
+            float   Position[4];
+            float   UV[2];
+        };
+        SimpleVertex triangleVerts[3] = {
+            {  0.0f,   0.141f, 0.0f, 1.0f, 0.0f, 0.0f },
+            {  0.2f,  -0.141f, 0.0f, 1.0f, 1.0f, 0.0f },
+            { -0.2f,  -0.141f, 0.0f, 1.0f, 0.0f, 1.0f },
+        };
+        vertexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexBuffer, renderDevice ); // get the platform dependent object
+        vertexBuffer->Create( _countof(triangleVerts), sizeof(SimpleVertex), triangleVerts, false );
+
+        uint32 indices[3] = { 0, 2, 1 };
+        indexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaIndexBuffer, renderDevice ); // get the platform dependent object
+        indexBuffer->Create( 3, indices );
+
+        // textures
+        {
+            uint32 initialData[32*32];
+            for( int y = 0; y < 32; y++ )
+                for( int x = 0; x < 32; x++ )
+                    initialData[ y * 32 + x ] = (((x+y)%2) == 0)?(0xFFFFFFFF):(0x00000000);
+            texture = vaTexture::Create2D( renderDevice, vaResourceFormat::R8G8B8A8_TYPELESS, 32, 32, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::UnorderedAccess, vaResourceAccessFlags::Default, vaResourceFormat::R8G8B8A8_UNORM_SRGB, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::R32_UINT, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialData, 32*sizeof(uint32) );
+            for( int i = 0; i < _countof( stagingTextures ); i++ )
+                stagingTextures[i] = vaTexture::Create2D( renderDevice, vaResourceFormat::R8G8B8A8_TYPELESS, 32, 32, 1, 1, 1, vaResourceBindSupportFlags::None, vaResourceAccessFlags::CPURead, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialData, 32*sizeof(uint32) );
+        }
+        constantBuffer = std::make_shared<vaTypedConstantBufferWrapper<ShaderConstants>>( renderDevice );
+    }
+    
+    if( shuttingDown )
+    {
+        pixelShader = nullptr;
+        vertexShader = nullptr;
+        vertexBuffer = nullptr;
+        indexBuffer = nullptr;
+        texture = nullptr;
+        constantBuffer = nullptr;
+        textureComputeShader = nullptr;
+        for( int i = 0; i < _countof( stagingTextures ); i++ )
+            stagingTextures[i] = nullptr;
+        initialized = false;
+        return;
+    }
+
+    VA_SCOPE_CPU_TIMER( Simple08_TextureDownload );
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    renderDevice.GetCurrentBackbuffer()->ClearRTV( *renderDevice.GetMainContext(), vaVector4( 0.8f, 0.8f, 0.9f, 1.0f ) );
+
+    ShaderConstants consts = { };
+    consts.AspectRatio  = (float)application.GetWindowClientAreaSize().x / (float)application.GetWindowClientAreaSize().y;
+    consts.UVOffset[0]  = 0.5f*(float)cos(application.GetTimeFromStart()*0.2f);
+    consts.UVOffset[1]  = 0.5f*(float)sin(application.GetTimeFromStart()*0.2f);
+    consts.Time         = (float)fmod( application.GetTimeFromStart(), 1000.0 );
+    constantBuffer->Update(*renderDevice.GetMainContext(), consts);
+
+    // draw to offscreen texture
+    {
+        vaComputeItem computeItem;
+        computeItem.ComputeShader = textureComputeShader;
+        computeItem.ConstantBuffers[0] = constantBuffer->GetBuffer();
+        computeItem.UnorderedAccessViews[0] = texture;
+        assert( texture->GetSizeX() == 32 && texture->GetSizeY() == 32 );
+        computeItem.SetDispatch( 32/16, 32/16, 1 );
+        renderDevice.GetMainContext()->ExecuteSingleItem( computeItem );
+    }
+
+    // Map & draw contents pixel by pixel using Canvas2D and then copy the offscreen texture to CPU-accessible texture for the next frame.
+    {
+        vaDebugCanvas2D & debugCanvas = renderDevice.GetCanvas2D();
+
+        if( stagingTextures[currentStagingTexture]->TryMap( *renderDevice.GetMainContext(), vaResourceMapType::Read ) )
+        {
+            vector<vaTextureMappedSubresource> & mappedData = stagingTextures[currentStagingTexture]->GetMappedData( );
+            assert( mappedData.size() == 1 );
+            for( int iy = 0; iy < mappedData[0].SizeY; iy++ )
+                for( int ix = 0; ix < mappedData[0].SizeX; ix++ )
+                {
+                    const uint32 & pixel = mappedData[0].PixelAt<uint32>( ix, iy );
+                    
+                    vaVector4 col = vaVector4::SRGBToLinear( vaVector4::FromRGBA( pixel ) );
+                    debugCanvas.FillRectangle( 100+(float)ix*8, 100+(float)iy*8, 8, 8, vaVector4::ToBGRA(col) );
+                }                                                   
+                                                                    
+            stagingTextures[currentStagingTexture]->Unmap( *renderDevice.GetMainContext() );
+
+            debugCanvas.Render( *renderDevice.GetMainContext(), application.GetWindowClientAreaSize().x, application.GetWindowClientAreaSize().y );
+        }
+        else
+        {
+            assert( false );
+        }
+        stagingTextures[currentStagingTexture]->CopyFrom( *renderDevice.GetMainContext(), texture );
+        currentStagingTexture = (currentStagingTexture+1) % _countof(stagingTextures);
+    }
+
+    {
+        vaGraphicsItem renderItem;
+        renderItem.Topology         = vaPrimitiveTopology::TriangleList;
+        renderItem.VertexShader     = vertexShader;
+        renderItem.VertexBuffer     = vertexBuffer;
+        renderItem.IndexBuffer      = indexBuffer;
+        renderItem.PixelShader      = pixelShader;
+        renderItem.FrontCounterClockwise = true; // just to prove index buffer works
+        renderItem.DrawType         = vaGraphicsItem::DrawType::DrawIndexed;
+        renderItem.DrawIndexedParams.IndexCount = 3;
+        renderItem.ShaderResourceViews[0] = texture;
+        renderItem.ConstantBuffers[0] = constantBuffer->GetBuffer();
+
+        renderDevice.GetMainContext()->ExecuteSingleItem( renderItem );
+    }
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+static void Simple09_SavingScreenshot( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    static bool                         initialized = false;
+    static bool                         captureSShotNextFrame = false;
+    static shared_ptr<vaVertexShader>   vertexShader;
+    static shared_ptr<vaVertexBuffer>   vertexBuffer;
+    static shared_ptr<vaIndexBuffer>    indexBuffer;
+    static shared_ptr<vaPixelShader>    pixelShader;
+    static shared_ptr<vaTexture>        offscreenRT;
+    static shared_ptr<vaUISimplePanel>  UIPanel;
+
+    struct ShaderConstants
+    {
+        float UVOffset[2];
+        float AspectRatio;
+        float Time;
+    };
+    static shared_ptr<vaTypedConstantBufferWrapper<ShaderConstants>> constantBuffer;
+
+    if( !initialized && !shuttingDown )
+    {
+        initialized = true;
+
+        // vertex shader
+        vertexShader = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexShader, renderDevice ); // get the platform dependent object
+        std::vector<vaVertexInputElementDesc> inputElements = { 
+            { "SV_Position", 0,    vaResourceFormat::R32G32B32A32_FLOAT,    0,  0, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 }, 
+            { "TEXCOORD", 0,       vaResourceFormat::R32G32_FLOAT,          0, 16, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } };
+        vertexShader->CreateShaderAndILFromBuffer( 
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float SomethingElse; };                           \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                                        \n"
+            "void main( inout float4 xPos : SV_Position, inout float2 UV : TEXCOORD0 ) { xPos.y *= g_globals.AspectRatio; }   \n"
+            , "vs_5_0", "main", inputElements, vaShaderMacroContaner(), true );
+
+        // pixel shader
+        pixelShader = VA_RENDERING_MODULE_CREATE_SHARED( vaPixelShader, renderDevice ); // get the platform dependent object
+        pixelShader->CreateShaderFromBuffer( 
+            "#include \"vaShared.hlsl\"                                                                             \n" // this defines g_samplerLinearClamp and bunch of other stuff
+            "struct ShaderConstants{ float2 UVOffset; float AspectRatio; float Time; };                    \n"
+            "cbuffer Simple04Globals : register(b0) { ShaderConstants g_globals ; }                        \n"
+            ""
+            "" // https://www.shadertoy.com/view/ldBGRR
+            "" // Created by Kastor in 2013-10-22
+            "" // main code, *original shader by: 'Plasma' by Viktor Korsun (2011)
+            ""
+            "float4 main( in const float4 xPos : SV_Position, in const float2 UV : TEXCOORD0  ) : SV_Target         \n"
+            "{                                                                                                      \n"
+            "float x = UV.x;                                                                                        \n"
+            "float y = UV.y;                                                                                        \n"
+            "float mov0 = x+y+cos(sin(g_globals.Time)*2.0)*100.+sin(x/100.)*1000.;                                  \n"
+            "float mov1 = y / 0.9 +  g_globals.Time;                                                                \n"
+            "float mov2 = x / 0.2;                                                                                  \n"
+            "float c1 = abs(sin(mov1+g_globals.Time)/2.+mov2/2.-mov1-mov2+g_globals.Time);                          \n"
+            "float c2 = abs(sin(c1+sin(mov0/1000.+g_globals.Time)+sin(y/40.+g_globals.Time)+sin((x+y)/100.)*3.));   \n"
+            "float c3 = abs(sin(c2+cos(mov1+mov2+c2)+cos(mov2)+sin(x/1000.)));                                      \n"
+            "return float4(c1,c2,c3,1);                                                                             \n"
+            "}                                                                                                      \n"
+            , "ps_5_0", "main", vaShaderMacroContaner(), true );
+
+        // vertex buffer
+        struct SimpleVertex
+        {
+            float   Position[4];
+            float   UV[2];
+        };
+        SimpleVertex triangleVerts[3] = {
+            {  0.0f*4,   0.141f*4, 0.0f, 1.0f, 3*0.0f, 3*0.0f },
+            {  0.2f*4,  -0.141f*4, 0.0f, 1.0f, 3*1.0f, 3*0.0f },
+            { -0.2f*4,  -0.141f*4, 0.0f, 1.0f, 3*0.0f, 3*1.0f },
+        };
+        vertexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaVertexBuffer, renderDevice ); // get the platform dependent object
+        vertexBuffer->Create( _countof(triangleVerts), sizeof(SimpleVertex), triangleVerts, false );
+
+        uint32 indices[3] = { 0, 2, 1 };
+        indexBuffer = VA_RENDERING_MODULE_CREATE_SHARED( vaIndexBuffer, renderDevice ); // get the platform dependent object
+        indexBuffer->Create( 3, indices );
+
+        constantBuffer = std::make_shared<vaTypedConstantBufferWrapper<ShaderConstants>>( renderDevice );
+
+        UIPanel = std::make_shared<vaUISimplePanel>( [&renderDevice] () 
+        {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+            if( ImGui::Button( "CaptureScreenshot!!" ) )
+            {
+                captureSShotNextFrame = true;
+            }
+#endif
+        },
+            "SavingScreenshotSample", 0, true, vaUIPanel::DockLocation::DockedLeft );
+    }
+    
+    if( shuttingDown )
+    {
+        pixelShader = nullptr;
+        vertexShader = nullptr;
+        vertexBuffer = nullptr;
+        indexBuffer = nullptr;
+        offscreenRT = nullptr;
+        constantBuffer = nullptr;
+        UIPanel = nullptr;
+        initialized = false;
+        return;
+    }
+
+    if( offscreenRT == nullptr || offscreenRT->GetSizeX() != renderDevice.GetCurrentBackbuffer()->GetSizeX() || offscreenRT->GetSizeY() != renderDevice.GetCurrentBackbuffer()->GetSizeY() )
+        offscreenRT = vaTexture::Create2D( renderDevice, vaResourceFormat::R8G8B8A8_UNORM_SRGB, renderDevice.GetCurrentBackbuffer()->GetSizeX(), renderDevice.GetCurrentBackbuffer()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::RenderTarget );
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    auto backupOutputs = renderDevice.GetMainContext()->GetOutputs( );
+
+    renderDevice.GetMainContext()->SetRenderTarget( offscreenRT, nullptr, true );
+    offscreenRT->ClearRTV( *renderDevice.GetMainContext(), vaVector4( 0.8f, 0.8f, 0.9f, 1.0f ) );
+
+    ShaderConstants consts = { };
+    consts.AspectRatio = (float)application.GetWindowClientAreaSize().x / (float)application.GetWindowClientAreaSize().y;
+    consts.UVOffset[0] = 0.5f*(float)cos(application.GetTimeFromStart());
+    consts.UVOffset[1] = 0.5f*(float)sin(application.GetTimeFromStart());
+    consts.Time         = (float)fmod( application.GetTimeFromStart(), 1000.0 );
+    constantBuffer->Update(*renderDevice.GetMainContext(), consts);
+
+    vaGraphicsItem renderItem;
+    renderItem.Topology         = vaPrimitiveTopology::TriangleList;
+    renderItem.VertexShader     = vertexShader;
+    renderItem.VertexBuffer     = vertexBuffer;
+    renderItem.IndexBuffer      = indexBuffer;
+    renderItem.PixelShader      = pixelShader;
+    renderItem.FrontCounterClockwise = true; // just to prove index buffer works
+    renderItem.DrawType         = vaGraphicsItem::DrawType::DrawIndexed;
+    renderItem.DrawIndexedParams.IndexCount = 3;
+    renderItem.ConstantBuffers[0] = constantBuffer->GetBuffer();
+
+    renderDevice.GetMainContext()->ExecuteSingleItem( renderItem );
+
+    renderDevice.GetMainContext()->SetOutputs( backupOutputs );
+
+    renderDevice.GetMainContext()->CopySRVToCurrentOutput( offscreenRT );
+
+    if( captureSShotNextFrame )
+    {
+        captureSShotNextFrame = false;
+        wstring path = vaCore::GetExecutableDirectory() + L"test-screenshot.png";
+
+        VA_LOG( L"Capturing screenshot to '%s'...", path.c_str() );
+
+        if( offscreenRT->SaveToPNGFile( *(renderDevice.GetMainContext()), path ) )
+            VA_LOG_SUCCESS( L"   OK" );
+        else
+            VA_LOG_ERROR( L"   FAILED" );
+    }
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+// Also demonstrates loading a texture (in this case a cubemap)
+static void Simple10_Skybox( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    static bool                         initialized = false;
+    static shared_ptr<vaSkybox>         skybox;
+    static shared_ptr<vaTexture>        skyboxTexture;
+    static shared_ptr<vaCameraBase>     camera;
+
+    if( !initialized && !shuttingDown )
+    {
+        initialized = true;
+
+        skybox = VA_RENDERING_MODULE_CREATE_SHARED( vaSkybox, renderDevice );
+
+        skyboxTexture = vaTexture::CreateFromImageFile( renderDevice, vaStringTools::SimpleNarrow(vaCore::GetExecutableDirectory()) + "Media\\sky_cube.dds", vaTextureLoadFlags::Default );
+
+        skybox->SetCubemap( skyboxTexture );
+
+        // scale brightness
+        skybox->Settings().ColorMultiplier    = 1.0f;
+
+        camera = std::make_shared<vaCameraBase>( true );
+        camera->SetYFOV( 65.0f / 180.0f * VA_PIf );
+    }
+    
+    if( shuttingDown )
+    {
+        skyboxTexture = nullptr;
+        skybox = nullptr;
+        camera = nullptr;
+        initialized = false;
+        return;
+    }
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    // setup and rotate camera
+    camera->SetViewportSize( renderDevice.GetMainContext()->GetViewport().Width, renderDevice.GetMainContext()->GetViewport().Height );
+    camera->SetPosition( { 0, 0, 0 } );
+    camera->SetOrientationLookAt( { (float)cos(0.1*application.GetTimeFromStart()), (float)sin(0.1*application.GetTimeFromStart()), 0 } );
+    camera->Tick( deltaTime, true );
+
+    // needed for more rendering of more complex items - in this case skybox requires it only to get the camera
+    vaSceneDrawContext drawContext( *renderDevice.GetMainContext(), *camera, vaDrawContextOutputType::Forward );
+
+    // opaque skybox
+    skybox->Draw( drawContext );
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+static void Simple11_Basic3DMesh( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    static bool                             initialized = false;
+    static shared_ptr<vaTexture>            depthBuffer;
+    static shared_ptr<vaSkybox>             skybox;
+    static shared_ptr<vaTexture>            skyboxTexture;
+    static shared_ptr<vaCameraBase>         camera;
+    static shared_ptr<vaRenderMesh>         meshTeapot;
+    static shared_ptr<vaRenderMesh>         meshPlane;
+    static shared_ptr<vaRenderMeshDrawList> meshList;
+    // static shared_ptr<vector<shared_ptr<vaLight>>>
+    //                                         lights;
+    static shared_ptr<vaLighting>           lighting;
+
+    if( !initialized && !shuttingDown )
+    {
+        initialized = true;
+
+        skybox = VA_RENDERING_MODULE_CREATE_SHARED( vaSkybox, renderDevice );
+
+        skyboxTexture = vaTexture::CreateFromImageFile( renderDevice, vaStringTools::SimpleNarrow(vaCore::GetExecutableDirectory()) + "Media\\sky_cube.dds", vaTextureLoadFlags::Default );
+
+        skybox->SetCubemap( skyboxTexture );
+
+        // scale brightness
+        skybox->Settings().ColorMultiplier    = 1.0f;
+
+        camera = std::make_shared<vaCameraBase>( true );
+        camera->SetYFOV( 65.0f / 180.0f * VA_PIf );
+
+        lighting              = VA_RENDERING_MODULE_CREATE_SHARED( vaLighting, renderDevice );
+        
+        // lights = std::make_shared<vector<shared_ptr<vaLight>>>();
+        // lights->push_back( std::make_shared<vaLight>( vaLight::MakePoint( "PtLight", 0.2f, vaVector3( 6, 6, 5 ), vaVector3( 3, 3, 3 ) ) ) );
+        // lights->push_back( std::make_shared<vaLight>( vaLight::MakeAmbient( "AmbLight", vaVector3( 0.05f, 0.05f, 0.1f ) ) ) );
+        // lighting->SetLights( *lights );
+
+        meshTeapot = vaRenderMesh::CreateTeapot( renderDevice, vaMatrix4x4::Identity );
+        meshPlane  = vaRenderMesh::CreatePlane( renderDevice, vaMatrix4x4::Identity, 5.0f, 5.0f );
+
+        meshList = std::make_shared<vaRenderMeshDrawList>();
+        meshList->Insert( meshTeapot, vaMatrix4x4::Identity, {0, 0, 0} );
+        meshList->Insert( meshPlane, vaMatrix4x4::Translation(0, 0, -2.2f), {0, 0, 0} );
+    }
+    
+    if( shuttingDown )
+    {
+        depthBuffer = nullptr;
+        skyboxTexture = nullptr;
+        skybox = nullptr;
+        camera = nullptr;
+        meshTeapot = nullptr;
+        meshPlane = nullptr;
+        meshList = nullptr;
+        lighting = nullptr;
+        //lights = nullptr;
+        initialized = false;
+        return;
+    }
+
+    auto currentBackbuffer = renderDevice.GetCurrentBackbuffer();
+
+    // Create/update depth
+    if( depthBuffer == nullptr || depthBuffer->GetSize() != currentBackbuffer->GetSize() || depthBuffer->GetSampleCount() != currentBackbuffer->GetSampleCount() )
+        depthBuffer = vaTexture::Create2D( renderDevice, vaResourceFormat::D32_FLOAT, currentBackbuffer->GetSizeX(), currentBackbuffer->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::DepthStencil );
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    vaRenderDeviceContext & mainContext = *renderDevice.GetMainContext();
+
+    mainContext.SetRenderTarget( currentBackbuffer, depthBuffer, false );
+    //currentBackbuffer->ClearRTV( mainContext, vaVector4( 0.0f, 0.0f, 0.0f, 0.0f ) );
+    depthBuffer->ClearDSV( mainContext, true, camera->GetUseReversedZ( ) ? ( 0.0f ) : ( 1.0f ), false, 0 );
+
+    // setup and rotate camera
+    camera->SetViewportSize( mainContext.GetViewport().Width, mainContext.GetViewport().Height );
+    camera->SetPosition( 5.0f * vaVector3{ (float)cos(0.1*application.GetTimeFromStart()), (float)sin(0.1*application.GetTimeFromStart()), 0.5f } );
+    camera->SetOrientationLookAt( { 0, 0, 0 } );
+    camera->Tick( deltaTime, true );
+
+    // needed for more rendering of more complex items - in this case skybox requires it only to get the camera
+    vaSceneDrawContext drawContext( mainContext, *camera, vaDrawContextOutputType::Forward, vaDrawContextFlags::None, lighting.get() );
+
+    // opaque skybox
+    skybox->Draw( drawContext );
+
+    renderDevice.GetMeshManager().Draw( drawContext, *meshList, vaBlendMode::Opaque, vaRenderMeshDrawFlags::EnableDepthTest | vaRenderMeshDrawFlags::EnableDepthWrite );
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+void Simple12_PostProcess( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    struct Globals
+    {
+        shared_ptr<vaSkybox>            Skybox;
+        shared_ptr<vaTexture>           SkyboxTexture;
+        shared_ptr<vaCameraBase>        Camera;
+        shared_ptr<vaRenderMesh>        MeshTeapot;
+        shared_ptr<vaRenderMesh>        MeshPlane;
+        vaRenderMeshDrawList            MeshList;
+        shared_ptr<vaLighting>          Lighting;
+        shared_ptr<vaTexture>           OffscreenRT;
+        shared_ptr<vaTexture>           DepthBuffer;
+
+        shared_ptr<vaPostProcess>       PostProcess;
+        float                           PPHue        = 0.1f;
+        float                           PPSaturation = 0.5f;
+        float                           PPBrightness = 0.2f;
+        float                           PPContrast   = -0.01f;
+
+        shared_ptr<vaUISimplePanel>     UIPanel;
+    };
+    static shared_ptr<Globals> globals;
+
+    if( shuttingDown )
+    {
+        globals = nullptr;
+        return;
+    }
+    else if( globals == nullptr )
+    {
+        globals = std::make_shared<Globals>( );
+
+        globals->Skybox = VA_RENDERING_MODULE_CREATE_SHARED( vaSkybox, renderDevice );
+
+        globals->SkyboxTexture = vaTexture::CreateFromImageFile( renderDevice, vaStringTools::SimpleNarrow(vaCore::GetExecutableDirectory()) + "Media\\sky_cube.dds", vaTextureLoadFlags::Default );
+
+        globals->Skybox->SetCubemap( globals->SkyboxTexture );
+
+        // scale brightness
+        globals->Skybox->Settings().ColorMultiplier    = 1.0f;
+
+        globals->Camera = std::make_shared<vaCameraBase>( true );
+        globals->Camera->SetYFOV( 65.0f / 180.0f * VA_PIf );
+
+        globals->Lighting            = VA_RENDERING_MODULE_CREATE_SHARED( vaLighting, renderDevice );
+        
+        globals->MeshTeapot = vaRenderMesh::CreateTeapot( renderDevice, vaMatrix4x4::Identity );
+        globals->MeshPlane  = vaRenderMesh::CreatePlane( renderDevice, vaMatrix4x4::Identity, 5.0f, 5.0f );
+
+        globals->MeshList.Insert( globals->MeshTeapot, vaMatrix4x4::Identity, {0, 0, 0} );
+        globals->MeshList.Insert( globals->MeshPlane, vaMatrix4x4::Translation(0, 0, -2.2f), {0, 0, 0} );
+
+        globals->PostProcess         = VA_RENDERING_MODULE_CREATE_SHARED( vaPostProcess, renderDevice );
+
+        globals->UIPanel = std::make_shared<vaUISimplePanel>( [g = &(*globals)] () 
+        {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+            ImGui::InputFloat( "Hue", &g->PPHue, 0.1f );
+            ImGui::InputFloat( "Saturation", &g->PPSaturation, 0.1f );
+            ImGui::InputFloat( "Brightness", &g->PPBrightness, 0.1f );
+            ImGui::InputFloat( "Contrast", &g->PPContrast, 0.1f );
+#endif
+        },
+            "PostProcessSample", 0, true, vaUIPanel::DockLocation::DockedLeft );
+    }
+    
+    auto currentBackbuffer = renderDevice.GetCurrentBackbuffer();
+
+    // Create/update depth
+    if( globals->DepthBuffer == nullptr || globals->DepthBuffer->GetSize() != currentBackbuffer->GetSize() || globals->DepthBuffer->GetSampleCount() != currentBackbuffer->GetSampleCount() )
+        globals->DepthBuffer = vaTexture::Create2D( renderDevice, vaResourceFormat::D32_FLOAT, currentBackbuffer->GetSizeX(), currentBackbuffer->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::DepthStencil );
+
+    // Create/update offscreen render target
+    if( globals->OffscreenRT == nullptr || globals->OffscreenRT->GetSizeX() != renderDevice.GetCurrentBackbuffer()->GetSizeX() || globals->OffscreenRT->GetSizeY() != renderDevice.GetCurrentBackbuffer()->GetSizeY() )
+        globals->OffscreenRT = vaTexture::Create2D( renderDevice, vaResourceFormat::R8G8B8A8_UNORM_SRGB, renderDevice.GetCurrentBackbuffer()->GetSizeX(), renderDevice.GetCurrentBackbuffer()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::RenderTarget );
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    vaRenderDeviceContext & mainContext = *renderDevice.GetMainContext();
+
+    auto backupOutputs = renderDevice.GetMainContext()->GetOutputs( );
+
+    mainContext.SetRenderTarget( globals->OffscreenRT, globals->DepthBuffer, false );
+    //currentBackbuffer->ClearRTV( mainContext, vaVector4( 0.0f, 0.0f, 0.0f, 0.0f ) );
+    globals->DepthBuffer->ClearDSV( mainContext, true, globals->Camera->GetUseReversedZ( ) ? ( 0.0f ) : ( 1.0f ), false, 0 );
+
+    // setup and rotate camera
+    globals->Camera->SetViewportSize( mainContext.GetViewport().Width, mainContext.GetViewport().Height );
+    globals->Camera->SetPosition( 5.0f * vaVector3{ (float)cos(0.1*application.GetTimeFromStart()), (float)sin(0.1*application.GetTimeFromStart()), 0.5f } );
+    globals->Camera->SetOrientationLookAt( { 0, 0, 0 } );
+    globals->Camera->Tick( deltaTime, true );
+
+    // needed for more rendering of more complex items - in this case skybox requires it only to get the camera
+    vaSceneDrawContext drawContext( mainContext, *globals->Camera, vaDrawContextOutputType::Forward, vaDrawContextFlags::None, globals->Lighting.get() );
+
+    // opaque skybox
+    globals->Skybox->Draw( drawContext );
+
+    // draw meshes
+    renderDevice.GetMeshManager().Draw( drawContext, globals->MeshList, vaBlendMode::Opaque, vaRenderMeshDrawFlags::EnableDepthTest | vaRenderMeshDrawFlags::EnableDepthWrite );
+
+    // restore original render target(s) - backbuffer in this case
+    renderDevice.GetMainContext()->SetOutputs( backupOutputs );
+
+    // copy contents of offscreen rendertarget to the backbuffer
+    // renderDevice.GetMainContext()->CopySRVToCurrentOutput( globals->OffscreenRT );
+    globals->PostProcess->ColorProcessHSBC( mainContext, globals->OffscreenRT, globals->PPHue, globals->PPSaturation, globals->PPBrightness, globals->PPContrast );
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+void Simple13_Tonemap( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    struct Globals
+    {
+        shared_ptr<vaSkybox>            Skybox;
+        shared_ptr<vaTexture>           SkyboxTexture;
+        shared_ptr<vaCameraBase>        Camera;
+        shared_ptr<vaRenderMesh>        MeshTeapot;
+        shared_ptr<vaRenderMesh>        MeshPlane;
+        vaRenderMeshDrawList            MeshList;
+        shared_ptr<vaLighting>          Lighting;
+        shared_ptr<vaLight>             ShinyLight;
+        shared_ptr<vaTexture>           OffscreenRT;
+        shared_ptr<vaTexture>           DepthBuffer;
+
+        shared_ptr<vaPostProcessTonemap>Tonemap;
+    };
+    static shared_ptr<Globals> globals;
+
+    if( shuttingDown )
+    {
+        globals = nullptr;
+        return;
+    }
+    else if( globals == nullptr )
+    {
+        globals = std::make_shared<Globals>( );
+
+        globals->Skybox = VA_RENDERING_MODULE_CREATE_SHARED( vaSkybox, renderDevice );
+
+        globals->SkyboxTexture = vaTexture::CreateFromImageFile( renderDevice, vaStringTools::SimpleNarrow(vaCore::GetExecutableDirectory()) + "Media\\sky_cube.dds", vaTextureLoadFlags::Default );
+
+        globals->Skybox->SetCubemap( globals->SkyboxTexture );
+
+        // scale brightness
+        globals->Skybox->Settings().ColorMultiplier    = 1.0f;
+
+        // create camera and setup fov
+        globals->Camera = std::make_shared<vaCameraBase>( true );
+        globals->Camera->SetYFOV( 65.0f / 180.0f * VA_PIf );
+
+        globals->Lighting            = VA_RENDERING_MODULE_CREATE_SHARED( vaLighting, renderDevice );
+        vector<shared_ptr<vaLight>> lights;
+        lights.push_back( std::make_shared<vaLight>( vaLight::MakeAmbient( "DefaultAmbient", vaVector3( 0.05f, 0.05f, 0.15f ) ) ) );
+        lights.push_back( std::make_shared<vaLight>( vaLight::MakeDirectional( "DefaultDirectional", vaVector3( 1.0f, 1.0f, 0.9f ), vaVector3( 0.0f, -1.0f, -1.0f ).Normalized() ) ) );
+        lights.push_back( globals->ShinyLight = std::make_shared<vaLight>( vaLight::MakePoint( "ShinyLight", 0.1f, vaVector3( 0.0f, 0.0f, 0.0f ), vaVector3( 0.0f, 2.0f, 2.0f ) ) ) );
+        globals->Lighting->SetLights( lights );
+
+        
+        globals->MeshTeapot = vaRenderMesh::CreateTeapot( renderDevice, vaMatrix4x4::Identity );
+        globals->MeshPlane  = vaRenderMesh::CreatePlane( renderDevice, vaMatrix4x4::Identity, 5.0f, 5.0f );
+
+        globals->MeshList.Insert( globals->MeshTeapot, vaMatrix4x4::Identity, {0, 0, 0} );
+        globals->MeshList.Insert( globals->MeshPlane, vaMatrix4x4::Translation(0, 0, -2.2f), {0, 0, 0} );
+
+        globals->Tonemap         = VA_RENDERING_MODULE_CREATE_SHARED( vaPostProcessTonemap, renderDevice );
+        auto & tonemapSettings = globals->Tonemap->Settings();
+        tonemapSettings.UseAutoExposure             = true;
+        tonemapSettings.Enabled                     = true;        // for debugging using values it's easier if it's disabled
+        tonemapSettings.AutoExposureKeyValue        = 0.5f;
+        tonemapSettings.ExposureMax                 = 4.0f;
+        tonemapSettings.ExposureMin                 = -4.0f;
+        tonemapSettings.UseBloom                    = true;
+        tonemapSettings.BloomSize                   = 0.3f;
+        tonemapSettings.BloomThreshold              = 0.015f;
+        tonemapSettings.BloomMultiplier             = 0.2f;
+        tonemapSettings.AutoExposureAdaptationSpeed = 10.0f; std::numeric_limits<float>::infinity();   // for testing purposes we're setting this to infinity
+    }
+    
+    globals->ShinyLight->Intensity = (float)vaMath::Max( 0.0, sin(renderDevice.GetTotalTime() )) * 1000.0f * vaVector3( 0.5f, 1.0f, 0.5f );
+
+    auto currentBackbuffer = renderDevice.GetCurrentBackbuffer();
+
+    // Create/update depth
+    if( globals->DepthBuffer == nullptr || globals->DepthBuffer->GetSize() != currentBackbuffer->GetSize() || globals->DepthBuffer->GetSampleCount() != currentBackbuffer->GetSampleCount() )
+        globals->DepthBuffer = vaTexture::Create2D( renderDevice, vaResourceFormat::D32_FLOAT, currentBackbuffer->GetSizeX(), currentBackbuffer->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::DepthStencil );
+
+    // Create/update offscreen render target
+    if( globals->OffscreenRT == nullptr || globals->OffscreenRT->GetSizeX() != renderDevice.GetCurrentBackbuffer()->GetSizeX() || globals->OffscreenRT->GetSizeY() != renderDevice.GetCurrentBackbuffer()->GetSizeY() )
+        globals->OffscreenRT = vaTexture::Create2D( renderDevice, vaResourceFormat::R11G11B10_FLOAT, renderDevice.GetCurrentBackbuffer()->GetSizeX(), renderDevice.GetCurrentBackbuffer()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::RenderTarget );
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    vaRenderDeviceContext & mainContext = *renderDevice.GetMainContext();
+
+    auto backupOutputs = renderDevice.GetMainContext()->GetOutputs( );
+
+    mainContext.SetRenderTarget( globals->OffscreenRT, globals->DepthBuffer, false );
+    //currentBackbuffer->ClearRTV( mainContext, vaVector4( 0.0f, 0.0f, 0.0f, 0.0f ) );
+    globals->DepthBuffer->ClearDSV( mainContext, true, globals->Camera->GetUseReversedZ( ) ? ( 0.0f ) : ( 1.0f ), false, 0 );
+
+    // setup and rotate camera
+    globals->Camera->SetViewportSize( mainContext.GetViewport().Width, mainContext.GetViewport().Height );
+    globals->Camera->SetPosition( 5.0f * vaVector3{ (float)cos(0.1*application.GetTimeFromStart()), (float)sin(0.1*application.GetTimeFromStart()), 0.5f } );
+    globals->Camera->SetOrientationLookAt( { 0, 0, 0 } );
+    globals->Camera->Tick( deltaTime, true );
+
+    // tick lighting
+    globals->Lighting->Tick( deltaTime );
+
+    // needed for more rendering of more complex items - in this case skybox requires it only to get the camera
+    vaSceneDrawContext drawContext( mainContext, *globals->Camera, vaDrawContextOutputType::Forward, vaDrawContextFlags::None, globals->Lighting.get() );
+
+    // opaque skybox
+    globals->Skybox->Draw( drawContext );
+
+    // draw meshes
+    renderDevice.GetMeshManager().Draw( drawContext, globals->MeshList, vaBlendMode::Opaque, vaRenderMeshDrawFlags::EnableDepthTest | vaRenderMeshDrawFlags::EnableDepthWrite );
+
+    // restore original render target(s) - backbuffer in this case
+    renderDevice.GetMainContext()->SetOutputs( backupOutputs );
+
+    // copy contents of offscreen rendertarget while performing tonemapping
+    renderDevice.GetMainContext()->CopySRVToCurrentOutput( globals->OffscreenRT );
+    globals->Tonemap->TickAndTonemap( deltaTime, *globals->Camera, mainContext, globals->OffscreenRT );
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+
+void Simple14_PointShadow( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    struct Globals
+    {
+        shared_ptr<vaSkybox>                Skybox;
+        shared_ptr<vaTexture>               SkyboxTexture;
+        shared_ptr<vaCameraBase>            Camera;
+        shared_ptr<vaRenderMesh>            MeshTeapot;
+        shared_ptr<vaRenderMesh>            MeshPlane;
+        shared_ptr<vaRenderMeshDrawList>    MeshList;
+        shared_ptr<vaLighting>              Lighting;
+        shared_ptr<vaLight>                 ShinyLight;
+        shared_ptr<vaTexture>               OffscreenRT;
+        shared_ptr<vaTexture>               DepthBuffer;
+
+        shared_ptr<vaPostProcessTonemap>Tonemap;
+    };
+    static shared_ptr<Globals> globals;
+
+    if( shuttingDown )
+    {
+        globals = nullptr;
+        return;
+    }
+    else if( globals == nullptr )
+    {
+        globals = std::make_shared<Globals>( );
+
+        globals->Skybox = VA_RENDERING_MODULE_CREATE_SHARED( vaSkybox, renderDevice );
+
+        globals->SkyboxTexture = vaTexture::CreateFromImageFile( renderDevice, vaStringTools::SimpleNarrow(vaCore::GetExecutableDirectory()) + "Media\\sky_cube.dds", vaTextureLoadFlags::Default );
+
+#if 0 // testing updating subresources
+        globals->SkyboxTexture = vaTexture::Create2D( renderDevice, vaResourceFormat::R8G8B8A8_UNORM, 1, 1, 1, 6, 1, vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::Cubemap, vaTextureContentsType::GenericColor );
+        uint32 initialDataB = 0xFFFF0000; uint32 initialDataW = 0xFF00FFFF;
+        vaTextureSubresourceData faceSubResB = { &initialDataB, 4, 4 }; vaTextureSubresourceData faceSubResW = { &initialDataW, 4, 4 };
+        globals->SkyboxTexture->UpdateSubresources( 0, vector<vaTextureSubresourceData>{faceSubResB, faceSubResW, faceSubResB, faceSubResW, faceSubResB, faceSubResW } );
+#endif
+
+        globals->Skybox->SetCubemap( globals->SkyboxTexture );
+
+        // scale brightness
+        globals->Skybox->Settings().ColorMultiplier    = 1.0f;
+
+        // create camera and setup fov
+        globals->Camera = std::make_shared<vaCameraBase>( true );
+        globals->Camera->SetYFOV( 65.0f / 180.0f * VA_PIf );
+
+        globals->Lighting            = VA_RENDERING_MODULE_CREATE_SHARED( vaLighting, renderDevice );
+        vector<shared_ptr<vaLight>> lights;
+        lights.push_back( std::make_shared<vaLight>( vaLight::MakeAmbient( "DefaultAmbient", vaVector3( 0.05f, 0.05f, 0.15f ) ) ) );
+        lights.push_back( std::make_shared<vaLight>( vaLight::MakeDirectional( "DefaultDirectional", vaVector3( 1.0f, 1.0f, 0.9f ), vaVector3( 0.0f, -1.0f, -1.0f ).Normalized() ) ) );
+        lights.push_back( globals->ShinyLight = std::make_shared<vaLight>( vaLight::MakePoint( "ShinyLight", 0.1f, vaVector3( 300.0f, 100.0f, 100.0f ), vaVector3( 0.0f, 2.0f, 2.0f ) ) ) );
+        globals->ShinyLight->CastShadows = true; 
+        globals->Lighting->SetLights( lights );
+
+        
+        globals->MeshTeapot = vaRenderMesh::CreateTeapot( renderDevice, vaMatrix4x4::Identity );
+        globals->MeshPlane  = vaRenderMesh::CreatePlane( renderDevice, vaMatrix4x4::Identity, 5.0f, 5.0f );
+
+        globals->MeshList = std::make_shared<vaRenderMeshDrawList>();
+        globals->MeshList->Insert( globals->MeshTeapot, vaMatrix4x4::Identity, {0, 0, 0} );
+        globals->MeshList->Insert( globals->MeshPlane, vaMatrix4x4::Translation(0, 0, -2.2f), {0, 0, 0} );
+
+        globals->Tonemap         = VA_RENDERING_MODULE_CREATE_SHARED( vaPostProcessTonemap, renderDevice );
+        auto & tonemapSettings = globals->Tonemap->Settings();
+        tonemapSettings.UseAutoExposure             = true;
+        tonemapSettings.Enabled                     = true;        // for debugging using values it's easier if it's disabled
+        tonemapSettings.AutoExposureKeyValue        = 0.5f;
+        tonemapSettings.ExposureMax                 = 4.0f;
+        tonemapSettings.ExposureMin                 = -4.0f;
+        tonemapSettings.UseBloom                    = true;
+        tonemapSettings.BloomSize                   = 0.3f;
+        tonemapSettings.BloomThreshold              = 0.015f;
+        tonemapSettings.BloomMultiplier             = 0.2f;
+        tonemapSettings.AutoExposureAdaptationSpeed = 10.0f; std::numeric_limits<float>::infinity();   // for testing purposes we're setting this to infinity
+    }
+    
+    globals->ShinyLight->Position  = 5.0f * vaVector3{ (float)cos(-0.2*application.GetTimeFromStart()), (float)sin(-0.2*application.GetTimeFromStart()), 1.0f };
+    //globals->ShinyLight->Intensity = (float)vaMath::Max( 0.0, (0.5+sin(renderDevice.GetTotalTime()))) * 10.0f * vaVector3( 0.5f, 0.0f, 1.0f );
+
+    auto currentBackbuffer = renderDevice.GetCurrentBackbuffer();
+
+    // Create/update depth
+    if( globals->DepthBuffer == nullptr || globals->DepthBuffer->GetSize() != currentBackbuffer->GetSize() || globals->DepthBuffer->GetSampleCount() != currentBackbuffer->GetSampleCount() )
+        globals->DepthBuffer = vaTexture::Create2D( renderDevice, vaResourceFormat::D32_FLOAT, currentBackbuffer->GetSizeX(), currentBackbuffer->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::DepthStencil );
+
+    // Create/update offscreen render target
+    if( globals->OffscreenRT == nullptr || globals->OffscreenRT->GetSizeX() != renderDevice.GetCurrentBackbuffer()->GetSizeX() || globals->OffscreenRT->GetSizeY() != renderDevice.GetCurrentBackbuffer()->GetSizeY() )
+        globals->OffscreenRT = vaTexture::Create2D( renderDevice, vaResourceFormat::R11G11B10_FLOAT, renderDevice.GetCurrentBackbuffer()->GetSizeX(), renderDevice.GetCurrentBackbuffer()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::RenderTarget );
+
+    // Do the rendering tick and present 
+    renderDevice.BeginFrame( deltaTime );
+
+    vaRenderDeviceContext & mainContext = *renderDevice.GetMainContext();
+
+    auto backupOutputs = renderDevice.GetMainContext()->GetOutputs( );
+
+    mainContext.SetRenderTarget( globals->OffscreenRT, globals->DepthBuffer, false );
+    //currentBackbuffer->ClearRTV( mainContext, vaVector4( 0.0f, 0.0f, 0.0f, 0.0f ) );
+    globals->DepthBuffer->ClearDSV( mainContext, true, globals->Camera->GetUseReversedZ( ) ? ( 0.0f ) : ( 1.0f ), false, 0 );
+
+    // setup and rotate camera
+    globals->Camera->SetViewportSize( mainContext.GetViewport().Width, mainContext.GetViewport().Height );
+    globals->Camera->SetPosition( 5.0f * vaVector3{ (float)cos(0.05*application.GetTimeFromStart()), (float)sin(0.05*application.GetTimeFromStart()), 0.5f } );
+    globals->Camera->SetOrientationLookAt( { 0, 0, 0 } );
+    globals->Camera->Tick( deltaTime, true );
+
+    // tick lighting
+    globals->Lighting->Tick( deltaTime );
+
+    // update shadows
+    shared_ptr<vaShadowmap> queuedShadowmap = globals->Lighting->GetNextHighestPriorityShadowmapForRendering( );
+    if( queuedShadowmap != nullptr )
+    {
+        vaRenderSelection queuedShadowmapRenderSelection;
+        queuedShadowmapRenderSelection.Filter   = vaRenderSelectionFilter( *queuedShadowmap );
+        queuedShadowmapRenderSelection.MeshList = globals->MeshList;
+        queuedShadowmap->Draw( mainContext, queuedShadowmapRenderSelection );
+    }
+
+    // needed for more rendering of more complex items - in this case skybox requires it only to get the camera
+    vaSceneDrawContext drawContext( mainContext, *globals->Camera, vaDrawContextOutputType::Forward, vaDrawContextFlags::None, globals->Lighting.get() );
+
+    // opaque skybox
+    globals->Skybox->Draw( drawContext );
+
+    // draw meshes
+    renderDevice.GetMeshManager().Draw( drawContext, *globals->MeshList, vaBlendMode::Opaque, vaRenderMeshDrawFlags::EnableDepthTest | vaRenderMeshDrawFlags::EnableDepthWrite );
+
+    // restore original render target(s) - backbuffer in this case
+    renderDevice.GetMainContext()->SetOutputs( backupOutputs );
+
+    // copy contents of offscreen rendertarget while performing tonemapping
+    renderDevice.GetMainContext()->CopySRVToCurrentOutput( globals->OffscreenRT );
+    globals->Tonemap->TickAndTonemap( deltaTime, *globals->Camera, mainContext, globals->OffscreenRT );
+
+    // update and draw imgui
+    renderDevice.ImGuiRender( *renderDevice.GetMainContext() );
+
+    // present the frame, flip the buffers, etc
+    renderDevice.EndAndPresentFrame( (application.GetVsync())?(1):(0) );
+}
+static void SimpleTestLoopTick( vaRenderDevice & renderDevice, vaApplicationBase & application, float deltaTime, bool shuttingDown )
+{
+    //Simple00_BlueScreen( renderDevice, application, deltaTime, shuttingDown );
+    //Simple01_FullscreenPass( renderDevice, application, deltaTime, shuttingDown );
+    //Simple02_JustATriangle( renderDevice, application, deltaTime, shuttingDown );
+    //Simple03_TexturedTriangle( renderDevice, application, deltaTime, shuttingDown );
+    //Simple04_ConstantBuffer( renderDevice, application, deltaTime, shuttingDown );
+    //if( !shuttingDown )
+    //{
+    //    if( vaInputKeyboard::GetInstance().IsKeyDown(KK_CONTROL) )
+    //        Simple05_RenderToTexture( renderDevice, application, deltaTime, shuttingDown );
+    //    else if( vaInputKeyboard::GetInstance().IsKeyDown(KK_ALT) )
+    //        Simple06_RenderToTextureCS( renderDevice, application, deltaTime, shuttingDown );
+    //    else
+    //        Simple07_TextureUpload( renderDevice, application, deltaTime, shuttingDown );
+    //}
+    //else
+    //{
+    //    Simple05_RenderToTexture( renderDevice, application, deltaTime, shuttingDown );
+    //    Simple06_RenderToTextureCS( renderDevice, application, deltaTime, shuttingDown );
+    //    Simple07_TextureUpload( renderDevice, application, deltaTime, shuttingDown );
+    //}
+    //Simple08_TextureDownload( renderDevice, application, deltaTime, shuttingDown );
+    //Simple09_SavingScreenshot( renderDevice, application, deltaTime, shuttingDown );
+    //Simple10_Skybox( renderDevice, application, deltaTime, shuttingDown );
+    //Simple11_Basic3DMesh( renderDevice, application, deltaTime, shuttingDown );
+    //Simple12_PostProcess( renderDevice, application, deltaTime, shuttingDown );
+    Simple13_Tonemap( renderDevice, application, deltaTime, shuttingDown );
+    //Simple14_PointShadow( renderDevice, application, deltaTime, shuttingDown );
+
+    // todo:
+    // Simple09_LoadAndDisplayImage( renderDevice, application, deltaTime, shuttingDown );
+    // Simple10_CompressAndSaveImage( )
+}
+
+void CMAA2StartStopCallback( vaApplicationBase & application, bool starting )
+{
+    static shared_ptr<CMAA2Sample> cmaa2Sample;
+
+    if( starting )
+    {
+        cmaa2Sample = VA_RENDERING_MODULE_CREATE_SHARED( CMAA2Sample, CMAA2SampleConstructorParams( application.GetRenderDevice(), application) );
+        application.Event_Tick.Add( cmaa2Sample, &CMAA2Sample::OnTick );
+        application.Event_BeforeStopped.Add( cmaa2Sample, &CMAA2Sample::OnBeforeStopped );
+        application.Event_SerializeSettings.Add( cmaa2Sample, &CMAA2Sample::OnSerializeSettings );
+    }
+    else
+    {
+        cmaa2Sample = nullptr;
+    }
+}
+
+void SamplesStartStopCallback( vaApplicationBase & application, bool starting )
+{
+    static shared_ptr<int> demoLifetimeToken;
+
+    if( starting )
+    {
+        demoLifetimeToken = std::make_shared<int>(42);
+        application.Event_Tick.AddWithToken( demoLifetimeToken,
+            [&renderDevice=application.GetRenderDevice(), &application]( float deltaTime )
+        { 
+            SimpleTestLoopTick( renderDevice, application, deltaTime, false );
+        } );
+    }
+    else
+    {
+        SimpleTestLoopTick( application.GetRenderDevice(), application, 0.0f, true );
+        demoLifetimeToken = nullptr;
+    }
+}
 
 int APIENTRY _tWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow )
 {
@@ -37,46 +1860,22 @@ int APIENTRY _tWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpC
 
     {
         vaCoreInitDeinit core;
-
-        vaApplicationWin::Settings settings;
-        settings.AppName = L"CMAA2 Testbed";
-        //   settings.Instance          = hInstance;
-        settings.CmdLine = lpCmdLine;
-        settings.CmdShow = nCmdShow;
+        vaApplicationWin::Settings settings( L"CMAA2 DX11/DX12 sample", lpCmdLine, nCmdShow );
 #ifdef _DEBUG
-        settings.Vsync = true;
+        settings.Vsync = false;
 #else
         settings.Vsync = false;
 #endif
 
-        //////////////////////////////////////////////////////////////////////////
-        // DirectX specific
-        // Set up shader paths (path to Modules/Windows/Media/Shaders isn't required as the data is embedded, but this lets you recompile all shaders at runtime)
-        vector<wstring> shaderSearchPaths = { vaCore::GetExecutableDirectory( ) + L"../../Modules/Rendering/Shaders", vaCore::GetExecutableDirectory( ) };
-        std::shared_ptr<vaRenderDevice> renderDevice = std::make_shared<vaRenderDeviceDX11>( shaderSearchPaths );
         void InitializeProjectAPIParts( );
-        InitializeProjectAPIParts();
-        //////////////////////////////////////////////////////////////////////////
+        InitializeProjectAPIParts( );
 
-        shared_ptr<vaApplicationWin> application = std::shared_ptr<vaApplicationWin>( new vaApplicationWin( settings, renderDevice, lpCmdLine ) );
-        application->Initialize( );
-        
-        shared_ptr<CMAA2Sample> cmaa2Sample = VA_RENDERING_MODULE_CREATE_SHARED( CMAA2Sample, *renderDevice );
-        cmaa2Sample->Initialize( application );
-        
-        application->Event_Tick.Add( cmaa2Sample, &CMAA2Sample::OnTick );
-        application->Event_BeforeStopped.Add( cmaa2Sample, &CMAA2Sample::OnBeforeStopped );
-        application->Event_WindowResized.Add( cmaa2Sample, &CMAA2Sample::OnResized );
-        application->Event_SerializeSettings.Add( cmaa2Sample, &CMAA2Sample::OnSerializeSettings );
-
-        application->Run( );
-
-        cmaa2Sample = nullptr;     // destroy sample object first
-        application = nullptr;     // then the app
-        renderDevice = nullptr;    // then the device object
+        vaApplicationWin::Run( settings, CMAA2StartStopCallback );
+        //vaApplicationWin::Run( settings, SamplesStartStopCallback );
     }
     return 0;
 }
+
 
 static wstring CameraFileName( int index )
 {
@@ -87,9 +1886,11 @@ static wstring CameraFileName( int index )
     return fileName;
 }
 
-CMAA2Sample::CMAA2Sample( const vaRenderingModuleParams & params ) : vaRenderingModule( params ), m_SSAOEffect( params ), m_autoBench( std::make_shared<AutoBenchTool>( *this ) )
+CMAA2Sample::CMAA2Sample( const vaRenderingModuleParams & params ) : vaRenderingModule( params ), m_autoBench( std::make_shared<AutoBenchTool>( *this ) ), 
+    m_application( vaSaferStaticCast< const CMAA2SampleConstructorParams &, const vaRenderingModuleParams &>( params ).Application ),
+    vaUIPanel( vaStringTools::SimpleNarrow( vaSaferStaticCast< const CMAA2SampleConstructorParams &, const vaRenderingModuleParams &>( params ).Application.GetSettings( ).AppName ), 0, true, vaUIPanel::DockLocation::DockedLeft, "", vaVector2( 500, 750 ) )
 {
-    m_camera = std::shared_ptr<vaCameraBase>( new vaCameraBase() );
+    m_camera = std::shared_ptr<vaCameraBase>( new vaCameraBase( true ) );
 
     m_camera->SetPosition( vaVector3( 4.3f, 29.2f, 14.2f ) );
     m_camera->SetOrientationLookAt( vaVector3( 6.5f, 0.0f, 8.7f ) );
@@ -124,13 +1925,13 @@ CMAA2Sample::CMAA2Sample( const vaRenderingModuleParams & params ) : vaRendering
     m_flythroughCameraController->AddKey( vaCameraControllerFlythrough::Keyframe( vaVector3( -15.027f, -3.197f, 2.179f ), vaQuaternion( 0.480f, 0.519f, 0.519f, 0.480f ), keyTime + 0.01f ) ); keyTime+=keyTimeStep;
     m_flythroughCameraController->SetFixedUp( true );
 
-    m_renderingGlobals      = VA_RENDERING_MODULE_CREATE_SHARED( vaRenderingGlobals, GetRenderDevice() );
     m_skybox                = VA_RENDERING_MODULE_CREATE_SHARED( vaSkybox, GetRenderDevice() );
-
     m_GBuffer               = VA_RENDERING_MODULE_CREATE_SHARED( vaGBuffer, GetRenderDevice() );
     m_lighting              = VA_RENDERING_MODULE_CREATE_SHARED( vaLighting, GetRenderDevice() );
     m_postProcess           = VA_RENDERING_MODULE_CREATE_SHARED( vaPostProcess, GetRenderDevice() );
     m_postProcessTonemap    = VA_RENDERING_MODULE_CREATE_SHARED( vaPostProcessTonemap, GetRenderDevice() );
+
+    m_SSAOLiteEffect        = std::make_shared<vaASSAOLite>( GetRenderDevice() );
 
     // this is used for all frame buffer needs - color, depth, linear depth, gbuffer material stuff if used, etc.
     m_GBufferFormats = m_GBuffer->GetFormats();
@@ -168,17 +1969,20 @@ CMAA2Sample::CMAA2Sample( const vaRenderingModuleParams & params ) : vaRendering
     tonemapSettings.BloomMultiplier             = 0.03f;
     tonemapSettings.AutoExposureAdaptationSpeed = 5.0f; std::numeric_limits<float>::infinity();   // for testing purposes we're setting this to infinity
 
-    auto & ssaoSettings = m_SSAOEffect->GetSettings();
-    ssaoSettings.Radius                         = 0.5f;
-    ssaoSettings.ShadowMultiplier               = 0.43f;
-    ssaoSettings.ShadowPower                    = 1.5f;
-    ssaoSettings.QualityLevel                   = 1;
-    ssaoSettings.BlurPassCount                  = 1;
-    ssaoSettings.DetailShadowStrength           = 2.5f;
-#if 0 // drop to low quality for more perf
-    ssaoSettings.QualityLevel                   = 0;
-    ssaoSettings.ShadowMultiplier               = 0.4f;
-#endif
+    if( m_SSAOLiteEffect.get() != nullptr )
+    {
+        auto & ssaoSettings = m_SSAOLiteEffect->GetSettings();
+        ssaoSettings.Radius                         = 0.5f;
+        ssaoSettings.ShadowMultiplier               = 0.43f;
+        ssaoSettings.ShadowPower                    = 1.5f;
+        ssaoSettings.QualityLevel                   = 1;
+        ssaoSettings.BlurPassCount                  = 1;
+        ssaoSettings.DetailShadowStrength           = 2.5f;
+    #if 0 // drop to low quality for more perf
+        ssaoSettings.QualityLevel                   = 0;
+        ssaoSettings.ShadowMultiplier               = 0.4f;
+    #endif
+    }
 
     {
         vaFileStream fileIn;
@@ -196,10 +2000,13 @@ CMAA2Sample::CMAA2Sample( const vaRenderingModuleParams & params ) : vaRendering
 
     m_CMAA2 = VA_RENDERING_MODULE_CREATE_SHARED( vaCMAA2, GetRenderDevice() );
 
+    // dx12 version not supported unfortunately
+    //if( dynamic_cast<vaRenderDeviceDX12*>( &GetRenderDevice() ) == nullptr )
     m_SMAA = VA_RENDERING_MODULE_CREATE_SHARED( vaSMAAWrapper, GetRenderDevice() );
-    m_FXAA = VA_RENDERING_MODULE_CREATE_SHARED( vaFXAAWrapper, GetRenderDevice() );
 
-    m_zoomTool = VA_RENDERING_MODULE_CREATE_SHARED( vaZoomTool, GetRenderDevice() );
+    m_FXAA = std::make_shared< vaFXAAWrapper >( GetRenderDevice() );
+
+    m_zoomTool = std::make_shared<vaZoomTool>( GetRenderDevice() );
     m_imageCompareTool = std::make_shared<vaImageCompareTool>(GetRenderDevice());
 
     // create scene objects
@@ -347,12 +2154,12 @@ void CMAA2Sample::LoadAssetsAndScenes( )
         // Load from file
         m_scenes[(int32)SceneSelectionType::MinecraftLostEmpire]->Load( mediaRootFolder + L"MinecraftLostEmpire.scene.xml" );
 
-        vaVector3 ambientLightIntensity( 0.1f, 0.1f, 0.1f );
-        vaVector3 directionaLightIntensity( 1.0f, 1.0f, 0.8f );
-        vaVector3 directionaLightDirection = vaVector3( 0.5f, 0.5f, -1.0f ).Normalized();
+        //vaVector3 ambientLightIntensity( 0.1f, 0.1f, 0.1f );
+        //vaVector3 directionaLightIntensity( 1.0f, 1.0f, 0.8f );
+        //vaVector3 directionaLightDirection = vaVector3( 0.5f, 0.5f, -1.0f ).Normalized();
         m_scenes[(int32)SceneSelectionType::MinecraftLostEmpire]->SetSkybox( GetRenderDevice(), "Media\\sky_cube.dds", vaMatrix3x3::Identity, 3.0f );
-        m_scenes[(int32)SceneSelectionType::MinecraftLostEmpire]->Lights().push_back( std::make_shared<vaLight>( vaLight::MakeAmbient( "Ambient", ambientLightIntensity ) ) );
-        m_scenes[(int32)SceneSelectionType::MinecraftLostEmpire]->Lights().push_back( std::make_shared<vaLight>( vaLight::MakeDirectional( "Sun", directionaLightIntensity, directionaLightDirection ) ) );
+        // m_scenes[(int32)SceneSelectionType::MinecraftLostEmpire]->Lights().push_back( std::make_shared<vaLight>( vaLight::MakeAmbient( "Ambient", ambientLightIntensity ) ) );
+        // m_scenes[(int32)SceneSelectionType::MinecraftLostEmpire]->Lights().push_back( std::make_shared<vaLight>( vaLight::MakeDirectional( "Sun", directionaLightIntensity, directionaLightDirection ) ) );
     }
 
     // Bistro scene
@@ -393,16 +2200,6 @@ void CMAA2Sample::OnBeforeStopped( )
     m_SSAccumulationColor = nullptr;
 }
 
-void CMAA2Sample::OnResized( int width, int height, bool windowed )
-{
-    windowed; // unreferenced
-
-    vaViewport mainViewport = GetRenderDevice().GetMainContext( )->GetViewport();
-    assert( mainViewport.Width == width && mainViewport.Height == height );
-
-    m_camera->SetViewportSize( width, height );
-}
-
 void CMAA2Sample::OnTick( float deltaTime )
 {
     vaDrawResultFlags prevDrawResultFlags = m_currentDrawResults;
@@ -427,9 +2224,9 @@ void CMAA2Sample::OnTick( float deltaTime )
         }
         if( m_loadedStaticImage != nullptr )
         {
-            vaVector2i clientSize = m_application->GetWindowClientAreaSize( );
+            vaVector2i clientSize = m_application.GetWindowClientAreaSize( );
             if( (clientSize.x != m_loadedStaticImage->GetSizeX( )) || (clientSize.y != m_loadedStaticImage->GetSizeY( )) )
-                m_application->SetWindowClientAreaSize( vaVector2i( m_loadedStaticImage->GetSizeX( ), m_loadedStaticImage->GetSizeY( ) ) );
+                m_application.SetWindowClientAreaSize( vaVector2i( m_loadedStaticImage->GetSizeX( ), m_loadedStaticImage->GetSizeY( ) ) );
         }
     }
 
@@ -488,9 +2285,7 @@ void CMAA2Sample::OnTick( float deltaTime )
         m_lastDeltaTime = deltaTime;
     }
 
-    m_renderingGlobals->Tick( deltaTime );
-
-    m_camera->Tick( deltaTime, m_application->HasFocus( ) && !freezeMotionAndInput );
+    m_camera->Tick( deltaTime, m_application.HasFocus( ) && !freezeMotionAndInput );
 
     // Scene stuff
     {
@@ -551,7 +2346,11 @@ void CMAA2Sample::OnTick( float deltaTime )
             m_queuedShadowmap = nullptr;
     }
 
-    if( !freezeMotionAndInput && m_application->HasFocus( ) && !vaInputMouseBase::GetCurrent( )->IsCaptured( ) && !ImGui::GetIO().WantTextInput )
+    if( !freezeMotionAndInput && m_application.HasFocus( ) && !vaInputMouseBase::GetCurrent( )->IsCaptured( ) 
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+        && !ImGui::GetIO().WantTextInput 
+#endif
+        )
     {
         static float notificationStopTimeout = 0.0f;
         notificationStopTimeout += deltaTime;
@@ -568,7 +2367,9 @@ void CMAA2Sample::OnTick( float deltaTime )
             }
         }
 
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
         if( !ImGui::GetIO().WantCaptureMouse )
+#endif
             m_zoomTool->HandleMouseInputs( *vaInputMouseBase::GetCurrent() );
     }
     
@@ -594,22 +2395,14 @@ void CMAA2Sample::OnTick( float deltaTime )
 
         m_currentDrawResults |= RenderTick( );
 
-        // no ImGUI stuff should happen outside of these walls unless it's for debugging
-        if( GetRenderDevice().ImGuiIsVisible() )
+        // draw imgui 
+        if( vaUIManager::GetInstance().IsVisible() )
         {
-            VA_SCOPE_CPU_TIMER( ImGuiStuff );
-
-            ImGui::PushStyleColor( ImGuiCol_CheckMark, ImVec4( 0.2f, 0.9f, 0.2f, 1.0f ) );
-            InsertImGuiWindow();
-            m_application->InsertImGuiWindow();
-            vaBackgroundTaskManager::GetInstance().InsertImGuiWindow();
-            ImGui::PopStyleColor( 1 );
-
             // Actual ImGui draw!
-            GetRenderDevice().GetMainContext( )->ImGuiDraw();
+            GetRenderDevice().ImGuiRender( *GetRenderDevice().GetMainContext() );
         }
 
-        GetRenderDevice().EndAndPresentFrame( (m_application->GetVsync())?(1):(0) );
+        GetRenderDevice().EndAndPresentFrame( (m_application.GetVsync())?(1):(0) );
     }
 }
 
@@ -620,10 +2413,12 @@ vaDrawResultFlags CMAA2Sample::DrawScene( vaCameraBase & camera, vaGBuffer & gbu
 
     mainViewport;
 
+    // m_renderDevice.GetMaterialManager().SetTexturingDisabled( m_debugTexturingDisabled ); 
+
     // decide on the main render target / depth
-    shared_ptr<vaTexture> mainColorRT = gbufferOutput.GetOutputColor( );  // m_renderDevice->GetMainChainColor();
-    shared_ptr<vaTexture> mainColorRTIgnoreSRGBConvView = gbufferOutput.GetOutputColorIgnoreSRGBConvView( );  // m_renderDevice->GetMainChainColor();
-    shared_ptr<vaTexture> mainDepthRT = gbufferOutput.GetDepthBuffer( );  // m_renderDevice->GetMainChainDepth();
+    shared_ptr<vaTexture> mainColorRT = gbufferOutput.GetOutputColor( );  // m_renderDevice->GetCurrentBackbuffer();
+    shared_ptr<vaTexture> mainColorRTIgnoreSRGBConvView = gbufferOutput.GetOutputColorIgnoreSRGBConvView( );  // m_renderDevice->GetCurrentBackbuffer();
+    shared_ptr<vaTexture> mainDepthRT = gbufferOutput.GetDepthBuffer( );
 
     // clear the main render target / depth
     mainColorRT->ClearRTV( mainContext, vaVector4( 0.0f, 0.0f, 0.0f, 0.0f ) );
@@ -638,7 +2433,7 @@ vaDrawResultFlags CMAA2Sample::DrawScene( vaCameraBase & camera, vaGBuffer & gbu
         if( m_loadedStaticImage != nullptr )
         {
             VA_SCOPE_CPUGPU_TIMER( CopyStaticImage, mainContext );
-            vaSceneDrawContext drawContext( camera, mainContext, *m_renderingGlobals.get( ), vaDrawContextOutputType::DepthOnly, vaDrawContextFlags::None, m_lighting.get( ) );
+            vaSceneDrawContext drawContext( mainContext, camera, vaDrawContextOutputType::DepthOnly, vaDrawContextFlags::None, m_lighting.get( ) );
             drawContext.GlobalMIPOffset     = globalMIPOffset; 
             drawContext.GlobalPixelScale    = globalPixelScale;
 
@@ -697,7 +2492,7 @@ vaDrawResultFlags CMAA2Sample::DrawScene( vaCameraBase & camera, vaGBuffer & gbu
         if( m_settings.ZPrePass )
         {
             VA_SCOPE_CPUGPU_TIMER( ZPrePass, mainContext );
-            vaSceneDrawContext drawContext( camera, mainContext, *m_renderingGlobals.get( ), vaDrawContextOutputType::DepthOnly, vaDrawContextFlags::None );
+            vaSceneDrawContext drawContext( mainContext, camera, vaDrawContextOutputType::DepthOnly, vaDrawContextFlags::None );
             drawContext.GlobalMIPOffset     = globalMIPOffset; 
             drawContext.GlobalPixelScale    = globalPixelScale;
 
@@ -714,7 +2509,7 @@ vaDrawResultFlags CMAA2Sample::DrawScene( vaCameraBase & camera, vaGBuffer & gbu
         {
             VA_SCOPE_CPUGPU_TIMER( Forward, mainContext );
             
-            vaSceneDrawContext drawContext( camera, mainContext, *m_renderingGlobals.get( ), vaDrawContextOutputType::Forward, vaDrawContextFlags::None, m_lighting.get( ) );
+            vaSceneDrawContext drawContext( mainContext, camera, vaDrawContextOutputType::Forward, vaDrawContextFlags::None, m_lighting.get( ) );
             drawContext.GlobalMIPOffset = globalMIPOffset; drawContext.GlobalPixelScale = globalPixelScale;
 
             mainContext.SetRenderTarget( gbufferOutput.GetRadiance( ), mainDepthRT, true );
@@ -732,11 +2527,12 @@ vaDrawResultFlags CMAA2Sample::DrawScene( vaCameraBase & camera, vaGBuffer & gbu
             //vaDebugCanvas3D::GetInstance().DrawBox( vaBoundingBox( vaVector3( -35.0f, -60.0f, -10.0f ), vaVector3( 80.0f, 90.0f, 10.24f ) ), 0xFF00FF00, 0x200000FF );
 
             {
-                vaSceneDrawContext drawContext( camera, mainContext, *m_renderingGlobals.get( ), vaDrawContextOutputType::Forward, vaDrawContextFlags::None, m_lighting.get( ) );
+                vaSceneDrawContext drawContext( mainContext, camera, vaDrawContextOutputType::Forward, vaDrawContextFlags::None, m_lighting.get( ) );
                 drawContext.GlobalMIPOffset = globalMIPOffset; drawContext.GlobalPixelScale = globalPixelScale;
 
                 // needs to go in before transparencies - it's a hack anyway so let's just stick it in here, before the skybox
-                drawResults |= m_SSAOEffect->Draw( drawContext, drawContext.Camera.GetProjMatrix( ), *mainDepthRT.get( ), true, nullptr );
+                if( m_SSAOLiteEffect != nullptr )
+                    drawResults |= m_SSAOLiteEffect->Draw( drawContext, drawContext.Camera.GetProjMatrix( ), mainDepthRT, true, nullptr );
 
                 // opaque skybox
                 drawResults |= m_skybox->Draw( drawContext );
@@ -765,7 +2561,7 @@ vaDrawResultFlags CMAA2Sample::DrawScene( vaCameraBase & camera, vaGBuffer & gbu
             if( m_settings.ShowWireframe )
             {
                 VA_SCOPE_CPUGPU_TIMER( Wireframe, mainContext );
-                vaSceneDrawContext drawContext( camera, mainContext, *m_renderingGlobals.get( ), vaDrawContextOutputType::Forward, vaDrawContextFlags::SetZOffsettedProjMatrix | vaDrawContextFlags::DebugWireframePass, m_lighting.get( ) );
+                vaSceneDrawContext drawContext( mainContext, camera, vaDrawContextOutputType::Forward, vaDrawContextFlags::SetZOffsettedProjMatrix | vaDrawContextFlags::DebugWireframePass, m_lighting.get( ) );
                 drawContext.GlobalMIPOffset = globalMIPOffset; drawContext.GlobalPixelScale = globalPixelScale;
 
                 drawResults |= GetRenderDevice().GetMeshManager().Draw( drawContext, *m_currentSceneMainRenderSelection.MeshList, vaBlendMode::Opaque, vaRenderMeshDrawFlags::EnableDepthTest | vaRenderMeshDrawFlags::DepthTestIncludesEqual );
@@ -778,6 +2574,10 @@ vaDrawResultFlags CMAA2Sample::DrawScene( vaCameraBase & camera, vaGBuffer & gbu
         // Tonemap to final color & postprocess
         {
             VA_SCOPE_CPUGPU_TIMER( TonemapAndPostFX, mainContext );
+
+            // stop unrendered items from messing auto exposure
+            if( drawResults != vaDrawResultFlags::None )
+                skipTonemapTick = true;
 
             vaPostProcessTonemap::AdditionalParams tonemapParams( m_requireDeterminism, skipTonemapTick );
 
@@ -821,8 +2621,6 @@ vaDrawResultFlags CMAA2Sample::DrawScene( vaCameraBase & camera, vaGBuffer & gbu
                     drawResults |= m_postProcessTonemap->TickAndTonemap( (m_requireDeterminism)?(std::numeric_limits<float>::infinity()):(m_lastDeltaTime), camera, mainContext, gbufferOutput.GetRadiance( ), tonemapParams );
                 }
 
-                mainContext.SetOutputs( backupOutputs );
-
                 bool ppAAApplied = false;
 
                 // Apply CMAA!
@@ -835,6 +2633,7 @@ vaDrawResultFlags CMAA2Sample::DrawScene( vaCameraBase & camera, vaGBuffer & gbu
                         drawResults |= m_CMAA2->DrawMS( mainContext, mainColorRT, m_MSTonemappedColor, m_MSTonemappedColorComplexityMask );
 //                        m_CMAA2->ApplyMS( mainContext, *mainColorRT, *m_MSTonemappedColor ); test without complexity mask - should be a bit slower but identical in functionality
                     ppAAApplied = true;
+                    mainContext.SetOutputs( backupOutputs );
                 }
                 else if( m_settings.CurrentAAOption == CMAA2Sample::AAType::SMAA || (m_settings.CurrentAAOption == CMAA2Sample::AAType::SMAA_S2x) )
                 {
@@ -872,7 +2671,7 @@ vaDrawResultFlags CMAA2Sample::DrawScene( vaCameraBase & camera, vaGBuffer & gbu
 #if 0
     {
         VA_SCOPE_CPUGPU_TIMER( DebugDraw, mainContext );
-        vaSceneDrawContext drawContext( camera, mainContext, *m_renderingGlobals.get( ), vaDrawContextOutputType::Forward, vaDrawContextFlags::None, m_lighting.get( ) );
+        vaSceneDrawContext drawContext( mainContext, camera, vaDrawContextOutputType::Forward, vaDrawContextFlags::None, m_lighting.get( ) );
         drawContext.GlobalMIPOffset = globalMIPOffset; drawContext.GlobalPixelScale = globalPixelScale;
         if( colorScratchContainsFinal )
             mainContext.SetRenderTarget( gbufferColorScratch, nullptr, true );
@@ -884,26 +2683,14 @@ vaDrawResultFlags CMAA2Sample::DrawScene( vaCameraBase & camera, vaGBuffer & gbu
     return drawResults;
 }
 
-void CMAA2Sample::InsertImGuiWindow( )
-{
-#ifdef VA_IMGUI_INTEGRATION_ENABLED
-    ImGui::SetNextWindowPos( ImVec2( 8, 8 ), ImGuiCond_FirstUseEver );     // Normally user code doesn't need/want to call it because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!
-    ImGui::SetNextWindowSize( ImVec2( 400, 650 ), ImGuiCond_FirstUseEver );
-    string mainTitle = vaStringTools::SimpleNarrow( m_application->GetSettings( ).AppName );
-    if( ImGui::Begin( mainTitle.c_str( ), 0, ImVec2( 0.f, 0.f ), 0.7f, 0 ) )
-    {
-        InsertImGuiContent( );
-    }
-    ImGui::End( );
-#endif
-}
-
 vaDrawResultFlags CMAA2Sample::RenderTick( )
 {
     vaRenderDeviceContext & mainContext = *GetRenderDevice().GetMainContext( );
 
     // this is "comparer stuff" and the main render target stuff
     vaViewport mainViewport = mainContext.GetViewport( );
+
+    m_camera->SetViewportSize( mainViewport.Width, mainViewport.Height );
 
     bool colorScratchContainsFinal = false;
 
@@ -920,7 +2707,7 @@ vaDrawResultFlags CMAA2Sample::RenderTick( )
 
         if( m_scratchPostProcessColor == nullptr || m_scratchPostProcessColor->GetSizeX() != m_GBuffer->GetOutputColor()->GetSizeX() || m_scratchPostProcessColor->GetSizeY() != m_GBuffer->GetOutputColor()->GetSizeY() || m_scratchPostProcessColor->GetResourceFormat() != m_GBuffer->GetOutputColor()->GetResourceFormat() ) 
         {
-            m_scratchPostProcessColor = vaTexture::Create2D( GetRenderDevice(), m_GBuffer->GetOutputColor()->GetResourceFormat(), m_GBuffer->GetOutputColor()->GetSizeX(), m_GBuffer->GetOutputColor()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::UnorderedAccess, vaTextureAccessFlags::None, 
+            m_scratchPostProcessColor = vaTexture::Create2D( GetRenderDevice(), m_GBuffer->GetOutputColor()->GetResourceFormat(), m_GBuffer->GetOutputColor()->GetSizeX(), m_GBuffer->GetOutputColor()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::UnorderedAccess, vaResourceAccessFlags::Default, 
                 m_GBuffer->GetOutputColor()->GetSRVFormat(), m_GBuffer->GetOutputColor()->GetRTVFormat(), m_GBuffer->GetOutputColor()->GetDSVFormat(), vaResourceFormatHelpers::StripSRGB( m_GBuffer->GetOutputColor()->GetSRVFormat() ) );
             // m_scratchPostProcessColorIgnoreSRGBConvView = vaTexture::CreateView( *m_scratchPostProcessColor, m_scratchPostProcessColor->GetBindSupportFlags(), 
             //     vaResourceFormatHelpers::StripSRGB( m_scratchPostProcessColor->GetSRVFormat() ), vaResourceFormatHelpers::StripSRGB( m_scratchPostProcessColor->GetRTVFormat() ), vaResourceFormatHelpers::StripSRGB( m_scratchPostProcessColor->GetDSVFormat() ), vaResourceFormatHelpers::StripSRGB( m_scratchPostProcessColor->GetUAVFormat() ) );
@@ -928,14 +2715,14 @@ vaDrawResultFlags CMAA2Sample::RenderTick( )
 
         if( m_exportedLuma == nullptr || m_exportedLuma->GetSizeX() != m_GBuffer->GetOutputColor()->GetSizeX() || m_exportedLuma->GetSizeY() != m_GBuffer->GetOutputColor()->GetSizeY() ) 
         {
-            m_exportedLuma = vaTexture::Create2D( GetRenderDevice(), vaResourceFormat::R8_UNORM, m_GBuffer->GetRadiance()->GetSizeX(), m_GBuffer->GetRadiance()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::UnorderedAccess | vaResourceBindSupportFlags::ShaderResource, vaTextureAccessFlags::None );
+            m_exportedLuma = vaTexture::Create2D( GetRenderDevice(), vaResourceFormat::R8_UNORM, m_GBuffer->GetRadiance()->GetSizeX(), m_GBuffer->GetRadiance()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::UnorderedAccess | vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default );
             //m_exportedLuma->ClearUAV( mainContext, vaVector4( 0.5f, 0.0f, 0.0f, 0.0f ) );
         }
 
         if( msaaSampleCount > 1 )
         {
             if( m_radianceTempTexture == nullptr || m_radianceTempTexture->GetSizeX() != m_GBuffer->GetRadiance()->GetSizeX() || m_radianceTempTexture->GetSizeY() != m_GBuffer->GetRadiance()->GetSizeY() || m_radianceTempTexture->GetResourceFormat() != m_GBuffer->GetRadiance()->GetResourceFormat() ) 
-                m_radianceTempTexture = vaTexture::Create2D( GetRenderDevice(), m_GBuffer->GetRadiance()->GetResourceFormat(), m_GBuffer->GetRadiance()->GetSizeX(), m_GBuffer->GetRadiance()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource, vaTextureAccessFlags::None, m_GBuffer->GetRadiance()->GetSRVFormat(), m_GBuffer->GetRadiance()->GetRTVFormat() );
+                m_radianceTempTexture = vaTexture::Create2D( GetRenderDevice(), m_GBuffer->GetRadiance()->GetResourceFormat(), m_GBuffer->GetRadiance()->GetSizeX(), m_GBuffer->GetRadiance()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default, m_GBuffer->GetRadiance()->GetSRVFormat(), m_GBuffer->GetRadiance()->GetRTVFormat() );
 
             m_MSTonemappedColorLastUsed = 0;
 
@@ -952,7 +2739,7 @@ vaDrawResultFlags CMAA2Sample::RenderTick( )
             if( m_MSTonemappedColor == nullptr || m_MSTonemappedColor->GetSizeX() != m_GBuffer->GetRadiance()->GetSizeX() || m_MSTonemappedColor->GetSizeY() != m_GBuffer->GetRadiance()->GetSizeY() || m_MSTonemappedColor->GetArrayCount() != m_GBuffer->GetRadiance()->GetSampleCount() 
                  || m_MSTonemappedColor->GetResourceFormat() != resF || m_MSTonemappedColor->GetUAVFormat() != uavF || m_MSTonemappedColor->GetSRVFormat() != srvF )
             {
-                m_MSTonemappedColor = vaTexture::Create2D( GetRenderDevice(), resF, m_GBuffer->GetRadiance()->GetSizeX(), m_GBuffer->GetRadiance()->GetSizeY(), 1, m_GBuffer->GetRadiance()->GetSampleCount(), 1, vaResourceBindSupportFlags::UnorderedAccess | vaResourceBindSupportFlags::ShaderResource, vaTextureAccessFlags::None, srvF, vaResourceFormat::Automatic, vaResourceFormat::Automatic, uavF );
+                m_MSTonemappedColor = vaTexture::Create2D( GetRenderDevice(), resF, m_GBuffer->GetRadiance()->GetSizeX(), m_GBuffer->GetRadiance()->GetSizeY(), 1, m_GBuffer->GetRadiance()->GetSampleCount(), 1, vaResourceBindSupportFlags::UnorderedAccess | vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default, srvF, vaResourceFormat::Automatic, vaResourceFormat::Automatic, uavF );
                 // //m_MSTonemappedColorComplexityMask = vaTexture::Create2D( vaResourceFormat::R8_UINT, (m_GBuffer->GetRadiance()->GetSizeX()+1)/2, (m_GBuffer->GetRadiance()->GetSizeY()+1)/2, 1, 1, 1, vaResourceBindSupportFlags::UnorderedAccess | vaResourceBindSupportFlags::ShaderResource );
                 m_MSTonemappedColorComplexityMask = vaTexture::Create2D( GetRenderDevice(), vaResourceFormat::R8_UNORM, m_GBuffer->GetRadiance()->GetSizeX(), m_GBuffer->GetRadiance()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::UnorderedAccess | vaResourceBindSupportFlags::ShaderResource );
             }
@@ -962,7 +2749,7 @@ vaDrawResultFlags CMAA2Sample::RenderTick( )
     // draw shadowmaps if needed
     if( m_queuedShadowmap != nullptr )
     {
-        drawResults |= m_queuedShadowmap->Draw( mainContext, *m_renderingGlobals.get( ), m_queuedShadowmapRenderSelection );
+        drawResults |= m_queuedShadowmap->Draw( mainContext, m_queuedShadowmapRenderSelection );
         m_queuedShadowmap = nullptr;
         m_queuedShadowmapRenderSelection.Reset();
     }
@@ -983,7 +2770,7 @@ vaDrawResultFlags CMAA2Sample::RenderTick( )
         }
         if( m_SSScratchColor == nullptr || m_SSScratchColor->GetSizeX() != m_SSGBuffer->GetOutputColor()->GetSizeX() || m_SSScratchColor->GetSizeY() != m_SSGBuffer->GetOutputColor()->GetSizeY() || m_SSScratchColor->GetResourceFormat() != m_SSGBuffer->GetOutputColor()->GetResourceFormat() ) 
         {
-            m_SSScratchColor = vaTexture::Create2D( GetRenderDevice(), m_SSGBuffer->GetOutputColor()->GetResourceFormat(), m_SSGBuffer->GetOutputColor()->GetSizeX(), m_SSGBuffer->GetOutputColor()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::UnorderedAccess, vaTextureAccessFlags::None, 
+            m_SSScratchColor = vaTexture::Create2D( GetRenderDevice(), m_SSGBuffer->GetOutputColor()->GetResourceFormat(), m_SSGBuffer->GetOutputColor()->GetSizeX(), m_SSGBuffer->GetOutputColor()->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::UnorderedAccess, vaResourceAccessFlags::Default, 
                 m_SSGBuffer->GetOutputColor()->GetSRVFormat(), m_SSGBuffer->GetOutputColor()->GetRTVFormat(), m_SSGBuffer->GetOutputColor()->GetDSVFormat(), vaResourceFormatHelpers::StripSRGB( m_SSGBuffer->GetOutputColor()->GetSRVFormat() ) );
         }
 
@@ -1057,28 +2844,28 @@ vaDrawResultFlags CMAA2Sample::RenderTick( )
     }
 
     {
-        vaSceneDrawContext drawContext( *m_camera, mainContext, *m_renderingGlobals.get( ), vaDrawContextOutputType::DepthOnly );
+        vaSceneDrawContext drawContext( mainContext, *m_camera, vaDrawContextOutputType::DepthOnly );
 
         // 3D cursor stuff -> maybe best to do it before transparencies
+#if 1
         if( !m_autoBench->IsActive() )
         {
-            vaVector2i mousePos = vaInputMouse::GetInstance().GetCursorClientPos();
+            vaVector2i mousePos = vaInputMouse::GetInstance().GetCursorClientPosDirect();
             
-            // directly query for latest mouse position to reduce lag
-            POINT pt;
-            ::GetCursorPos( &pt ); ::ScreenToClient( m_application->GetMainHWND(), &pt );
-            mousePos.x = pt.x;
-            mousePos.y = pt.y;
-            
-            m_renderingGlobals->Update3DCursor( drawContext, m_GBuffer->GetDepthBuffer(), (vaVector2)mousePos );
-            vaVector4 mouseCursorWorld = m_renderingGlobals->GetLast3DCursorInfo();
+            GetRenderDevice().GetRenderGlobals().Update3DCursor( drawContext, m_GBuffer->GetDepthBuffer(), (vaVector2)mousePos );
+            vaVector4 mouseCursorWorld = GetRenderDevice().GetRenderGlobals().GetLast3DCursorInfo();
             m_mouseCursor3DWorldPosition = mouseCursorWorld.AsVec3();
             // GetRenderDevice().GetCanvas3D().DrawSphere( mouseCursorWorld.AsVec3(), 0.1f, 0xFF0000FF ); //, 0xFFFFFFFF );
             
             // since this is where we got the info, inform scene about any clicks here to reduce lag - not really a "rendering" type of call though
-            if( m_currentScene != nullptr && !ImGui::GetIO().WantCaptureMouse && vaInputMouseBase::GetCurrent()->IsKeyClicked( MK_Left ) )
+            if( m_currentScene != nullptr 
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+                && !ImGui::GetIO().WantCaptureMouse 
+#endif
+                && vaInputMouseBase::GetCurrent()->IsKeyClicked( MK_Left ) )
                 m_currentScene->OnMouseClick( m_mouseCursor3DWorldPosition );
         }
+#endif
     }
 
     // we haven't used supersampling for x frames? release the texture
@@ -1136,7 +2923,7 @@ vaDrawResultFlags CMAA2Sample::RenderTick( )
 
     // various helper tools - at one point these should go and become part of the base app but for now let's just stick them in here
     {
-        if( drawResults == vaDrawResultFlags::None )
+        if( drawResults == vaDrawResultFlags::None && m_imageCompareTool != nullptr )
         {
             if( m_autoBench->IsActive() && m_lighting->GetNextHighestPriorityShadowmapForRendering( ) != nullptr )
                 { VA_WARN( "Autobench active but light shadowmaps still updating - this will cause inconsistency in the results!" ); }
@@ -1158,7 +2945,7 @@ vaDrawResultFlags CMAA2Sample::RenderTick( )
     }
 
     // restore main display buffers
-    mainContext.SetRenderTarget( GetRenderDevice().GetMainChainColor(), GetRenderDevice().GetMainChainDepth(), true );
+    mainContext.SetRenderTarget( GetRenderDevice().GetCurrentBackbuffer(), nullptr, true );
 
     // Final apply to screen (redundant copy for now, leftover from expanded screen thing)
     if( drawResults != vaDrawResultFlags::ShadersStillCompiling || !m_autoBench->IsActive() ) // prevent flashing during benchmarking due to shader compilation - looks ugly
@@ -1177,7 +2964,11 @@ vaDrawResultFlags CMAA2Sample::RenderTick( )
 
     // keyboard-based selection
     {
-        if( m_application->HasFocus( ) && !vaInputMouseBase::GetCurrent( )->IsCaptured( ) && !ImGui::GetIO( ).WantCaptureKeyboard )
+        if( m_application.HasFocus( ) && !vaInputMouseBase::GetCurrent( )->IsCaptured( ) 
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+            && !ImGui::GetIO( ).WantCaptureKeyboard 
+#endif
+            )
         {
             auto keyboard = vaInputKeyboardBase::GetCurrent( );
             if( !keyboard->IsKeyDown( vaKeyboardKeys::KK_SHIFT ) && !keyboard->IsKeyDown( vaKeyboardKeys::KK_CONTROL ) && !keyboard->IsKeyDown( vaKeyboardKeys::KK_ALT ) )
@@ -1199,20 +2990,6 @@ vaDrawResultFlags CMAA2Sample::RenderTick( )
     }
 
     return drawResults;
-}
-
-void CMAA2Sample::Initialize( const std::shared_ptr<vaApplicationWin> & application )
-{
-    m_application = application;
-
-    m_application->HelperUISettings( ).Flags   = vaApplicationWin::HelperUIFlags( (int)vaApplicationWin::HelperUIFlags::ShowStatsGraph           | 
-                                                                                (int)vaApplicationWin::HelperUIFlags::ShowResolutionOptions    | 
-                                                                                (int)vaApplicationWin::HelperUIFlags::ShowGPUProfiling         |
-//                                                                                (int)vaApplicationWin::HelperUIFlags::ShowCPUProfiling         |
-//                                                                                (int)vaApplicationWin::HelperUIFlags::ShowAssetPackManager     |
-                                                                                (int)vaApplicationWin::HelperUIFlags::ShowConsoleWindow 
-     );
-    m_application->HelperUISettings( ).GPUProfilerDefaultOpen  = true;
 }
 
 void CMAA2Sample::OnSerializeSettings( vaXMLSerializer & serializer )
@@ -1339,7 +3116,7 @@ protected:
         m_parent.GetFlythroughCameraController()->SetPlayTime( vaMath::Max( 0.0f, m_currentFrame * c_frameDeltaTime ) );
     }
     virtual void    OnRender( AutoBenchTool & ) override                { }
-    //virtual void    OnRenderComparePoint( AutoBenchTool & abTool, vaImageCompareTool & imageCompareTool, vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess ) override;
+    //virtual void    OnRenderComparePoint( AutoBenchTool & abTool, vaImageCompareTool & imageCompareTool, vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess ) override;
     virtual bool    IsDone( AutoBenchTool & ) const override            { return m_isDone; }
     virtual float   GetProgress( ) const override                        { if( m_totalTimePerAAOption.size() == 0 ) return 0.5f; return (float)(m_currentAAOption + c_warmupLoops + (float)m_currentFrame/(c_totalFrameCount-1)) / (float)(m_totalTimePerAAOption.size()-1); }
 };
@@ -1455,11 +3232,11 @@ protected:
         assert( m_parent.Settings().CurrentAAOption <= CMAA2Sample::AAType::SuperSampleReference );
     }
     virtual void    OnRender( AutoBenchTool & ) override                { }
-    virtual void    OnRenderComparePoint( AutoBenchTool & abTool, vaImageCompareTool & imageCompareTool, vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess ) override
+    virtual void    OnRenderComparePoint( AutoBenchTool & abTool, vaImageCompareTool & imageCompareTool, vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess ) override
     { 
         if( m_currentAAOption == -1 )
         {
-            imageCompareTool.SaveAsReference( apiContext, colorInOut );
+            imageCompareTool.SaveAsReference( renderContext, colorInOut );
 
 			if( m_currentTestTimePoint == 0 )
             {
@@ -1490,7 +3267,7 @@ protected:
         }
         else
         {
-            vaVector4 diff = imageCompareTool.CompareWithReference( apiContext, colorInOut, postProcess );
+            vaVector4 diff = imageCompareTool.CompareWithReference( renderContext, colorInOut, postProcess );
 
             if( diff.x == -1 )
             {
@@ -1508,7 +3285,7 @@ protected:
             }
 
             if( m_currentReference == 0 )
-                postProcess->SaveTextureToPNGFile( apiContext, abTool.ReportGetDir() + vaStringTools::SimpleWiden( vaStringTools::Format( "%d_%d_%s.png", m_currentTestTimePoint, m_currentAAOption, m_parent.GetAAName( m_parent.Settings().CurrentAAOption ) ) ), *colorInOut );
+                colorInOut->SaveToPNGFile( renderContext, abTool.ReportGetDir() + vaStringTools::SimpleWiden( vaStringTools::Format( "%d_%d_%s.png", m_currentTestTimePoint, m_currentAAOption, m_parent.GetAAName( m_parent.Settings().CurrentAAOption ) ) ) );
         }
     }
 
@@ -1558,12 +3335,12 @@ protected:
         m_parent.GetFlythroughCameraController()->SetPlayTime( vaMath::Max( 0.0f, m_currentFrame * c_frameDeltaTime ) );
     }
     virtual void    OnRender( AutoBenchTool & ) override                {  }
-    virtual void    OnRenderComparePoint( AutoBenchTool & abTool, vaImageCompareTool & imageCompareTool, vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess ) override
+    virtual void    OnRenderComparePoint( AutoBenchTool & abTool, vaImageCompareTool & imageCompareTool, vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess ) override
     {
-        abTool; imageCompareTool;
+        abTool; imageCompareTool; postProcess;
         if( m_currentFrame >= 0 && m_currentFrame < c_totalFrameCount )
         {
-            postProcess->SaveTextureToPNGFile( apiContext, abTool.ReportGetDir() + vaStringTools::SimpleWiden( vaStringTools::Format( "%s_frame_%05d.png", m_parent.GetAAName( m_parent.Settings().CurrentAAOption ), m_currentFrame ) ), *colorInOut );
+            colorInOut->SaveToPNGFile( renderContext, abTool.ReportGetDir() + vaStringTools::SimpleWiden( vaStringTools::Format( "%s_frame_%05d.png", m_parent.GetAAName( m_parent.Settings().CurrentAAOption ), m_currentFrame ) ) );
         }
     }
     virtual bool    IsDone( AutoBenchTool & ) const override            { return m_isDone; }
@@ -1585,12 +3362,27 @@ void AutoBenchTool::Tick( float deltaTime )
             m_backupFlythroughCameraSpeed   = m_parent.GetFlythroughCameraController( )->GetPlaySpeed();
             m_backupFlythroughCameraEnabled = m_parent.GetFlythroughCameraEnabled( );
 
-            string info = "System info:  " + vaCore::GetCPUIDName() + ", " + vaStringTools::SimpleNarrow( m_parent.GetRenderDevice().GetAdapterNameShort( ) );
+            string info = "System info:  " + vaCore::GetCPUIDName() + ", " + m_parent.GetRenderDevice().GetAdapterNameShort( );
+            info += "\r\nAPI:  " + m_parent.GetRenderDevice().GetAPIName();
+            if( (m_parent.GetRenderDevice().GetAPIName() == "DirectX12") )
+                info += " (not yet fully optimized implementation)";
             ReportAddText( info + "\r\n\r\n" );
 
-            ReportAddText( vaStringTools::Format("Resolution:   %d x %d\r\n", m_parent.GetApplication()->GetWindowClientAreaSize().x, m_parent.GetApplication()->GetWindowClientAreaSize().y ) );
-            ReportAddText( vaStringTools::Format("Vsync:        ") + ((m_parent.GetApplication()->GetSettings().Vsync)?("!!ON!!"):("OFF")) + "\r\n" );
-            ReportAddText( vaStringTools::Format("Fullscreen:   ") + ((m_parent.GetApplication()->IsFullscreen())?("YES"):("NO")) + "\r\n" );
+            ReportAddText( vaStringTools::Format("Resolution:   %d x %d\r\n", m_parent.GetApplication().GetWindowClientAreaSize().x, m_parent.GetApplication().GetWindowClientAreaSize().y ) );
+            ReportAddText( vaStringTools::Format("Vsync:        ") + ((m_parent.GetApplication().GetSettings().Vsync)?("!!ON!!"):("OFF")) + "\r\n" );
+
+            string fullscreenState;
+            switch( m_parent.GetApplication().GetFullscreenState() )
+            {
+            case ( vaFullscreenState::Windowed ):               fullscreenState = "Windowed"; break;
+            case ( vaFullscreenState::Fullscreen ):             fullscreenState = "Fullscreen"; break;
+            case ( vaFullscreenState::FullscreenBorderless ):   fullscreenState = "Fullscreen Borderless"; break;
+            case ( vaFullscreenState::Unknown ) : 
+            default : fullscreenState = "Unknown";
+                break;
+            }
+
+            ReportAddText( "Fullscreen:   " + fullscreenState + "\r\n" );
             ReportAddText( "\r\n" );
 
             // flythrough used
@@ -1623,10 +3415,10 @@ void AutoBenchTool::OnRender( )
     if( m_currentTask != nullptr )
         m_currentTask->OnRender( *this );
 }
-void AutoBenchTool::OnRenderComparePoint( vaImageCompareTool & imageCompareTool, vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess )
+void AutoBenchTool::OnRenderComparePoint( vaImageCompareTool & imageCompareTool, vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess )
 {
     if( m_currentTask != nullptr )
-        m_currentTask->OnRenderComparePoint( *this, imageCompareTool, apiContext, colorInOut, postProcess );
+        m_currentTask->OnRenderComparePoint( *this, imageCompareTool, renderContext, colorInOut, postProcess );
 }
 
 void    AutoBenchTool::ReportStart( )
@@ -1696,8 +3488,10 @@ void    AutoBenchTool::ReportFinish( )
 }
 
 
-void CMAA2Sample::InsertImGuiContent( )
+void CMAA2Sample::UIPanelDraw( )
 {
+    //ImGui::Checkbox( "Texturing disabled", &m_debugTexturingDisabled );
+
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
     if( m_autoBench->IsActive() )
     {
@@ -1815,13 +3609,13 @@ void CMAA2Sample::InsertImGuiContent( )
     }
 
     if( m_settings.CurrentAAOption == CMAA2Sample::AAType::CMAA2 || m_settings.CurrentAAOption == CMAA2Sample::AAType::MSAA2xPlusCMAA2 || m_settings.CurrentAAOption == CMAA2Sample::AAType::MSAA4xPlusCMAA2 || m_settings.CurrentAAOption == CMAA2Sample::AAType::MSAA8xPlusCMAA2 ) 
-        vaImguiHierarchyObject::DrawCollapsable( *m_CMAA2.get(), false, true, true );
+        m_CMAA2->UIPanelDrawCollapsable( false, true, true );
 
     if( m_settings.CurrentAAOption == CMAA2Sample::AAType::SMAA || m_settings.CurrentAAOption == CMAA2Sample::AAType::SMAA_S2x ) 
-        vaImguiHierarchyObject::DrawCollapsable( *m_SMAA.get(), false, true, true );
+        m_SMAA->UIPanelDrawCollapsable( false, true, true );
 
     if( m_settings.CurrentAAOption == CMAA2Sample::AAType::FXAA  ) 
-        vaImguiHierarchyObject::DrawCollapsable( *m_FXAA.get(), false, true, true );
+        m_FXAA->UIPanelDrawCollapsable( false, true, true );
 
 #if 0 // reducing UI clutter
     if( m_settings.CurrentAAOption == CMAA2Sample::AAType::SuperSampleReference )
@@ -1859,14 +3653,6 @@ void CMAA2Sample::InsertImGuiContent( )
         ImGui::Unindent();
     }
 
-    ImGui::Separator();
-    ImGui::Separator( );
-
-    vaImguiHierarchyObject::DrawCollapsable( *m_zoomTool.get( ), false, true, true );
-
-    ImGui::Separator( );
-
-    vaImguiHierarchyObject::DrawCollapsable( *m_imageCompareTool.get( ), false, true, true );
 #endif
 
     // Benchmarking
@@ -1905,7 +3691,10 @@ void CMAA2Sample::InsertImGuiContent( )
                 }
                 ImGui::Separator( );
 #endif
-                if( ImGui::Button("Run performance benchmarks" ) )
+                const char * dx11 = "Run performance benchmarks (DX11)";
+                const char * dx12 = "Run performance benchmarks (DX12, not fully optimized)";
+
+                if( ImGui::Button( (GetRenderDevice().GetAPIName() == "DirectX11")?(dx11):(dx12) ) )
                 {
                     for( int i = 0; i < m_autoBenchPerfRunCount; i++ )
                         m_autoBench->AddTask( std::make_shared<BenchItemPerformance>( *this ) );
@@ -1917,37 +3706,6 @@ void CMAA2Sample::InsertImGuiContent( )
             }
         }
     }
-
-#if 0 // reducing UI clutter
-
-    vaImguiHierarchyObject::DrawCollapsable( *m_SSAOEffect, false, false );
-                     
-    ImGui::Separator( );
-                
-    vaImguiHierarchyObject::DrawCollapsable( *m_currentScene, false, false );
-
-    ImGui::Separator( );
-                
-    // vaImguiHierarchyObject::DrawCollapsable( *m_postProcessTonemap.get( ), false, false );
-    // 
-    // ImGui::Separator( );
-
-    vaImguiHierarchyObject::DrawCollapsable( *m_lighting.get( ), false, false );
-                
-    ImGui::Separator( );
-
-    vaImguiHierarchyObject::DrawCollapsable( *m_renderingGlobals.get( ), false, false );
-
-    ImGui::Separator( );
-
-    if( m_camera->GetAttachedController() != nullptr )
-    {
-        ImGui::Separator( );
-        vaImguiHierarchyObject::DrawCollapsable( *m_camera->GetAttachedController(), false, false );
-    }
-
-    ImGui::Separator( );
-#endif
 
 #endif
 }
@@ -1965,23 +3723,44 @@ namespace VertexAsylum
         explicit CMAA2SampleDX11( const vaRenderingModuleParams & params ) : CMAA2Sample( params ) { }
         ~CMAA2SampleDX11( ) { }
     };
+    class CMAA2SampleDX12 : public CMAA2Sample
+    {
+        VA_RENDERING_MODULE_MAKE_FRIENDS( );
+    private:
+        explicit CMAA2SampleDX12( const vaRenderingModuleParams & params ) : CMAA2Sample( params ) { }
+        ~CMAA2SampleDX12( ) { }
+    };
 }
 
 void RegisterCMAA2SampleDX11( )
 {
     VA_RENDERING_MODULE_REGISTER( vaRenderDeviceDX11, CMAA2Sample, CMAA2SampleDX11 );
 }
+void RegisterCMAA2SampleDX12( )
+{
+    VA_RENDERING_MODULE_REGISTER( vaRenderDeviceDX12, CMAA2Sample, CMAA2SampleDX12 );
+}
 
-
-void RegisterCMAA2SampleDX11( );
-void RegisterSMAAWrapperDX11( );
-void RegisterFXAAWrapperDX11( );
-void RegistervaCMAA2DX11( );
 void InitializeProjectAPIParts( )
 {
-    RegisterCMAA2SampleDX11( );
-    RegistervaCMAA2DX11( );
-    RegisterSMAAWrapperDX11( );
-    RegisterFXAAWrapperDX11( );
+    //useDX12;
+    //if( !useDX12 )
+    {
+        void RegisterCMAA2SampleDX11( );
+        void RegisterSMAAWrapperDX11( );
+        void RegisterCMAA2DX11( );
+        RegisterCMAA2SampleDX11( );
+        RegisterCMAA2DX11( );
+        RegisterSMAAWrapperDX11( );
+    }
+//    else
+    {
+        void RegisterCMAA2SampleDX12( );
+        void RegisterSMAAWrapperDX12( );
+        void RegisterCMAA2DX12( );
+        RegisterCMAA2SampleDX12( );
+        RegisterSMAAWrapperDX12( );
+        RegisterCMAA2DX12( );
+    }
 }
 

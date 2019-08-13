@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -49,6 +49,7 @@ vaInputMouse::~vaInputMouse( )
 // vaSystemManagerSingletonBase<vaInputMouse>
 void vaInputMouse::Tick( float deltaTime )
 {
+    VA_SCOPE_CPU_TIMER( vaInputMouse_Tick );
     for( int i = 0; i < MK_MaxValue; i++ )
     {
         //bool isDown = ( GetAsyncKeyState( i ) & 0x8000 ) != 0;
@@ -128,14 +129,6 @@ void vaInputMouse::SetCapture( )
 
     m_captured = true;
 
-//    int cursorDisplayCounter = ::ShowCursor( FALSE );
-//    if( cursorDisplayCounter >= 0 )
-//        ::ShowCursor( FALSE );
-
-//    HCURSOR prevCursor = ::SetCursor( NULL );
-//    if( prevCursor != NULL )
-//        s_prevCursorHandle = prevCursor;
-
     POINT oldPos;
     ::GetCursorPos( &oldPos );
     m_capturedPos = vaVector2i( oldPos.x, oldPos.y );
@@ -194,3 +187,28 @@ void vaInputMouse::WndMessage( HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
     }
 }
 
+vaVector2i vaInputMouse::GetCursorPosDirect( ) const
+{
+    // directly query for latest mouse position to reduce lag
+    POINT pt;
+    ::GetCursorPos( &pt ); 
+    return vaVector2i( pt.x, pt.y );
+}
+
+vaVector2i vaInputMouse::GetCursorClientPosDirect( ) const
+{
+    // directly query for latest mouse position to reduce lag
+    POINT pt;
+    ::GetCursorPos( &pt ); 
+    ::ScreenToClient( vaApplicationWin::GetInstance( ).GetMainHWND(), &pt );
+    return vaVector2i( pt.x, pt.y );
+}
+
+vaVector2  vaInputMouse::GetCursorClientNormalizedPosDirect( ) const
+{
+    POINT pt;
+    ::GetCursorPos( &pt ); 
+    ::ScreenToClient( vaApplicationWin::GetInstance( ).GetMainHWND(), &pt );
+    return vaVector2::ComponentDiv( vaVector2( (float)pt.x, (float)pt.y ), vaVector2( m_windClientSize ) );
+}
+        

@@ -42,7 +42,7 @@ namespace VertexAsylum
 
 #define POSTPROCESS_COMPARISONRESULTS_UAV_SLOT      0
 
-#define POSTPROCESS_CONSTANTS_BUFFERSLOT            1
+#define POSTPROCESS_CONSTANTSBUFFERSLOT            1
 
 #define POSTPROCESS_TEXTURE_SLOT0                   0
 #define POSTPROCESS_TEXTURE_SLOT1                   1
@@ -57,7 +57,7 @@ namespace VertexAsylum
 
 #ifdef VA_COMPILED_AS_SHADER_CODE
 
-cbuffer PostProcessConstantsBuffer : register( B_CONCATENATER( POSTPROCESS_CONSTANTS_BUFFERSLOT ) )
+cbuffer PostProcessConstantsBuffer : register( B_CONCATENATER( POSTPROCESS_CONSTANTSBUFFERSLOT ) )
 {
     PostProcessConstants                    g_PostProcessConsts;
 }

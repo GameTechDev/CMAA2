@@ -151,6 +151,9 @@ namespace VertexAsylum
       static inline bool        NearEqual( float a, float b, float epsilon = 1e-5f )  { return vaMath::Abs( a - b ) < epsilon; }
 
       static inline float       Smoothstep( const float t );                                                                        // gives something similar to "sin( (x-0.5) * PI)*0.5 + 0.5 )" for [0, 1]
+
+      static inline float       LinearToSRGB( float val );
+      static inline float       SRGBToLinear( float val );
       
    private:
       friend class vaCore;
@@ -339,5 +342,22 @@ namespace VertexAsylum
        return t * t * ( 3 - 2 * t );
    }
 
+   inline float vaMath::LinearToSRGB( float val )
+   {
+        if( val < 0.0031308f )
+            val *= float( 12.92 );
+        else
+            val = float( 1.055 ) * powf( vaMath::Abs( val ), float( 1.0 ) / float( 2.4 ) ) - float( 0.055 );
+        return val;
+   }
+
+   inline float vaMath::SRGBToLinear( float val )
+   {
+        if( val < 0.04045 )
+            val /= float( 12.92 );
+        else
+            val = powf( vaMath::Abs( val + float( 0.055 ) ) / float( 1.055 ), float( 2.4 ) );
+        return val;
+   }
 
 }

@@ -26,22 +26,7 @@
 
 #include "vaSharedTypes.h"
 
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Global sampler slots
-
-SamplerComparisonState                  g_samplerLinearCmpSampler               : register( S_CONCATENATER( SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT ) ); 
-
-SamplerState                            g_samplerPointClamp                     : register( S_CONCATENATER( SHADERGLOBAL_POINTCLAMP_SAMPLERSLOT         ) ); 
-SamplerState                            g_samplerPointWrap                      : register( S_CONCATENATER( SHADERGLOBAL_POINTWRAP_SAMPLERSLOT          ) ); 
-SamplerState                            g_samplerLinearClamp                    : register( S_CONCATENATER( SHADERGLOBAL_LINEARCLAMP_SAMPLERSLOT        ) ); 
-SamplerState                            g_samplerLinearWrap                     : register( S_CONCATENATER( SHADERGLOBAL_LINEARWRAP_SAMPLERSLOT         ) ); 
-SamplerState                            g_samplerAnisotropicClamp               : register( S_CONCATENATER( SHADERGLOBAL_ANISOTROPICCLAMP_SAMPLERSLOT   ) ); 
-SamplerState                            g_samplerAnisotropicWrap                : register( S_CONCATENATER( SHADERGLOBAL_ANISOTROPICWRAP_SAMPLERSLOT    ) ); 
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#include "vaStandardSamplers.hlsl"
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -20,13 +20,12 @@
 #pragma once
 
 #include "Rendering/DirectX/vaDirectXIncludes.h"
-
 #include "Rendering/vaRenderingIncludes.h"
 
 namespace VertexAsylum
 {
-    struct vaShaderCacheKey;
-    class vaShaderCacheEntry;
+    struct vaShaderCacheKey11;
+    class vaShaderCacheEntry11;
 
     class vaShaderDX11 : public virtual vaShader
     {
@@ -42,7 +41,7 @@ namespace VertexAsylum
         virtual bool                    IsCreated( ) override { std::unique_lock<mutex> allShaderDataLock( m_allShaderDataMutex, std::try_to_lock ); return allShaderDataLock.owns_lock() && m_shader != nullptr; }
         //
     protected:
-        virtual void                    CreateCacheKey( vaShaderCacheKey & outKey );
+        virtual void                    CreateCacheKey( vaShaderCacheKey11 & outKey );
         //
     protected:
         //
@@ -72,12 +71,12 @@ namespace VertexAsylum
         //     context->PSSetShader( GetShader( ), NULL, 0 );
         // }
 
-//        virtual void                SetToAPI( vaRenderDeviceContext & apiContext, bool assertOnOverwrite = true )  override;
-//        virtual void                UnsetFromAPI( vaRenderDeviceContext & apiContext, bool assertOnNotSet = true ) override;
+//        virtual void                SetToAPI( vaRenderDeviceContext & renderContext, bool assertOnOverwrite = true )  override;
+//        virtual void                UnsetFromAPI( vaRenderDeviceContext & renderContext, bool assertOnNotSet = true ) override;
 
 
     protected:
-        virtual void                CreateShader( );
+        virtual void                CreateShader( ) override;
     };
 
     class vaComputeShaderDX11 : public vaShaderDX11, public vaComputeShader
@@ -91,12 +90,12 @@ namespace VertexAsylum
 
         operator ID3D11ComputeShader * ( ) { return GetShader( ); }
 
-//        virtual void                SetToAPI( vaRenderDeviceContext & apiContext, bool assertOnOverwrite = true )  override;
-//        virtual void                UnsetFromAPI( vaRenderDeviceContext & apiContext, bool assertOnNotSet = true ) override;
-//        virtual void                Dispatch( vaRenderDeviceContext & apiContext, uint32 threadGroupCountX, uint32 threadGroupCountY, uint32 threadGroupCountZ ) override;
+//        virtual void                SetToAPI( vaRenderDeviceContext & renderContext, bool assertOnOverwrite = true )  override;
+//        virtual void                UnsetFromAPI( vaRenderDeviceContext & renderContext, bool assertOnNotSet = true ) override;
+//        virtual void                Dispatch( vaRenderDeviceContext & renderContext, uint32 threadGroupCountX, uint32 threadGroupCountY, uint32 threadGroupCountZ ) override;
 
     protected:
-        virtual void                CreateShader( );
+        virtual void                CreateShader( ) override;
     };
 
     class vaHullShaderDX11 : public vaShaderDX11, public vaHullShader
@@ -115,11 +114,11 @@ namespace VertexAsylum
         //     context->HSSetShader( GetShader( ), NULL, 0 );
         // }
 
-//        virtual void                SetToAPI( vaRenderDeviceContext & apiContext, bool assertOnOverwrite = true )  override;
-//        virtual void                UnsetFromAPI( vaRenderDeviceContext & apiContext, bool assertOnNotSet = true ) override;
+//        virtual void                SetToAPI( vaRenderDeviceContext & renderContext, bool assertOnOverwrite = true )  override;
+//        virtual void                UnsetFromAPI( vaRenderDeviceContext & renderContext, bool assertOnNotSet = true ) override;
 
     protected:
-        virtual void               CreateShader( );
+        virtual void               CreateShader( ) override;
 
     };
 
@@ -139,11 +138,11 @@ namespace VertexAsylum
         //     context->DSSetShader( GetShader( ), NULL, 0 );
         // }
 
-//        virtual void                SetToAPI( vaRenderDeviceContext & apiContext, bool assertOnOverwrite = true )  override;
-//        virtual void                UnsetFromAPI( vaRenderDeviceContext & apiContext, bool assertOnNotSet = true ) override;
+//        virtual void                SetToAPI( vaRenderDeviceContext & renderContext, bool assertOnOverwrite = true )  override;
+//        virtual void                UnsetFromAPI( vaRenderDeviceContext & renderContext, bool assertOnNotSet = true ) override;
 
     protected:
-        virtual void               CreateShader( );
+        virtual void               CreateShader( ) override;
 
     };
 
@@ -158,11 +157,11 @@ namespace VertexAsylum
 
         operator ID3D11GeometryShader * ( ) { return GetShader( ); }
 
-//        virtual void                SetToAPI( vaRenderDeviceContext & apiContext, bool assertOnOverwrite = true )  override;
-//        virtual void                UnsetFromAPI( vaRenderDeviceContext & apiContext, bool assertOnNotSet = true ) override;
+//        virtual void                SetToAPI( vaRenderDeviceContext & renderContext, bool assertOnOverwrite = true )  override;
+//        virtual void                UnsetFromAPI( vaRenderDeviceContext & renderContext, bool assertOnNotSet = true ) override;
 
     protected:
-        virtual void               CreateShader( );
+        virtual void               CreateShader( ) override;
 
     };
 
@@ -170,11 +169,6 @@ namespace VertexAsylum
     {
     protected:
         ID3D11InputLayout *         m_inputLayoutDX;
-
-        // std::vector < D3D11_INPUT_ELEMENT_DESC >
-        //                             m_inputLayoutElements;
-
-        vaVertexInputLayoutDesc     m_inputLayout;
 
         void                        SetInputLayout( D3D11_INPUT_ELEMENT_DESC * elements, uint32 elementCount );
 
@@ -188,8 +182,8 @@ namespace VertexAsylum
         //
         operator ID3D11VertexShader * ( ) { return GetShader( ); }
         //
-        virtual void                CreateShaderAndILFromFile( const wstring & filePath, const string & shaderModel, const string & entryPoint, const vector<vaVertexInputElementDesc> & inputLayoutElements, const vaShaderMacroContaner & macros = vaShaderMacroContaner( ), bool forceImmediateCompile = false ) override;
-        virtual void                CreateShaderAndILFromBuffer( const string & shaderCode, const string & shaderModel, const string & entryPoint, const vector<vaVertexInputElementDesc> & inputLayoutElements, const vaShaderMacroContaner & macros = vaShaderMacroContaner( ), bool forceImmediateCompile = false ) override;
+        virtual void                CreateShaderAndILFromFile( const wstring & filePath, const string & shaderModel, const string & entryPoint, const vector<vaVertexInputElementDesc> & inputLayoutElements, const vaShaderMacroContaner & macros, bool forceImmediateCompile ) override;
+        virtual void                CreateShaderAndILFromBuffer( const string & shaderCode, const string & shaderModel, const string & entryPoint, const vector<vaVertexInputElementDesc> & inputLayoutElements, const vaShaderMacroContaner & macros, bool forceImmediateCompile ) override;
 
         // doesn't work with current CreateShaderAndILFrom... due to clearing the inputlayout - need to fix this; not clearing doesn't cause anything bad, just uses more memory
         // virtual void                Clear( ) override { m_inputLayout.Clear(); vaShaderDX11::Clear(); }
@@ -209,32 +203,32 @@ namespace VertexAsylum
         //     context->VSSetShader( GetShader( ), NULL, 0 );
         // }
 
-//        virtual void                SetToAPI( vaRenderDeviceContext & apiContext, bool assertOnOverwrite = true )  override;
-//        virtual void                UnsetFromAPI( vaRenderDeviceContext & apiContext, bool assertOnNotSet = true ) override;
+//        virtual void                SetToAPI( vaRenderDeviceContext & renderContext, bool assertOnOverwrite = true )  override;
+//        virtual void                UnsetFromAPI( vaRenderDeviceContext & renderContext, bool assertOnNotSet = true ) override;
 
     protected:
-        virtual void                CreateShader( );
-        virtual void                DestroyShader( );
+        virtual void                CreateShader( ) override;
+        virtual void                DestroyShader( ) override;
 
-        virtual void                CreateCacheKey( vaShaderCacheKey & outKey );
+        virtual void                CreateCacheKey( vaShaderCacheKey11 & outKey );
     };
 
 
 #pragma warning ( pop )
 
-    struct vaShaderCacheKey
+    struct vaShaderCacheKey11
     {
         std::string                StringPart;
 
-        bool                       operator == ( const vaShaderCacheKey & cmp ) const { return this->StringPart == cmp.StringPart; }
-        bool                       operator < ( const vaShaderCacheKey & cmp ) const { return this->StringPart < cmp.StringPart; }
-        bool                       operator >( const vaShaderCacheKey & cmp ) const { return this->StringPart > cmp.StringPart; }
+        bool                       operator == ( const vaShaderCacheKey11 & cmp ) const { return this->StringPart == cmp.StringPart; }
+        bool                       operator < ( const vaShaderCacheKey11 & cmp ) const { return this->StringPart < cmp.StringPart; }
+        bool                       operator >( const vaShaderCacheKey11 & cmp ) const { return this->StringPart > cmp.StringPart; }
 
         void                       Save( vaStream & outStream ) const;
         void                       Load( vaStream & inStream );
     };
 
-    class vaShaderCacheEntry
+    class vaShaderCacheEntry11
     {
     public:
         struct FileDependencyInfo
@@ -256,15 +250,15 @@ namespace VertexAsylum
     private:
 
         ID3DBlob *                                               m_compiledShader;
-        std::vector<vaShaderCacheEntry::FileDependencyInfo>      m_dependencies;
+        std::vector<vaShaderCacheEntry11::FileDependencyInfo>      m_dependencies;
 
     private:
-        vaShaderCacheEntry( ) {}
-        explicit vaShaderCacheEntry( const vaShaderCacheEntry & copy ) { copy; }
+        vaShaderCacheEntry11( ) {}
+        explicit vaShaderCacheEntry11( const vaShaderCacheEntry11 & copy ) { copy; }
     public:
-        vaShaderCacheEntry( ID3DBlob * compiledShader, std::vector<vaShaderCacheEntry::FileDependencyInfo> & dependencies );
-        explicit vaShaderCacheEntry( vaStream & inFile ) { m_compiledShader = NULL; Load( inFile ); }
-        ~vaShaderCacheEntry( );
+        vaShaderCacheEntry11( ID3DBlob * compiledShader, std::vector<vaShaderCacheEntry11::FileDependencyInfo> & dependencies );
+        explicit vaShaderCacheEntry11( vaStream & inFile ) { m_compiledShader = NULL; Load( inFile ); }
+        ~vaShaderCacheEntry11( );
 
         bool                       IsModified( );
         ID3DBlob *                 GetCompiledShader( ) { m_compiledShader->AddRef( ); return m_compiledShader; }
@@ -282,7 +276,7 @@ namespace VertexAsylum
         friend class vaShaderDX11;
 
     private:
-        std::map<vaShaderCacheKey, vaShaderCacheEntry *>    m_cache;
+        std::map<vaShaderCacheKey11, vaShaderCacheEntry11 *>    m_cache;
         mutable mutex                                       m_cacheMutex;
 #ifdef VA_SHADER_SHADER_CACHE_PERSISTENT_STORAGE_ENABLE
         wstring                                             m_cacheFilePath;
@@ -300,8 +294,8 @@ namespace VertexAsylum
         ~vaDirectX11ShaderManager( );
 
     public:
-        ID3DBlob *          FindInCache( vaShaderCacheKey & key, bool & foundButModified );
-        void                AddToCache( vaShaderCacheKey & key, ID3DBlob * shaderBlob, std::vector<vaShaderCacheEntry::FileDependencyInfo> & dependencies );
+        ID3DBlob *          FindInCache( vaShaderCacheKey11 & key, bool & foundButModified );
+        void                AddToCache( vaShaderCacheKey11 & key, ID3DBlob * shaderBlob, std::vector<vaShaderCacheEntry11::FileDependencyInfo> & dependencies );
         void                ClearCache( );
 
         // pushBack (searched last) or pushFront (searched first)

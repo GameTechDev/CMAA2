@@ -80,6 +80,11 @@ namespace VertexAsylum
         virtual vaVector2           GetCursorClientNormalizedPos( ) const       { return vaVector2::ComponentDiv( vaVector2( m_currPos - m_windClientPos ), vaVector2( m_windClientSize ) ); }
         virtual vaVector2i          GetCursorDelta( ) const                     { return m_deltaPos; }
         //
+        // 0-lag versions
+        virtual vaVector2i          GetCursorPosDirect( ) const override;
+        virtual vaVector2i          GetCursorClientPosDirect( ) const override;
+        virtual vaVector2           GetCursorClientNormalizedPosDirect( ) const override;
+        //
         virtual float               GetWheelDelta( ) const                      { return m_wheelDelta; }
         //
         virtual float               TimeFromLastMove( ) const                   { return m_timeFromLastMove; }

@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Core/vaCoreIncludes.h"
+#include "Core/vaUI.h"
 
 #include "Rendering/vaRenderingIncludes.h"
 
@@ -27,7 +28,7 @@ namespace VertexAsylum
 {
     class vaInputMouseBase;
 
-    class vaZoomTool : public VertexAsylum::vaRenderingModule, public vaImguiHierarchyObject
+    class vaZoomTool : public VertexAsylum::vaRenderingModule, public vaUIPanel
     {
     public:
         struct Settings
@@ -51,9 +52,8 @@ namespace VertexAsylum
         vaAutoRMI<vaComputeShader>      m_CSZoomToolFloat;
         vaAutoRMI<vaComputeShader>      m_CSZoomToolUnorm;
 
-    protected:
-        vaZoomTool( const vaRenderingModuleParams & params );
     public:
+        vaZoomTool( const vaRenderingModuleParams & params );
         ~vaZoomTool( );
 
     public:
@@ -61,14 +61,13 @@ namespace VertexAsylum
 
         void                        HandleMouseInputs( vaInputMouseBase & mouseInput );
 
-        virtual void                Draw( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut );
+        virtual void                Draw( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut );
 
     protected:
-        virtual void                UpdateConstants( vaRenderDeviceContext & apiContext );
+        virtual void                UpdateConstants( vaRenderDeviceContext & renderContext );
 
     private:
-        virtual string              IHO_GetInstanceName( ) const { return "ZoomTool"; }
-        virtual void                IHO_Draw( );
+        virtual void                UIPanelDraw( ) override;
     };
     
 }

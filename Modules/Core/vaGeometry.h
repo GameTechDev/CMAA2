@@ -344,6 +344,9 @@ namespace VertexAsylum
         inline static uint32    ToRGBA( float r, float g, float b, float a )    { return ToRGBA( vaVector4( r, g, b, a ) ); }
         inline static uint32    ToABGR( float r, float g, float b, float a )    { return ToABGR( vaVector4( r, g, b, a ) ); }
 
+        static vaVector4        LinearToSRGB( const vaVector4 & colour )        { return vaVector4( vaMath::LinearToSRGB( colour.x ), vaMath::LinearToSRGB( colour.y ), vaMath::LinearToSRGB( colour.z ), colour.w ); }
+        static vaVector4        SRGBToLinear( const vaVector4 & colour )        { return vaVector4( vaMath::SRGBToLinear( colour.x ), vaMath::SRGBToLinear( colour.y ), vaMath::SRGBToLinear( colour.z ), colour.w ); }
+
         static string           ToString( const vaVector4 & a );
         static bool             FromString( const string & a, vaVector4 & outVal );
     };
@@ -832,6 +835,7 @@ namespace VertexAsylum
 
         void                            GetCornerPoints( vaVector3 corners[] );
         vaIntersectType                 IntersectFrustum( const vaPlane planes[], const int planeCount );
+        vaIntersectType                 IntersectFrustum( const vector<vaPlane> & planes )                  { return (planes.size() == 0)?(vaIntersectType::Inside):( IntersectFrustum( &planes[0], (int)planes.size() ) ); }
 
         bool                            PointInside( const vaVector3 & point );
 

@@ -43,10 +43,10 @@
 // CRT's memory leak detection
 #if defined(DEBUG) || defined(_DEBUG)
 
-   #define _CRTDBG_MAP_ALLOC
-   #define _CRTDBG_MAP_ALLOC_NEW
-   #include <stdlib.h>
-   #include <crtdbg.h>
+#define _CRTDBG_MAP_ALLOC
+#define _CRTDBG_MAP_ALLOC_NEW
+#include <stdlib.h>
+#include <crtdbg.h>
 
 #endif
 
@@ -69,157 +69,174 @@
 
 namespace VertexAsylum
 {
-   class vaSystemManagerBase;
+    class vaSystemManagerBase;
 
-//   class vaThreadPool;
-   
-   // maybe make a union to make this more optimal
-   struct vaGUID : GUID
-   {
-       vaGUID( )                    { }
-       vaGUID( const char * str );
-       vaGUID( unsigned long data1, unsigned short data2, unsigned short data3, unsigned char data4[8] )  { Data1 = data1; Data2 = data2; Data3 = data3; for( int i = 0; i < _countof(Data4); i++) Data4[i] = data4[i]; }
-       vaGUID( unsigned long data1, unsigned short data2, unsigned short data3, unsigned char data40, unsigned char data41, unsigned char data42, unsigned char data43, unsigned char data44, unsigned char data45, unsigned char data46, unsigned char data47 ) { Data1 = data1; Data2 = data2; Data3 = data3; Data4[0] = data40; Data4[1] = data41; Data4[2] = data42; Data4[3] = data43; Data4[4] = data44; Data4[5] = data45; Data4[6] = data46; Data4[7] = data47; }
-       explicit vaGUID( const GUID & copy )      { Data1 = copy.Data1; Data2 = copy.Data2; Data3 = copy.Data3; for( int i = 0; i < _countof(Data4); i++) Data4[i] = copy.Data4[i]; }
-       vaGUID( const vaGUID & copy )    { Data1 = copy.Data1; Data2 = copy.Data2; Data3 = copy.Data3; for( int i = 0; i < _countof(Data4); i++) Data4[i] = copy.Data4[i]; }
+    struct vaGUID : GUID
+    {
+        vaGUID( ) { }
+        vaGUID( const char * str );
+        vaGUID( unsigned long data1, unsigned short data2, unsigned short data3, unsigned char data4[8] ) { Data1 = data1; Data2 = data2; Data3 = data3; for( int i = 0; i < _countof( Data4 ); i++ ) Data4[i] = data4[i]; }
+        vaGUID( unsigned long data1, unsigned short data2, unsigned short data3, unsigned char data40, unsigned char data41, unsigned char data42, unsigned char data43, unsigned char data44, unsigned char data45, unsigned char data46, unsigned char data47 ) { Data1 = data1; Data2 = data2; Data3 = data3; Data4[0] = data40; Data4[1] = data41; Data4[2] = data42; Data4[3] = data43; Data4[4] = data44; Data4[5] = data45; Data4[6] = data46; Data4[7] = data47; }
+        explicit vaGUID( const GUID & copy ) { Data1 = copy.Data1; Data2 = copy.Data2; Data3 = copy.Data3; for( int i = 0; i < _countof( Data4 ); i++ ) Data4[i] = copy.Data4[i]; }
+        vaGUID( const vaGUID & copy ) { Data1 = copy.Data1; Data2 = copy.Data2; Data3 = copy.Data3; for( int i = 0; i < _countof( Data4 ); i++ ) Data4[i] = copy.Data4[i]; }
 
-       vaGUID & operator =( const GUID & copy ) { Data1 = copy.Data1; Data2 = copy.Data2; Data3 = copy.Data3; for( int i = 0; i < _countof(Data4); i++) Data4[i] = copy.Data4[i]; return *this; }
+        vaGUID & operator =( const GUID & copy ) { Data1 = copy.Data1; Data2 = copy.Data2; Data3 = copy.Data3; for( int i = 0; i < _countof( Data4 ); i++ ) Data4[i] = copy.Data4[i]; return *this; }
 
-       const static vaGUID          Null;
-   };
-   
-   ////////////////////////////////////////////////////////////////////////////////////////////////
-   // vaCore 
-   class vaCore
-   {
-   private:
-      static bool                   s_initialized;
-      static bool                   s_managersInitialized;
+        const static vaGUID          Null;
+    };
 
-      static bool                   s_currentlyInitializing;
-      static bool                   s_currentlyDeinitializing;
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // vaCore 
+    class vaCore
+    {
+    private:
+        static bool                   s_initialized;
+        static bool                   s_managersInitialized;
 
-      static bool                   s_appQuitFlag;
+        static bool                   s_currentlyInitializing;
+        static bool                   s_currentlyDeinitializing;
 
-   public:
+        static bool                   s_appQuitFlag;
+        static bool                   s_appQuitButRestartFlag;
 
-      // Initialize the system - must be called before any other calls
-      static void                   Initialize( );
-      
-      // This must only be called from the same thread that called Initialize
-      static void                   Deinitialize();
+    public:
 
-      // // This must only be called from the same thread that called Initialize
-      // static void                Tick( float deltaTime );
+        // Initialize the system - must be called before any other calls
+        static void                   Initialize( bool liveRestart = false );
 
-      static void                   Error( const wchar_t * messageFormat, ... );
-      static void                   Warning( const wchar_t * messageFormat, ... );
-      static void                   DebugOutput( const wstring & message );
+        // This must only be called from the same thread that called Initialize
+        static void                   Deinitialize( bool liveRestart = false );
 
-      static bool                   MessageBoxYesNo( const wchar_t * title, const wchar_t * messageFormat, ... );
+        // // This must only be called from the same thread that called Initialize
+        // static void                Tick( float deltaTime );
 
-      static wstring                GetWorkingDirectory( );
-      static wstring                GetExecutableDirectory( );
+        static void                   Error( const wchar_t * messageFormat, ... );
+        static void                   Warning( const wchar_t * messageFormat, ... );
+        static void                   DebugOutput( const wstring & message );
 
-      static vaGUID                 GUIDCreate( );
-      static const vaGUID &         GUIDNull( );
-      static wstring                GUIDToString( const vaGUID & id );
-      static vaGUID                 GUIDFromString( const wstring & str );
-      static string                 GUIDToStringA( const vaGUID & id );
-      static vaGUID                 GUIDFromStringA( const string & str );
-//      static int32                  GUIDGetHashCode( const vaGUID & id );
+        static bool                   MessageBoxYesNo( const wchar_t * title, const wchar_t * messageFormat, ... );
 
-      static string                 GetCPUIDName( );
+        static wstring                GetWorkingDirectory( );
+        static wstring                GetExecutableDirectory( );
 
-      static bool                   GetAppQuitFlag( )                   { return s_appQuitFlag; }
-      static void                   SetAppQuitFlag( bool appQuitFlag )  { s_appQuitFlag = appQuitFlag; }
+        static vaGUID                 GUIDCreate( );
+        static const vaGUID &         GUIDNull( );
+        static wstring                GUIDToString( const vaGUID & id );
+        static vaGUID                 GUIDFromString( const wstring & str );
+        static string                 GUIDToStringA( const vaGUID & id );
+        static vaGUID                 GUIDFromStringA( const string & str );
+        //      static int32                  GUIDGetHashCode( const vaGUID & id );
 
-   private:
-   
-   };
-   typedef vaCore    vaLevel0;
-   ////////////////////////////////////////////////////////////////////////////////////////////////
+        static string                 GetCPUIDName( );
 
-   inline vaGUID::vaGUID( const char * str )
-   {
-       *this = vaCore::GUIDFromStringA( str );
-   }
+        static bool                   GetAppQuitFlag( ) { return s_appQuitFlag; }
+        static bool                   GetAppQuitButRestartingFlag( ) { return s_appQuitButRestartFlag; }
+        static void                   SetAppQuitFlag( bool quitFlag, bool quitButRestart = false ) { s_appQuitFlag = quitFlag; s_appQuitButRestartFlag = quitButRestart && quitFlag; };
 
-   ////////////////////////////////////////////////////////////////////////////////////////////////
-   // vaCoreInitDeinit - RAII for vaCore
-   class vaCoreInitDeinit
-   {
-   public:
-      vaCoreInitDeinit( )   { vaCore::Initialize( );    }
-      ~vaCoreInitDeinit( )  { vaCore::Deinitialize( );  }
-   };
-   ////////////////////////////////////////////////////////////////////////////////////////////////
+    private:
 
+    };
+    typedef vaCore    vaLevel0;
+    ////////////////////////////////////////////////////////////////////////////////////////////////
 
-   struct vaGUIDComparer
-   {
-       bool operator()( const vaGUID & Left, const vaGUID & Right ) const
-       {
-           // comparison logic goes here
-           return memcmp( &Left, &Right, sizeof( Right ) ) < 0;
-       }
-   };
+    inline vaGUID::vaGUID( const char * str )
+    {
+        *this = vaCore::GUIDFromStringA( str );
+    }
 
-   // Various defines
-
-   #define VA__T(x)        L ## x
-   #define VA_T(x)         VA__T(x)
-   #define VA_NT(x)        L#x
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // vaCoreInitDeinit - RAII for vaCore
+    class vaCoreInitDeinit
+    {
+    public:
+        vaCoreInitDeinit( ) { vaCore::Initialize( ); }
+        ~vaCoreInitDeinit( ) { vaCore::Deinitialize( ); }
+    };
+    ////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-   #ifdef _DEBUG
-      #define VA_ASSERT_ALWAYS( format, ... )                           { vaCore::Warning( L"%s:%d\n" format , VA_T(__FILE__), __LINE__, __VA_ARGS__ ); assert( false ); } 
-      #define VA_ASSERT( condition, format, ... )  if( !(condition) )   { VA_ASSERT_ALWAYS( format, __VA_ARGS__ ); } //{ vaCore::Warning( L"%s:%d\n" format , VA_T(__FILE__), __LINE__, __VA_ARGS__ ); assert( false ); } 
-   #else
-      #define VA_ASSERT_ALWAYS( format, ... )  { }
-      #define VA_ASSERT( condition, format, ... )  { }
-   #endif
+    struct vaGUIDComparer
+    {
+        bool operator()( const vaGUID & Left, const vaGUID & Right ) const
+        {
+            // comparison logic goes here
+            return memcmp( &Left, &Right, sizeof( Right ) ) < 0;
+        }
+    };
 
-   // recoverable error or a warning
-    #define VA_WARN( format, ... )  { vaCore::Warning( L"%s:%d : " format , VA_T(__FILE__), __LINE__, __VA_ARGS__); } 
+    // Various defines
 
-    // irrecoverable error, save the log and die gracefully
-    #define VA_ERROR( format, ... )  { vaCore::Error( L"%s:%d : " format , VA_T(__FILE__), __LINE__, __VA_ARGS__); } 
+#define VA__T(x)        L ## x
+#define VA_T(x)         VA__T(x)
+#define VA_NT(x)        L#x
 
-    #define VA_VERIFY( x, format, ... )                                 { bool __va_verify_res = (x); if( !__va_verify_res ) { VA_ASSERT_ALWAYS( format, __VA_ARGS__ ); } }
-    #define VA_VERIFY_RETURN_IF_FALSE( x, format, ... )                 { bool __va_verify_res = (x); if( !__va_verify_res ) { VA_ASSERT_ALWAYS( format, __VA_ARGS__ ); return false; } }
 
-    // Other stuff
-
-    // warning C4201: nonstandard extension used : nameless struct/union
-    #pragma warning( disable : 4201 )
-
-    // warning C4239: nonstandard extension used : 'default argument' 
-    #pragma warning( disable : 4239 )
-
-#ifndef IsNullGUID
-    inline bool IsNullGUID(REFGUID rguid)     { return IsEqualGUID( GUID_NULL, rguid ) != 0; }
+#ifdef _DEBUG
+#define VA_ASSERT_ALWAYS( format, ... )                           do { vaCore::Warning( L"\n%s(%d): " format , VA_T(__FILE__), __LINE__, __VA_ARGS__ ); assert( false ); } while( false )
+#define VA_ASSERT( condition, format, ... )  if( !(condition) )   do { VA_ASSERT_ALWAYS( format, __VA_ARGS__ ); } while( false ) //{ vaCore::Warning( L"%s:%d\n" format , VA_T(__FILE__), __LINE__, __VA_ARGS__ ); assert( false ); } 
+#else
+#define VA_ASSERT_ALWAYS( format, ... )  { }
+#define VA_ASSERT( condition, format, ... )  { }
 #endif
 
+// recoverable error or a warning
+#define VA_WARN( format, ... )                                      do { vaCore::Warning( L"%s:%d : " format , VA_T(__FILE__), __LINE__, __VA_ARGS__); } while( false )
+
+// irrecoverable error, save the log and die gracefully
+#define VA_ERROR( format, ... )                                     do { vaCore::Error( L"%s:%d : " format , VA_T(__FILE__), __LINE__, __VA_ARGS__); } while( false )
+
+#define VA_VERIFY( x, format, ... )                                 do { bool __va_verify_res = (x); if( !__va_verify_res ) { VA_ASSERT_ALWAYS( format, __VA_ARGS__ ); } } while( false )
+#define VA_VERIFY_RETURN_IF_FALSE( x, format, ... )                 do { bool __va_verify_res = (x); if( !__va_verify_res ) { VA_ASSERT_ALWAYS( format, __VA_ARGS__ ); return false; } } while( false )
+
+// Other stuff
+
+// warning C4201: nonstandard extension used : nameless struct/union
+#pragma warning( disable : 4201 )
+
+// warning C4239: nonstandard extension used : 'default argument' 
+#pragma warning( disable : 4239 )
+
+#ifndef IsNullGUID
+    inline bool IsNullGUID( REFGUID rguid ) { return IsEqualGUID( GUID_NULL, rguid ) != 0; }
+#endif
+
+    // just adds an assert in debug
     template< typename OutTypeName, typename InTypeName >
     inline OutTypeName vaSaferStaticCast( InTypeName ptr )
     {
 #ifdef _DEBUG
-       OutTypeName ret = dynamic_cast< OutTypeName >( ptr );
-       //assert( ret != nullptr );
-       return ret;
+        OutTypeName ret = dynamic_cast<OutTypeName>( ptr );
+        //assert( ret != nullptr );
+        return ret;
 #else
-       return static_cast < OutTypeName >( ptr );
+        return static_cast <OutTypeName>( ptr );
 #endif
     }
 
-   // legacy - should be removed
+    // cached dynamic cast for when we know the return type is always the same - it's rather trivial now, 
+    // could be made safe for release path too
+    template< typename OutTypeName, typename InTypeName >
+    inline OutTypeName vaCachedDynamicCast( InTypeName thisPtr, void * & cachedVoidPtr )
+    {
+        if( cachedVoidPtr == nullptr )
+            cachedVoidPtr = static_cast<void*>( dynamic_cast<OutTypeName>( thisPtr ) );
+        OutTypeName retVal = static_cast<OutTypeName>( cachedVoidPtr );
+#ifdef _DEBUG
+        OutTypeName validPtr = dynamic_cast<OutTypeName>( thisPtr );
+        assert( validPtr != NULL );
+        assert( retVal == validPtr );
+#endif
+        return retVal;
+    }
+
+
+    // legacy - should be removed
 #if defined(DEBUG) || defined(_DEBUG)
 #ifndef V
-#define V(x)           { hr = (x); if( FAILED(hr) ) { assert(false); } } //DXUTTrace( __FILE__, (DWORD)__LINE__, hr, L#x, true ); } }
+#define V(x)           { hr = (x); if( FAILED(hr) ) { VA_ASSERT_ALWAYS( L"FAILED(hr) == true" ); } } //DXUTTrace( __FILE__, (DWORD)__LINE__, hr, L#x, true ); } }
 #endif
 #ifndef V_RETURN
-#define V_RETURN(x)    { hr = (x); if( FAILED(hr) ) { assert(false); } } //return DXUTTrace( __FILE__, (DWORD)__LINE__, hr, L#x, true ); } }
+#define V_RETURN(x)    { hr = (x); if( FAILED(hr) ) { VA_ASSERT_ALWAYS( L"FAILED(hr) == true" ); return hr; } } //return DXUTTrace( __FILE__, (DWORD)__LINE__, hr, L#x, true ); } }
 #endif
 #else
 #ifndef V
@@ -245,11 +262,14 @@ namespace VertexAsylum
 
 #ifndef VERIFY_TRUE_RETURN_ON_FALSE
 #define VERIFY_TRUE_RETURN_ON_FALSE( x )        \
+do                                              \
+{                                               \
 if( !(x) )                                      \
 {                                               \
     assert( false );                            \
     return false;                               \
-}                                                                                          
+}                                               \
+} while( false )
 #endif
 
 #define VA_COMBINE1(X,Y) X##Y  // helper macro

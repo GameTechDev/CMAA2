@@ -33,13 +33,13 @@ namespace VertexAsylum
 } // namespace VertexAsylum
 #endif
 
-#define PRIMITIVESHAPERENDERER_CONSTANTS_BUFFERSLOT     1
+#define PRIMITIVESHAPERENDERER_CONSTANTSBUFFERSLOT     1
 
 #define PRIMITIVESHAPERENDERER_SHAPEINFO_SRV            0
 
 #ifdef VA_COMPILED_AS_SHADER_CODE
 
-cbuffer PrimitiveShapeRendererShaderConstantsBuffer : register( B_CONCATENATER( PRIMITIVESHAPERENDERER_CONSTANTS_BUFFERSLOT ) )
+cbuffer PrimitiveShapeRendererShaderConstantsBuffer : register( B_CONCATENATER( PRIMITIVESHAPERENDERER_CONSTANTSBUFFERSLOT ) )
 {
     PrimitiveShapeRendererShaderConstants              g_PrimitiveShapeRendererConstants;
 }

@@ -1,6 +1,8 @@
 
 #include "vaPropertyContainer.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
 void vaPropertyContainer::PropertyItemBool::ImGuiEdit( int numDecimals )
@@ -9,12 +11,15 @@ void vaPropertyContainer::PropertyItemBool::ImGuiEdit( int numDecimals )
 
     if( !m_isUIVisible ) return;
 
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+
     if( m_isUIEditable )
         ImGui::Checkbox( m_name.c_str(), &m_value );
     else
     {
         ImGui::LabelText( "%s", ((m_value)?"true":"false") );
     }
+#endif
 }
 
 void vaPropertyContainer::PropertyItemInt32::ImGuiEdit( int numDecimals )
@@ -22,6 +27,8 @@ void vaPropertyContainer::PropertyItemInt32::ImGuiEdit( int numDecimals )
     numDecimals; // unreferenced
 
     if( !m_isUIVisible ) return;
+
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
 
     if( m_isUIEditable )
     {
@@ -33,6 +40,7 @@ void vaPropertyContainer::PropertyItemInt32::ImGuiEdit( int numDecimals )
     {
         ImGui::LabelText( "%s", "%d", m_value );
     }
+#endif
 }
 
 void vaPropertyContainer::PropertyItemUInt32::ImGuiEdit( int numDecimals )
@@ -40,6 +48,7 @@ void vaPropertyContainer::PropertyItemUInt32::ImGuiEdit( int numDecimals )
     numDecimals; // unreferenced
 
     if( !m_isUIVisible ) return;
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
 
     if( m_isUIEditable )
     {
@@ -51,6 +60,7 @@ void vaPropertyContainer::PropertyItemUInt32::ImGuiEdit( int numDecimals )
     {
         ImGui::LabelText( "%s", "%u", m_value );
     }
+#endif
 }
 
 void vaPropertyContainer::PropertyItemInt64::ImGuiEdit( int numDecimals )
@@ -58,6 +68,8 @@ void vaPropertyContainer::PropertyItemInt64::ImGuiEdit( int numDecimals )
     numDecimals; // unreferenced
 
     if( !m_isUIVisible ) return;
+
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
 
     if( m_isUIEditable )
     {
@@ -69,32 +81,39 @@ void vaPropertyContainer::PropertyItemInt64::ImGuiEdit( int numDecimals )
     {
         ImGui::LabelText( "%s", "%lld", m_value );
     }
+#endif
 }
 
 void vaPropertyContainer::PropertyItemFloat::ImGuiEdit( int numDecimals )
 {
     if( !m_isUIVisible ) return;
+    numDecimals;
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
 
     if( m_isUIEditable )
     {
         float tmpValue = (float)m_value;
-        if( ImGui::InputFloat( m_name.c_str(), &tmpValue, m_editStep, m_editStep * 10, numDecimals, ImGuiInputTextFlags_EnterReturnsTrue ) )
+        string fmt = vaStringTools::Format("%%.%df", numDecimals);
+        if( ImGui::InputFloat( m_name.c_str(), &tmpValue, m_editStep, m_editStep * 10, fmt.c_str(), ImGuiInputTextFlags_EnterReturnsTrue ) )
             m_value = vaMath::Clamp( tmpValue, m_minVal, m_maxVal );
     }
     else
     {
         ImGui::LabelText( "%s", "%.4f", m_value );
     }
+#endif
 }
 
 void vaPropertyContainer::PropertyItemDouble::ImGuiEdit( int numDecimals )
 {
     if( !m_isUIVisible ) return;
-
+    numDecimals;
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     if( m_isUIEditable )
     {
         float tmpValue = (float)m_value;
-        if( ImGui::InputFloat( m_name.c_str( ), &tmpValue, (float)m_editStep, (float)m_editStep * 10, numDecimals ), ImGuiInputTextFlags_EnterReturnsTrue )
+        string fmt = vaStringTools::Format("%%.%df", numDecimals);
+        if( ImGui::InputFloat( m_name.c_str( ), &tmpValue, (float)m_editStep, (float)m_editStep * 10, fmt.c_str() ), ImGuiInputTextFlags_EnterReturnsTrue )
         {
             m_value = vaMath::Clamp( (double)tmpValue, m_minVal, m_maxVal );
         }
@@ -104,6 +123,7 @@ void vaPropertyContainer::PropertyItemDouble::ImGuiEdit( int numDecimals )
         float tmpValue = (float)m_value;
         ImGui::LabelText( "%s", "%.4f", tmpValue );
     }
+#endif
 }
 
 void vaPropertyContainer::PropertyItemString::ImGuiEdit( int numDecimals )
@@ -111,6 +131,8 @@ void vaPropertyContainer::PropertyItemString::ImGuiEdit( int numDecimals )
     numDecimals; // unreferenced
 
     if( !m_isUIVisible ) return;
+
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
 
     if( m_isUIEditable )
     {
@@ -128,45 +150,32 @@ void vaPropertyContainer::PropertyItemString::ImGuiEdit( int numDecimals )
     {
         ImGui::LabelText( "%s", "%s", m_value.c_str() );
     }
+#endif
 }
 
 bool vaPropertyContainer::Serialize( vaXMLSerializer & serializer )
 {
-    if( serializer.IsReading() )
-    {
-        if( !serializer.ReaderAdvanceToChildElement( m_name.c_str() ) )
-            return false;
-    }
-    if( serializer.IsWriting() )
-    {
-        if( !serializer.WriterOpenElement( m_name.c_str() ) )
-            return false;
-    }
+    assert( serializer.GetVersion() > 0 );
+    //if( !serializer.SerializeOpenChildElement( m_name.c_str() ) )
+    //    return false;
 
     for( auto & p : m_properties )
     {
-        if( !p->Serialize( serializer ) )
+        //if( serializer.Serialize( p->Name().c_str(), *p ) )
+        if( !p->NamedSerialize( serializer ) )
         {
             assert( false );
             return false;
         }
     }
 
-    if( serializer.IsReading() )
-    {
-        if( !serializer.ReaderPopToParentElement( m_name.c_str() ) )
-            { assert( false ); return false; };
-    }
-    if( serializer.IsWriting() )
-    {
-        if( !serializer.WriterCloseElement( m_name.c_str() ) )
-            { assert( false ); return false; };
-    }
+    //if( !serializer.SerializePopToParentElement( m_name.c_str( ) ) )
+    //    { assert( false ); return false; };
 
     return true;
 }
 
-void vaPropertyContainer::IHO_Draw( )
+void vaPropertyContainer::UIPropertiesItemDraw( )
 {
     for( auto & p : m_properties )
     {

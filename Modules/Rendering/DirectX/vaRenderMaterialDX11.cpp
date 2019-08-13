@@ -20,7 +20,6 @@
 #include "Rendering/DirectX/vaRenderMaterialDX11.h"
 
 #include "Rendering/DirectX/vaTextureDX11.h"
-#include "Rendering/DirectX/vaRenderingToolsDX11.h"
 #include "Rendering/DirectX/vaRenderDeviceContextDX11.h"
 
 #include "Rendering/vaTextureHelpers.h"

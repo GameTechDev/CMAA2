@@ -35,7 +35,7 @@ namespace VertexAsylum
     class vaRenderingModuleAPIImplementation;
     //class vaRenderDevice;
     //class vaRenderDeviceContext;
-    class vaRenderingGlobals;
+    class vaRenderGlobals;
     class vaLighting;
     class vaAssetPack;
     class vaTexture;
@@ -53,7 +53,7 @@ namespace VertexAsylum
     class vaShaderResource;
 
     // This should be renamed to something more sensible - render type? render path? 
-    enum class vaDrawContextOutputType
+    enum class vaDrawContextOutputType : int32
     {
         DepthOnly       = 0,            // Z-pre-pass or shadowmap; no pixels are shaded unless alpha tested
         Forward         = 1,            // regular rendering (used for post process passes as well)
@@ -72,7 +72,7 @@ namespace VertexAsylum
 
     BITFLAG_ENUM_CLASS_HELPER( vaDrawContextFlags );
 
-    enum class vaBlendMode
+    enum class vaBlendMode : int32
     {
         Opaque,
         Additive,
@@ -81,7 +81,7 @@ namespace VertexAsylum
         Mult,
     };
 
-    enum class vaPrimitiveTopology
+    enum class vaPrimitiveTopology : int32
     {
         PointList,
         LineList,
@@ -90,7 +90,7 @@ namespace VertexAsylum
     };
 
     // don't change these enum values - they are expected to be what they're set to.
-    enum class vaComparisonFunc
+    enum class vaComparisonFunc : int32
     {
         Never           = 1,
         Less            = 2,
@@ -102,31 +102,30 @@ namespace VertexAsylum
         Always          = 8
     };
 
-    enum class vaFillMode
+    enum class vaFillMode : int32
     {
         Wireframe       = 2,
         Solid           = 3
     };
 
-    enum class vaDrawResultFlags
+    enum class vaDrawResultFlags : uint32
     {
         None                    = 0,            // means all ok
         UnspecifiedError        = ( 1 << 0 ),
-        ShadersStillCompiling   = ( 2 << 0 ),
-        AssetsStillLoading      = ( 3 << 0 )
+        ShadersStillCompiling   = ( 1 << 1 ),
+        AssetsStillLoading      = ( 1 << 2 )
     };
     BITFLAG_ENUM_CLASS_HELPER( vaDrawResultFlags );
 
     // Used for more complex rendering when there's camera, lighting, various other settings - not needed by many systems
     struct vaSceneDrawContext
     {
-        vaSceneDrawContext( vaCameraBase & camera, vaRenderDeviceContext & deviceContext, vaRenderingGlobals & globals, vaDrawContextOutputType outputType, vaDrawContextFlags renderFlags = vaDrawContextFlags::None, vaLighting * lighting = nullptr )
-            : Camera( camera ), APIContext( deviceContext ), Globals( globals ), OutputType( outputType ), RenderFlags( renderFlags ), Lighting( lighting ) { }
+        vaSceneDrawContext( vaRenderDeviceContext & deviceContext, vaCameraBase & camera, vaDrawContextOutputType outputType, vaDrawContextFlags renderFlags = vaDrawContextFlags::None, vaLighting * lighting = nullptr )
+            : Camera( camera ), RenderDeviceContext( deviceContext ), OutputType( outputType ), RenderFlags( renderFlags ), Lighting( lighting ) { }
 
         // Mandatory
-        vaRenderDeviceContext &         APIContext;         // vaRenderDeviceContext is used to get/set current render targets and access rendering API stuff like contexts, etc.
+        vaRenderDeviceContext &         RenderDeviceContext;         // vaRenderDeviceContext is used to get/set current render targets and access rendering API stuff like contexts, etc.
         vaCameraBase &                  Camera;             // Currently selected camera
-        vaRenderingGlobals &            Globals;            // Used to set global shader constants, provide some debugging tools, etc.
 
         // Optional/settings
         vaDrawContextOutputType         OutputType;
@@ -140,9 +139,9 @@ namespace VertexAsylum
     // This is a platform-independent layer for -immediate- rendering of a single draw call - it's not fully featured or designed
     // for high performance; for additional features there's a provision for API-dependent custom callbacks; for more 
     // performance/reducing overhead the alternative is to provide API-specific rendering module implementations.
-    struct vaRenderItem
+    struct vaGraphicsItem
     {
-        enum DrawType
+        enum class DrawType : uint8
         {
             DrawSimple,                   // Draw non-indexed, non-instanced primitives.
             // DrawAuto,                       // Draw geometry of an unknown size.
@@ -153,10 +152,10 @@ namespace VertexAsylum
             // DrawInstancedIndirect,          //  Draw instanced, GPU-generated primitives.
         };
 
-        DrawType                            DrawType                = DrawSimple;
-
         // If present, pick up various other stuff like lighting, some globals, etc.    Pointer only held between vaRenderDeviceContext::BeginItems/EndItem/ExecuteItem calls
         vaSceneDrawContext *                SceneDrawContext        = nullptr;
+
+        DrawType                            DrawType                = DrawType::DrawSimple;
 
         // TOPOLOGY
         vaPrimitiveTopology                 Topology                = vaPrimitiveTopology::TriangleList;
@@ -165,13 +164,6 @@ namespace VertexAsylum
         vaBlendMode                         BlendMode               = vaBlendMode::Opaque;
         //vaVector4                           BlendFactor;
         //uint32                              BlendMask;
-
-        // SHADER(s)
-        shared_ptr<vaVertexShader>          VertexShader;
-        shared_ptr<vaGeometryShader>        GeometryShader;
-        shared_ptr<vaHullShader>            HullShader;
-        shared_ptr<vaDomainShader>          DomainShader;
-        shared_ptr<vaPixelShader>           PixelShader;
 
         // DEPTH
         bool                                DepthEnable             = false;
@@ -192,11 +184,18 @@ namespace VertexAsylum
         // bool                                MultisampleEnable       = true;
         // bool                                ScissorEnable           = true;
 
+        // SHADER(s)
+        shared_ptr<vaVertexShader>          VertexShader;
+        shared_ptr<vaGeometryShader>        GeometryShader;
+        shared_ptr<vaHullShader>            HullShader;
+        shared_ptr<vaDomainShader>          DomainShader;
+        shared_ptr<vaPixelShader>           PixelShader;
+
         // SAMPLERS
         // not handled by API independent layer yet but default ones set with SetStandardSamplers - see SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT and SHADERGLOBAL_POINTCLAMP_SAMPLERSLOT and others
 
         // CONSTANT BUFFERS
-        shared_ptr<vaConstantBuffer>        ConstantBuffers[10];
+        shared_ptr<vaConstantBuffer>        ConstantBuffers[8];
 
         // SRVs
         shared_ptr<vaShaderResource>        ShaderResourceViews[20];
@@ -220,12 +219,12 @@ namespace VertexAsylum
         }                                   DrawIndexedParams;
         
         // Callback to insert any API-specific overrides or additional tweaks
-        std::function<bool( const vaRenderItem &, vaRenderDeviceContext & )> PreDrawHook;
-        std::function<void( const vaRenderItem &, vaRenderDeviceContext & )> PostDrawHook;
+        std::function<bool( const vaGraphicsItem &, vaRenderDeviceContext & )> PreDrawHook;
+        std::function<void( const vaGraphicsItem &, vaRenderDeviceContext & )> PostDrawHook;
 
         // Helpers
-        void                                SetDrawSimple( int vertexCount, int startVertexLocation )                           { this->DrawType = DrawSimple; DrawSimpleParams.VertexCount = vertexCount; DrawSimpleParams.StartVertexLocation = startVertexLocation; }
-        void                                SetDrawIndexed( uint indexCount, uint startIndexLocation, int baseVertexLocation )  { this->DrawType = DrawIndexed; DrawIndexedParams.IndexCount = indexCount; DrawIndexedParams.StartIndexLocation = startIndexLocation; DrawIndexedParams.BaseVertexLocation = baseVertexLocation; }
+        void                                SetDrawSimple( int vertexCount, int startVertexLocation )                           { this->DrawType = DrawType::DrawSimple; DrawSimpleParams.VertexCount = vertexCount; DrawSimpleParams.StartVertexLocation = startVertexLocation; }
+        void                                SetDrawIndexed( uint indexCount, uint startIndexLocation, int baseVertexLocation )  { this->DrawType = DrawType::DrawIndexed; DrawIndexedParams.IndexCount = indexCount; DrawIndexedParams.StartIndexLocation = startIndexLocation; DrawIndexedParams.BaseVertexLocation = baseVertexLocation; }
     };
 
     // try testing with vaZoomToolDX11 - should be a good first candidate!
@@ -245,13 +244,13 @@ namespace VertexAsylum
         shared_ptr<vaComputeShader>         ComputeShader;
 
         // CONSTANT BUFFERS
-        shared_ptr<vaConstantBuffer>        ConstantBuffers[_countof(vaRenderItem::ConstantBuffers)];           // keep the same count as in for render items for convenience and debugging safety
+        shared_ptr<vaConstantBuffer>        ConstantBuffers[_countof(vaGraphicsItem::ConstantBuffers)];           // keep the same count as in for render items for convenience and debugging safety
 
         // SRVs
-        shared_ptr<vaShaderResource>        ShaderResourceViews[_countof(vaRenderItem::ShaderResourceViews)];   // keep the same count as in for render items for convenience and debugging safety
+        shared_ptr<vaShaderResource>        ShaderResourceViews[_countof(vaGraphicsItem::ShaderResourceViews)];   // keep the same count as in for render items for convenience and debugging safety
 
         // UAVs
-        shared_ptr<vaShaderResource>        UnorderedAccessViews[20];       // I did not add provision for hidden counter resets - if needed better use a different approach (InterlockedX on a separate untyped UAV)
+        shared_ptr<vaShaderResource>        UnorderedAccessViews[8];       // I did not add provision for hidden counter resets - if needed better use a different approach (InterlockedX on a separate untyped UAV)
 
 
         struct DispatchParams
@@ -281,9 +280,9 @@ namespace VertexAsylum
     enum class vaRenderSelectionCullFlags
     {
         None                    = 0,
-        UseBoundingSphereFrom   = ( 1 << 0 ),
-        UseBoundingSphereTo     = ( 1 << 1 ),
-        UseFrustumPlanes        = ( 1 << 2 ),
+        // UseBoundingSphereFrom   = ( 1 << 0 ),    // simplified to "if( BoundingSphereFrom    != vaBoundingSphere::Degenerate ) ..."
+        // UseBoundingSphereTo     = ( 1 << 1 ),    // simplified to "if( BoundingSphereTo      != vaBoundingSphere::Degenerate ) ..."
+        // UseFrustumPlanes        = ( 1 << 2 ),    // FrustumPlanes is now a vector - if it's empty then do no frustum culling, simple!
 
         // CullTransparencies      = ( 1 << 3 ),
         // CullNonTransparencies   = ( 1 << 4 ),
@@ -297,9 +296,9 @@ namespace VertexAsylum
 
     struct vaRenderSelectionFilter
     {
-        vaBoundingSphere                BoundingSphereFrom  = vaBoundingSphere( { 0, 0, 0 }, 0.0f );
-        vaBoundingSphere                BoundingSphereTo    = vaBoundingSphere( { 0, 0, 0 }, 0.0f );
-        vaPlane                         FrustumPlanes[6];
+        vaBoundingSphere                BoundingSphereFrom  = vaBoundingSphere::Degenerate; //( { 0, 0, 0 }, 0.0f );
+        vaBoundingSphere                BoundingSphereTo    = vaBoundingSphere::Degenerate; //( { 0, 0, 0 }, 0.0f );
+        vector<vaPlane>                 FrustumPlanes;
 
         vaRenderSelectionCullFlags      CullFlags;
 
@@ -311,13 +310,13 @@ namespace VertexAsylum
         vaRenderSelectionFilter( ) { }
 
         // regular draw for a given camera
-        vaRenderSelectionFilter( const vaCameraBase & camera, vaSortType sortType = vaSortType::FrontToBack )   : SortCenter( camera.GetPosition() ), SortCenterType( sortType ), CullFlags( vaRenderSelectionCullFlags::UseFrustumPlanes ) { camera.CalcFrustumPlanes(FrustumPlanes); }
+        vaRenderSelectionFilter( const vaCameraBase & camera, vaSortType sortType = vaSortType::FrontToBack )   : SortCenter( camera.GetPosition() ), SortCenterType( sortType ), CullFlags( vaRenderSelectionCullFlags::None ) { FrustumPlanes.resize(6); camera.CalcFrustumPlanes(&FrustumPlanes[0]); }
 
         // draw for a simple cubemap
         vaRenderSelectionFilter( vaVector3 position, vaSortType sortType = vaSortType::FrontToBack )            : SortCenter( position ), SortCenterType( sortType ), CullFlags( vaRenderSelectionCullFlags::None ) { }
         
         // depends on the shadowmap type
-         explicit vaRenderSelectionFilter( const vaShadowmap & shadowmap );
+        explicit vaRenderSelectionFilter( const vaShadowmap & shadowmap );
     };
 
     BITFLAG_ENUM_CLASS_HELPER( vaRenderSelectionCullFlags );
@@ -328,11 +327,11 @@ namespace VertexAsylum
     // multiple scenes or from outside of scenes or from any custom code
     struct vaRenderSelection
     {
-        vaRenderSelectionFilter         Filter;
+        vaRenderSelectionFilter             Filter;
 
-        shared_ptr<vaRenderMeshDrawList> MeshList;
+        shared_ptr<vaRenderMeshDrawList>    MeshList    = std::make_shared<vaRenderMeshDrawList>();
 
-        void                            Reset( );
+        void                                Reset( );
     };
 
     // base type for forwarding vaRenderingModule constructor parameters
@@ -409,10 +408,11 @@ namespace VertexAsylum
     public:
         template< typename CastToType >
         CastToType                          SafeCast( )                                                                 
-        { 
-           CastToType ret = dynamic_cast< CastToType >( this );
-           assert( ret != NULL );
-           return ret;
+        {
+//            CastToType ret = dynamic_cast< CastToType >( this );
+//            assert( ret != NULL );
+//            return ret;
+            return static_cast< CastToType >( this );
         }
 
     };
@@ -453,7 +453,6 @@ namespace VertexAsylum
     //      vaTexture * texture = VA_RENDERING_MODULE_CREATE( vaTexture, &params );
 #define VA_RENDERING_MODULE_CREATE( ModuleType, Param )         vaRenderingModuleRegistrar::CreateModuleTyped<ModuleType>( typeid(ModuleType).name(), Param )
 #define VA_RENDERING_MODULE_CREATE_SHARED( ModuleType, Param )  std::shared_ptr< ModuleType >( vaRenderingModuleRegistrar::CreateModuleTyped<ModuleType>( typeid(ModuleType).name(), Param ) )
-#define VA_RENDERING_MODULE_CREATE_UNIQUE( ModuleType, Param )  std::unique_ptr< ModuleType >( vaRenderingModuleRegistrar::CreateModuleTyped<ModuleType>( typeid(ModuleType).name(), Param ) )
 
     template< typename ModuleType >
     inline ModuleType * vaRenderingModuleRegistrar::CreateModuleTyped( const std::string & name, const vaRenderingModuleParams & params )
@@ -466,7 +465,8 @@ namespace VertexAsylum
         if( ret == NULL )
         {
             wstring wname = vaStringTools::SimpleWiden( name );
-            VA_ERROR( L"vaRenderingModuleRegistrar::CreateModuleTyped failed for '%s'; have you done VA_RENDERING_MODULE_REGISTER( vaRenderDeviceDX11, vaSomeClass, vaSomeClassDX11 )?; is vaSomeClass inheriting vaRenderingModule with 'public'? ", wname.c_str() );
+            wstring wtypename = vaStringTools::SimpleWiden( typeid(params.RenderDevice).name() );
+            VA_WARN( L"vaRenderingModuleRegistrar::CreateModuleTyped failed for '%s'; have you done VA_RENDERING_MODULE_REGISTER( %s, %s, your_type )? ", wname.c_str(), wtypename.c_str(), wname.c_str() );
         }
 
         return ret;
@@ -531,7 +531,7 @@ namespace VertexAsylum
     class vaAssetResource : public std::enable_shared_from_this<vaAssetResource>, public vaUIDObject
     {
     private:
-        const vaAsset *     m_parentAsset;
+        vaAsset *           m_parentAsset;
 
         bool                m_UI_ShowSelected   = false;
     
@@ -540,7 +540,7 @@ namespace VertexAsylum
         virtual ~vaAssetResource( )                                         { assert( m_parentAsset == nullptr ); }
     
     public:
-        const vaAsset *     GetParentAsset( )                               { return m_parentAsset; }
+        vaAsset *     GetParentAsset( )                               { return m_parentAsset; }
 
         virtual bool        LoadAPACK( vaStream & inStream )                               = 0;
         virtual bool        SaveAPACK( vaStream & outStream )                                                       = 0;
@@ -552,7 +552,7 @@ namespace VertexAsylum
 
     private:
         friend struct vaAsset;
-        void                SetParentAsset( const vaAsset * asset )         
+        void                SetParentAsset( vaAsset * asset )         
         { 
             // there can be only one asset resource linked to one asset; this is one (of the) way to verify it:
             if( asset == nullptr )
@@ -579,11 +579,11 @@ namespace VertexAsylum
 
 #if defined( VA_REMOTERY_INTEGRATION_ENABLED )
 
-    #if defined( VA_REMOTERY_INTEGRATION_USE_D3D11 )
-        #define VA_SCOPE_CPUGPU_TIMER( name, apiContext )                                       vaScopeTimer scope_##name( #name, &apiContext ); rmt_ScopedCPUSample( name, 0 ); rmt_ScopedD3D11Sample( name )
-    #else
+    //#if defined( VA_REMOTERY_INTEGRATION_USE_D3D11 )
+    //    #define VA_SCOPE_CPUGPU_TIMER( name, apiContext )                                       vaScopeTimer scope_##name( #name, &apiContext ); rmt_ScopedCPUSample( name, 0 ); rmt_ScopedD3D11Sample( name )
+    //#else
         #define VA_SCOPE_CPUGPU_TIMER( name, apiContext )                                       vaScopeTimer scope_##name( #name, &apiContext ); rmt_ScopedCPUSample( name, 0 )
-    #endif
+    //#endif
 
 #else
 

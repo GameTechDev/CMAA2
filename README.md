@@ -4,7 +4,7 @@ This repository contains implementation of CMAA2, a post-process anti-aliasing s
 
 Details of the implementation as well as quality and performance analysis are provided in the accompanying article at https://software.intel.com/en-us/articles/conservative-morphological-anti-aliasing-20.
 
-Sample code in this repository is a DirectX 11 Compute Shader 5.0 HLSL reference implementation optimized for modern PC GPU hardware. DirectX 12 and Vulkan ports are also in development.
+Sample code in this repository is a DirectX 11 and DirectX 12 Compute Shader 5.0 HLSL reference implementation optimized for modern PC GPU hardware.
 
 ## Sample overview
  
@@ -12,20 +12,30 @@ The sample application requires Windows 10 and Visual Studio 2017. Once built an
 
 ![Alt text](screenshot.jpg?raw=true "CMAA2 sample application")
 
+### Testing with your own images
+
 UI on the left side provides the 'Scene' selection used to change the 3D scene or a to switch to using a static image as the input ('StaticImage' option). StaticImage option is useful for quickly testing CMAA2 or one of the other provided post-process AA effects on a screenshot captured from any external workload. 
 To add your images to the StaticImage list simply copy the image file in the .png format to the \CMAA2\Projects\CMAA2\Media\TestScreenshots\ path and restart the application.
 
+### Switching between DirectX 11 and DirectX 12 implementations or hardware adapters
+
+On the right UI panel "System & Performance", under the resolution, fullscreen and vsync settings, there is a new button for selecting the hardware adapter as well as the DirectX API version to use out of what is available on the system. Changing the API/adapter will restart the application and remember the setting in the 'APIAdapter' file located in the same folder where the executable is.
+
+### AA options
+
 Below is the list of selectable anti-aliasing options ('AA option'). To quickly change between them for comparison, '1' - '9' keyboard keys can also be used.
+
+### Various testing tools
 
 For more detailed comparison, we provide 'ZoomTool'  which, when enabled, allows zooming on a specific region of pixels for closer inspection.
 
 In addition we also provide 'CompareTool' which can be used to capture a reference image ('Save ref' button) and compare it to the currently rendered image either numerically ('Compare with ref' button provides PSNR between the two) or visually (using 'Visualization' combo box to show the difference).
 
-Finally, tools for automated testing of quality and performance of the various AA options are available in the 'Benchmarking' section.
+Finally, tools for automated testing of quality and peformance of the various AA options are available in the 'Benchmarking' section.
 
 ## Code integration guide
 
-This integration guide covers basic steps needed for integration into an engine and relies on the sample code in this repository. Relevant source code files are CMAA2/CMAA2.hlsl and CMAA2/vaCMAA2DX11.cpp.
+This integration guide covers basic steps needed for integration into an engine and relies on the sample code in this repository. Relevant source code files are CMAA2/CMAA2.hlsl (used by both DX11 and DX12 versions) and CMAA2/vaCMAA2DX11.cpp (for DX11) and/or CMAA2/vaCMAA2DX12.cpp (for DX12).
 
 ### Shaders
 
@@ -62,7 +72,7 @@ These modes are controlled using **CMAA2_EDGE_DETECTION_LUMA_PATH** macro using 
  * **2** enables luma-based edge detection path where precomputed luma is loaded from a separate R8_UNORM input texture (best performance, ideal)
  * **3** enables luma-based edge detection path where precomputed luma is loaded from alpha channel of the original input color texture (faster than 1 but slower than 2 and not an option for color formats with no alpha channel like R11G11B10_FLOAT)
 
- The detailed example of how to handle most format and detect hardware support is provided in vaCMAA2DX11.cpp from line 318.
+ The detailed example of how to handle most format and detect hardware support is provided in vaCMAA2DX11.cpp from line 384.
 
 ### Temporary working buffers
 
@@ -75,7 +85,7 @@ These storage buffers are:
  * **working shape candidates buffer**  : stores potential shapes for further processing, filled in EdgesColor2x2CS and read/used by ProcessCandidatesCS
  * **working deferred blend buffers**   : these 3 buffers store a linked list of per-pixel anti-aliased color values that are output by ProcessCandidatesCS and consumed and applied to the final texture by DeferredColorApply2x2CS
 
-For the details on buffer creation, sizes and formats please refer to vaCMAA2DX11.cpp from line 395.
+For the details on buffer creation, sizes and formats please refer to vaCMAA2DX11.cpp from line 489.
 
 ### Compute calls
 
@@ -87,7 +97,7 @@ The execution steps are:
  4. **(ComputeDispatchArgsCS)**: computes the arguments for the next kernel's DispatchIndirect call
  5. **DeferredColorApply2x2CS**: takes all output values from ProcessCandidatesCS and deterministically blends them back into the source (now output) texture using UAV
 
- For details on the draw call setup please refer to 'vaCMAA2DX11::Execute' in vaCMAADX11.cpp from line 536.
+ For details on the draw call setup please refer to 'vaCMAA2DX11::Execute' in vaCMAADX11.cpp from line 609.
 
 ### Settings
 
@@ -107,7 +117,7 @@ This sample uses following code and libraries:
 * Remotery https://github.com/Celtoys/Remotery
 * tinyxml2 https://github.com/leethomason/tinyxml2
 * zlib https://github.com/madler/zlib
-* FXAA https://github.com/NVIDIAGameWorks/GraphicsSamples/tree/master/samples/es3-kepler/FXAA
+* FXAA https://github.com/NVIDIAGameWorks/D3DSamples/blob/master/samples/FXAA
 * SMAA https://github.com/iryoku/smaa
 
 ## License

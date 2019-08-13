@@ -23,12 +23,15 @@
 
 #include "Core/System/vaFileTools.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
 
 vaImageCompareTool::vaImageCompareTool( const vaRenderingModuleParams & params ) : vaRenderingModule( params ),
     m_visualizationPS( params ),
-    m_constants( params )
+    m_constants( params ),
+    vaUIPanel( "CompareTool", -2, true, vaUIPanel::DockLocation::DockedLeftBottom )
 {
     m_screenshotCapturePath = L"";
     m_saveReferenceScheduled = false;
@@ -36,7 +39,7 @@ vaImageCompareTool::vaImageCompareTool( const vaRenderingModuleParams & params )
     m_referenceTextureStoragePath = vaCore::GetExecutableDirectory() + L"reference.png";
     m_initialized = false;
 
-    m_visualizationPS->CreateShaderFromFile( "vaHelperTools.hlsl", "ps_5_0", "ImageCompareToolVisualizationPS" );
+    m_visualizationPS->CreateShaderFromFile( "vaHelperTools.hlsl", "ps_5_0", "ImageCompareToolVisualizationPS", vaShaderMacroContaner{}, false );
 }
 
 vaImageCompareTool::~vaImageCompareTool( )
@@ -44,32 +47,43 @@ vaImageCompareTool::~vaImageCompareTool( )
 
 }
 
-void vaImageCompareTool::SaveAsReference( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut )
+void vaImageCompareTool::SaveAsReference( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut )
 {
-    if( ( m_referenceTexture == nullptr ) || ( m_referenceTexture->GetSizeX( ) != colorInOut->GetSizeX( ) ) || ( m_referenceTexture->GetSizeY( ) != colorInOut->GetSizeY( ) ) || ( m_referenceTexture->GetResourceFormat( ) != colorInOut->GetResourceFormat( ) ) )
+    // There is/was an issue in DX12 on some GPUs on Windows RS4 at some image sizes (for ex 2560x1600) when bind flags are different for otherwise identical texture the CopyResource will fail with
+    // "D3D12 ERROR: ID3D12CommandList::CopyResource: Source and Destination resource must have the same size. But pSrcResource has resource size (16449536) and pDstResource has resource size (16384000)."
+    // Might be an error in the debug layer.
+    // Therefore always re-create the reference texture with identical bind flags when saving.
+
+    const shared_ptr< vaTexture > & viewedOriginal = (!colorInOut->IsView())?(colorInOut):(colorInOut->GetViewedOriginal( ) );
+
+    if( ( m_referenceTexture == nullptr ) || ( m_referenceTexture->GetSizeX( ) != colorInOut->GetSizeX( ) ) || ( m_referenceTexture->GetSizeY( ) != colorInOut->GetSizeY( ) ) || ( m_referenceTexture->GetResourceFormat( ) != colorInOut->GetSRVFormat( ) ) 
+        || m_referenceTexture->GetBindSupportFlags() != viewedOriginal->GetBindSupportFlags() )
     {
         assert( colorInOut->GetType() == vaTextureType::Texture2D );
         assert( colorInOut->GetMipLevels() == 1 );
         assert( colorInOut->GetSizeZ() == 1 );
         assert( colorInOut->GetSampleCount() == 1 );
-        m_referenceTexture = vaTexture::Create2D( GetRenderDevice(), colorInOut->GetSRVFormat(), colorInOut->GetSizeX(), colorInOut->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::ShaderResource, 
-            vaTextureAccessFlags::None, colorInOut->GetSRVFormat() );
+
+        auto bindFlags = viewedOriginal->GetBindSupportFlags();
+
+        m_referenceTexture = vaTexture::Create2D( GetRenderDevice(), viewedOriginal->GetResourceFormat(), colorInOut->GetSizeX(), colorInOut->GetSizeY(), 1, 1, 1, bindFlags, 
+            vaResourceAccessFlags::Default, colorInOut->GetSRVFormat(), viewedOriginal->GetRTVFormat(), viewedOriginal->GetDSVFormat(), viewedOriginal->GetUAVFormat() );
     }
 
-    m_referenceTexture->CopyFrom( apiContext, colorInOut );
+    m_referenceTexture->CopyFrom( renderContext, colorInOut );
 }
 
-vaVector4 vaImageCompareTool::CompareWithReference( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess )
+vaVector4 vaImageCompareTool::CompareWithReference( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess )
 {
     // Bail if reference image not captured, or size/format mismatch - please capture a reference image first.
     if( ( m_referenceTexture == nullptr ) || ( m_referenceTexture->GetSizeX( ) != colorInOut->GetSizeX( ) ) || ( m_referenceTexture->GetSizeY( ) != colorInOut->GetSizeY( ) ) ) //|| ( m_referenceTexture->GetSRVFormat( ) != colorInOut->GetSRVFormat( ) ) )
         return vaVector4( -1, -1, -1, -1 );
 
     // MSE is in .x, PSNR is in .y
-    return postProcess->CompareImages( apiContext, m_referenceTexture, colorInOut );
+    return postProcess->CompareImages( renderContext, m_referenceTexture, colorInOut );
 }
 
-void vaImageCompareTool::RenderTick( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess )
+void vaImageCompareTool::RenderTick( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess )
 {
     if( m_referenceTexture != nullptr )
     {
@@ -102,12 +116,12 @@ void vaImageCompareTool::RenderTick( vaRenderDeviceContext & apiContext, const s
     if( m_helperTexture == nullptr || ( m_helperTexture->GetSizeX( ) != colorInOut->GetSizeX( ) ) || ( m_helperTexture->GetSizeY( ) != colorInOut->GetSizeY( ) ) || ( m_helperTexture->GetSRVFormat( ) != colorInOut->GetSRVFormat( ) ) )
     {
         m_helperTexture = vaTexture::Create2D( GetRenderDevice(), colorInOut->GetSRVFormat( ), colorInOut->GetSizeX( ), colorInOut->GetSizeY( ), 1, 1, 1, vaResourceBindSupportFlags::ShaderResource,
-            vaTextureAccessFlags::None, colorInOut->GetSRVFormat( ) );
+            vaResourceAccessFlags::Default, colorInOut->GetSRVFormat( ) );
     }
 
     if( m_screenshotCapturePath != L"" )
     {
-        if( postProcess->SaveTextureToPNGFile( apiContext, m_screenshotCapturePath, *colorInOut ) )
+        if( colorInOut->SaveToPNGFile( renderContext, m_screenshotCapturePath ) )
         {
             VA_LOG( L"CompareTool: Screenshot saved to " + m_screenshotCapturePath );
         }
@@ -120,13 +134,13 @@ void vaImageCompareTool::RenderTick( vaRenderDeviceContext & apiContext, const s
 
     if( m_saveReferenceScheduled )
     {
-        SaveAsReference( apiContext, colorInOut );
+        SaveAsReference( renderContext, colorInOut );
         m_saveReferenceScheduled = false;
 
         if( m_referenceTexture != nullptr )
         {
             VA_LOG( "CompareTool: Reference image captured" );
-            if( postProcess->SaveTextureToPNGFile( apiContext, m_referenceTextureStoragePath, *m_referenceTexture ) )
+            if( m_referenceTexture->SaveToPNGFile( renderContext, m_referenceTextureStoragePath ) )
             {
                 VA_LOG( L"CompareTool: Reference image saved to " + m_referenceTextureStoragePath );
             }
@@ -143,7 +157,7 @@ void vaImageCompareTool::RenderTick( vaRenderDeviceContext & apiContext, const s
 
     if( m_compareReferenceScheduled )
     {
-        vaVector4 diff = CompareWithReference( apiContext, colorInOut, postProcess );
+        vaVector4 diff = CompareWithReference( renderContext, colorInOut, postProcess );
         if( diff.x == -1 )
         {
             VA_LOG_ERROR( "CompareTool: Reference image not captured, or size/format mismatch - please capture a reference image first." );
@@ -159,25 +173,26 @@ void vaImageCompareTool::RenderTick( vaRenderDeviceContext & apiContext, const s
     {
         if( !( ( m_referenceTexture == nullptr ) || ( m_referenceTexture->GetSizeX( ) != colorInOut->GetSizeX( ) ) || ( m_referenceTexture->GetSizeY( ) != colorInOut->GetSizeY( ) ) ) )// || ( m_referenceTexture->GetSRVFormat( ) != colorInOut->GetSRVFormat( ) ) ) )
         {
-            m_helperTexture->CopyFrom( apiContext, colorInOut );
+            m_helperTexture->CopyFrom( renderContext, colorInOut );
 
             ImageCompareToolShaderConstants consts; memset( &consts, 0, sizeof(consts) );
             consts.VisType = (int)m_visualizationType;
-            m_constants.Update( apiContext, consts );
+            m_constants.Update( renderContext, consts );
 
-            vaRenderItem renderItem;
-            apiContext.FillFullscreenPassRenderItem( renderItem );
+            vaGraphicsItem renderItem;
+            renderContext.FillFullscreenPassRenderItem( renderItem );
             renderItem.ConstantBuffers[ IMAGE_COMPARE_TOOL_BUFFERSLOT ]         = m_constants.GetBuffer();
             renderItem.ShaderResourceViews[ IMAGE_COMPARE_TOOL_TEXTURE_SLOT0 ]  = m_referenceTexture;
             renderItem.ShaderResourceViews[ IMAGE_COMPARE_TOOL_TEXTURE_SLOT1 ]  = m_helperTexture;
             renderItem.PixelShader          = m_visualizationPS;
-            apiContext.ExecuteSingleItem( renderItem );
+            renderContext.ExecuteSingleItem( renderItem );
         }
     }
 }
 
-void vaImageCompareTool::IHO_Draw( )
+void vaImageCompareTool::UIPanelDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     ImGui::PushItemWidth( 120.0f );
 
     ImGui::BeginGroup( );
@@ -187,7 +202,7 @@ void vaImageCompareTool::IHO_Draw( )
 
     if( m_referenceTexture == nullptr )
     {
-        ImGui::Text( "No reference captured!" );
+        ImGui::Text( "No reference captured/loaded!" );
     }
     else
     {
@@ -207,4 +222,5 @@ void vaImageCompareTool::IHO_Draw( )
     ImGui::EndGroup( );
 
     ImGui::PopItemWidth( );
+#endif
 }

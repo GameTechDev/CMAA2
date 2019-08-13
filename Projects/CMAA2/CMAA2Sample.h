@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2018, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -28,10 +28,10 @@
 
 #include "Rendering/vaRenderingIncludes.h"
 
-//#include "GUI/vaDevGUI.h"
+#include "Core/vaUI.h"
 
 #include "Rendering/vaRenderDevice.h"
-#include "Rendering/Effects/vaASSAO.h"
+#include "Rendering/Effects/vaASSAOLite.h"
 #include "Rendering/Misc/vaZoomTool.h"
 #include "Rendering/Misc/vaImageCompareTool.h"
 #include "Rendering/Misc/vaTextureReductionTestTool.h"
@@ -45,7 +45,13 @@ namespace VertexAsylum
 {
     class AutoBenchTool;
 
-    class CMAA2Sample : public vaRenderingModule, public std::enable_shared_from_this<CMAA2Sample>
+    struct CMAA2SampleConstructorParams : public vaRenderingModuleParams
+    {
+        vaApplicationBase &     Application;
+        explicit CMAA2SampleConstructorParams( vaRenderDevice & device, vaApplicationBase & application ) : vaRenderingModuleParams(device), Application(application) { }
+    };
+
+    class CMAA2Sample : public vaRenderingModule, public std::enable_shared_from_this<CMAA2Sample>, public vaUIPanel
     {
     public:
 
@@ -111,14 +117,14 @@ namespace VertexAsylum
 
             void Serialize( vaXMLSerializer & serializer )
             {
-                serializer.SerializeValue( "SceneChoice"                 , (int&)SceneChoice            );
-                serializer.SerializeValue( "ShowWireframe"               , ShowWireframe                );
-                serializer.SerializeValue( "CameraYFov"                  , CameraYFov                   );
-                serializer.SerializeValue( "CurrentAAOption"             , (int&)CurrentAAOption        );
-                serializer.SerializeValue( "CurrentStaticImageChoice", CurrentStaticImageChoice );
+                serializer.Serialize( "SceneChoice"                 , (int&)SceneChoice            );
+                serializer.Serialize( "ShowWireframe"               , ShowWireframe                );
+                serializer.Serialize( "CameraYFov"                  , CameraYFov                   );
+                serializer.Serialize( "CurrentAAOption"             , (int&)CurrentAAOption        );
+                serializer.Serialize( "CurrentStaticImageChoice", CurrentStaticImageChoice );
                 //serializer.SerializeValue( "MSAAOption"                  , MSAAOption                   );
-                serializer.SerializeValue( "MSAADebugSampleIndex"        , MSAADebugSampleIndex         );
-                serializer.SerializeValue( "ZPrePass"                    , ZPrePass                     );
+                serializer.Serialize( "MSAADebugSampleIndex"        , MSAADebugSampleIndex         );
+                serializer.Serialize( "ZPrePass"                    , ZPrePass                     );
 
                 // this here is just to remind you to update serialization when changing the struct
                 size_t dbgSizeOfThis = sizeof(*this); dbgSizeOfThis;
@@ -134,10 +140,9 @@ namespace VertexAsylum
                                                 m_flythroughCameraController;
         bool                                    m_flythroughPlay = false;
 
-        shared_ptr<vaApplicationWin>            m_application;
+        vaApplicationBase &                     m_application;
 
         shared_ptr<vaSkybox>                    m_skybox;
-        shared_ptr<vaRenderingGlobals>          m_renderingGlobals;
 
         vaGBuffer::BufferFormats                m_GBufferFormats;
         shared_ptr<vaGBuffer>                   m_GBuffer;
@@ -201,12 +206,14 @@ namespace VertexAsylum
 
         vaVector3                               m_mouseCursor3DWorldPosition;
 
-        vaAutoRMI<vaASSAO>                 	    m_SSAOEffect;
+        shared_ptr<vaASSAOLite>                 m_SSAOLiteEffect;
 
         shared_ptr<AutoBenchTool>               m_autoBench;
-        int                                     m_autoBenchPerfRunCount  = 4;
+        int                                     m_autoBenchPerfRunCount         = 4;
 
-        bool                                    m_requireDeterminism = false;
+        bool                                    m_requireDeterminism            = false;
+
+        //bool                                    m_debugTexturingDisabled        = false;
 
     protected:
         CMAA2SampleSettings                     m_settings;
@@ -217,8 +224,7 @@ namespace VertexAsylum
     public:
         virtual ~CMAA2Sample( );
 
-        void                                    Initialize( const std::shared_ptr<vaApplicationWin> & application );
-        const shared_ptr<vaApplicationWin> &    GetApplication( ) const             { return m_application; }
+        const vaApplicationBase &               GetApplication( ) const             { return m_application; }
 
     public:
         shared_ptr<vaCameraBase> &              Camera( )                           { return m_camera; }
@@ -240,7 +246,6 @@ namespace VertexAsylum
     public:
         // events/callbacks:
         void                                    OnBeforeStopped( );
-        void                                    OnResized( int width, int height, bool windowed );
         void                                    OnTick( float deltaTime );
         void                                    OnSerializeSettings( vaXMLSerializer & serializer );
 
@@ -249,13 +254,13 @@ namespace VertexAsylum
         void                                    LoadAssetsAndScenes( );
         int                                     GetMSAACountForAAType( CMAA2Sample::AAType aaType );
 
-        void                                    InsertImGuiContent( );
-        void                                    InsertImGuiWindow( );
 
         bool                                    LoadCamera( int index = -1 );
         void                                    SaveCamera( int index = -1 );
 
         vaDrawResultFlags                       DrawScene( vaCameraBase & camera, vaGBuffer & gbufferOutput, const shared_ptr<vaTexture> & colorScratch, bool & colorScratchContainsFinal, const vaViewport & mainViewport, float globalMIPOffset, const vaVector2 & globalPixelScale = vaVector2( 1.0, 1.0 ), bool skipTonemapTick = false );
+
+        virtual void                            UIPanelDraw( ) override;
 
     private:
         //void                                    RandomizeCurrentPoissonDisk( int count = SSAO_MAX_SAMPLES );
@@ -300,13 +305,13 @@ namespace VertexAsylum
         string                                  m_reportTXT;
 
     public:
-        AutoBenchTool( CMAA2Sample & parent ) : m_parent( parent ) { }
+        AutoBenchTool( CMAA2Sample & parent ) : m_parent( parent ), m_backupCamera( false ) { }
         ~AutoBenchTool( )                       { assert( !IsActive() ); }
 
         void                                    AddTask( shared_ptr<AutoBenchToolWorkItem> task )   { m_tasks.insert( m_tasks.begin(), task ); }
         void                                    Tick( float deltaTime );
         void                                    OnRender( );
-        void                                    OnRenderComparePoint( vaImageCompareTool & imageCompareTool, vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess );
+        void                                    OnRenderComparePoint( vaImageCompareTool & imageCompareTool, vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess );
         bool                                    IsActive( ) const                                   { return m_currentTask != nullptr || m_tasks.size() > 0; }
         float                                   GetProgress( ) const                                { if( IsActive() && m_currentTask != nullptr ) return m_currentTask->GetProgress(); else return 0.5f; }
         int                                     GetQueuedTaskCount( ) const                         { return (int)m_tasks.size(); }

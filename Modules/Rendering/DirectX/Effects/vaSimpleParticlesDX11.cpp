@@ -17,12 +17,11 @@
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include "Rendering/DirectX/vaDirectXIncludes.h"
 #include "Rendering/DirectX/vaDirectXTools.h"
 #include "Rendering/DirectX/vaShaderDX11.h"
 
 #include "Rendering/vaRenderingIncludes.h"
-
-#include "Rendering/DirectX/vaRenderingToolsDX11.h"
 
 #include "Rendering/DirectX/vaTextureDX11.h"
 #include "Rendering/DirectX/vaTriangleMeshDX11.h"
@@ -120,7 +119,7 @@ void vaSimpleParticleSystemDX11::Draw( vaSceneDrawContext & drawContext )
     drawContext;
 
     assert( false );
-    // update below to vaRenderItem path
+    // update below to vaGraphicsItem path
 
 #if 0
     if( m_particles.size() == 0 )
@@ -226,7 +225,7 @@ void vaSimpleParticleSystemDX11::Draw( vaSceneDrawContext & drawContext )
     
 //    return;
     // make sure we're not overwriting anything else, and set our constant buffers
-    m_shaderConstants.SetToAPISlot( drawContext.APIContext, SIMPLEPARTICLESYSTEM_CONSTANTS_BUFFERSLOT );
+    m_shaderConstants.SetToAPISlot( drawContext.APIContext, SIMPLEPARTICLESYSTEM_CONSTANTSBUFFERSLOT );
 
     // update per-instance constants
     {
@@ -273,36 +272,36 @@ void vaSimpleParticleSystemDX11::Draw( vaSceneDrawContext & drawContext )
     /*
     if( (drawContext.Flags & vaDrawContextFlags::TransparencyPass) != 0 )
     {
-        dx11Context->OMSetBlendState( vaDirectXTools::GetBS_AlphaBlend( ), blendFactor, 0xFFFFFFFF );
-        dx11Context->OMSetDepthStencilState( (drawContext.Camera.GetUseReversedZ())?( vaDirectXTools::GetDSS_DepthEnabledG_NoDepthWrite( ) ):( vaDirectXTools::GetDSS_DepthEnabledL_NoDepthWrite( ) ), 0 );
+        dx11Context->OMSetBlendState( vaDirectXTools11::GetBS_AlphaBlend( ), blendFactor, 0xFFFFFFFF );
+        dx11Context->OMSetDepthStencilState( (drawContext.Camera.GetUseReversedZ())?( vaDirectXTools11::GetDSS_DepthEnabledG_NoDepthWrite( ) ):( vaDirectXTools11::GetDSS_DepthEnabledL_NoDepthWrite( ) ), 0 );
     }
     else
     {
-        dx11Context->OMSetBlendState( vaDirectXTools::GetBS_Opaque( ), blendFactor, 0xFFFFFFFF );
-        dx11Context->OMSetDepthStencilState( (drawContext.Camera.GetUseReversedZ())?( vaDirectXTools::GetDSS_DepthEnabledG_NoDepthWrite( ) ):( vaDirectXTools::GetDSS_DepthEnabledL_NoDepthWrite( ) ), 0 );
+        dx11Context->OMSetBlendState( vaDirectXTools11::GetBS_Opaque( ), blendFactor, 0xFFFFFFFF );
+        dx11Context->OMSetDepthStencilState( (drawContext.Camera.GetUseReversedZ())?( vaDirectXTools11::GetDSS_DepthEnabledG_NoDepthWrite( ) ):( vaDirectXTools11::GetDSS_DepthEnabledL_NoDepthWrite( ) ), 0 );
     }
 
     if( (drawContext.Flags & vaDrawContextFlags::DebugWireframePass) != 0 )
     {
         assert( false );
-        dx11Context->OMSetDepthStencilState( (drawContext.Camera.GetUseReversedZ())?( vaDirectXTools::GetDSS_DepthEnabledGE_NoDepthWrite( ) ):( vaDirectXTools::GetDSS_DepthEnabledLE_NoDepthWrite( ) ), 0 );
+        dx11Context->OMSetDepthStencilState( (drawContext.Camera.GetUseReversedZ())?( vaDirectXTools11::GetDSS_DepthEnabledGE_NoDepthWrite( ) ):( vaDirectXTools11::GetDSS_DepthEnabledLE_NoDepthWrite( ) ), 0 );
     }//
     */
 
     // Samplers
-    dx11Context->PSSetSamplers( 0, 1, vaDirectXTools::GetSamplerStatePtrAnisotropicClamp( ) );
-    dx11Context->PSSetSamplers( 1, 1, vaDirectXTools::GetSamplerStatePtrAnisotropicWrap( ) );
+    dx11Context->PSSetSamplers( 0, 1, vaDirectXTools11::GetSamplerStatePtrAnisotropicClamp( ) );
+    dx11Context->PSSetSamplers( 1, 1, vaDirectXTools11::GetSamplerStatePtrAnisotropicWrap( ) );
 
-    dx11Context->RSSetState( vaDirectXTools::GetRS_CullNone_Fill( ) );
+    dx11Context->RSSetState( vaDirectXTools11::GetRS_CullNone_Fill( ) );
 
 //        vaWindingOrder backfaceCull = renderableSceneMesh->GetBackfaceCull( );
 //        if( drawContext.Wireframe )
 //        {
 //            switch( backfaceCull )
 //            {
-//            case VertexAsylum::vaWindingOrder::None:             dx11Context->RSSetState( vaDirectXTools::GetRS_CullNone_Wireframe( ) );  break;
-//            case VertexAsylum::vaWindingOrder::Clockwise:        dx11Context->RSSetState( vaDirectXTools::GetRS_CullCW_Wireframe( ) );    break;
-//            case VertexAsylum::vaWindingOrder::CounterClockwise: dx11Context->RSSetState( vaDirectXTools::GetRS_CullCCW_Wireframe( ) );   break;
+//            case VertexAsylum::vaWindingOrder::None:             dx11Context->RSSetState( vaDirectXTools11::GetRS_CullNone_Wireframe( ) );  break;
+//            case VertexAsylum::vaWindingOrder::Clockwise:        dx11Context->RSSetState( vaDirectXTools11::GetRS_CullCW_Wireframe( ) );    break;
+//            case VertexAsylum::vaWindingOrder::CounterClockwise: dx11Context->RSSetState( vaDirectXTools11::GetRS_CullCCW_Wireframe( ) );   break;
 //            default: break;
 //            }
 //        }
@@ -310,9 +309,9 @@ void vaSimpleParticleSystemDX11::Draw( vaSceneDrawContext & drawContext )
 //        {
 //            switch( backfaceCull )
 //            {
-//            case VertexAsylum::vaWindingOrder::None:             dx11Context->RSSetState( vaDirectXTools::GetRS_CullNone_Fill( ) );  break;
-//            case VertexAsylum::vaWindingOrder::Clockwise:        dx11Context->RSSetState( vaDirectXTools::GetRS_CullCW_Fill( ) );    break;
-//            case VertexAsylum::vaWindingOrder::CounterClockwise: dx11Context->RSSetState( vaDirectXTools::GetRS_CullCCW_Fill( ) );   break;
+//            case VertexAsylum::vaWindingOrder::None:             dx11Context->RSSetState( vaDirectXTools11::GetRS_CullNone_Fill( ) );  break;
+//            case VertexAsylum::vaWindingOrder::Clockwise:        dx11Context->RSSetState( vaDirectXTools11::GetRS_CullCW_Fill( ) );    break;
+//            case VertexAsylum::vaWindingOrder::CounterClockwise: dx11Context->RSSetState( vaDirectXTools11::GetRS_CullCCW_Fill( ) );   break;
 //            default: break;
 //            }
 //        }
@@ -355,7 +354,7 @@ void vaSimpleParticleSystemDX11::Draw( vaSceneDrawContext & drawContext )
     m_buffersLastUpdateTickID = GetLastTickID( );
 
     // make sure nothing messed with our constant buffers and nothing uses them after
-    m_shaderConstants.UnsetFromAPISlot( drawContext.APIContext, SIMPLEPARTICLESYSTEM_CONSTANTS_BUFFERSLOT );
+    m_shaderConstants.UnsetFromAPISlot( drawContext.APIContext, SIMPLEPARTICLESYSTEM_CONSTANTSBUFFERSLOT );
 
 #endif
 }

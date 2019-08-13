@@ -29,128 +29,90 @@ namespace VertexAsylum
 {
 #endif
 
-#define SHADERGLOBAL_CONSTANTSBUFFERSLOT                10
-#define LIGHTINGGLOBAL_CONSTANTSBUFFERSLOT              11
-#define LIGHTINGGLOBAL_DIRLIGHTS_CONSTANTSBUFFERSLOT    12
-#define LIGHTINGGLOBAL_PTLIGHTS_CONSTANTSBUFFERSLOT     13
+#define SHADERGLOBAL_DEBUG_FLOAT_OUTPUT_COUNT               4096
 
-#define SHADERGLOBAL_POINTCLAMP_SAMPLERSLOT             10
-#define SHADERGLOBAL_POINTWRAP_SAMPLERSLOT              11
-#define SHADERGLOBAL_LINEARCLAMP_SAMPLERSLOT            12
-#define SHADERGLOBAL_LINEARWRAP_SAMPLERSLOT             13
-#define SHADERGLOBAL_ANISOTROPICCLAMP_SAMPLERSLOT       14
-#define SHADERGLOBAL_ANISOTROPICWRAP_SAMPLERSLOT        15
-#define SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT               9
+// for vaSceneDrawContext-based subsystems (for ex, set less frequently than vaGraphicsItem/vaComputeItem)
+#define EXTENDED_SRV_SLOT_BASE                              32
+#define EXTENDED_CBV_SLOT_BASE                               8
+#define EXTENDED_UAV_SLOT_BASE                               8
+#define EXTENDED_SAMPLER_SLOT_BASE                           4
 
-
-#define SHADERGLOBAL_DEBUG_FLOAT_OUTPUT_COUNT       4096
-
-// TODO: move elsewhere?
-#define POSTPROCESS_CONSTANTS_BUFFERSLOT                    1
-#define RENDERMESHMATERIAL_CONSTANTS_BUFFERSLOT             1
-#define RENDERMESH_CONSTANTS_BUFFERSLOT                     2
-#define SIMPLEPARTICLESYSTEM_CONSTANTS_BUFFERSLOT           2
-#define SKYBOX_CONSTANTS_BUFFERSLOT                         4
-#define ZOOMTOOL_CONSTANTS_BUFFERSLOT                       4
-// #define GBUFFER_CONSTANTS_BUFFERSLOT                        5
+//////////////////////////////////////////////////////////////////////////
+// PREDEFINED GLOBAL SAMPLER SLOTS
+#define SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT                   9
+#define SHADERGLOBAL_POINTCLAMP_SAMPLERSLOT                 10
+#define SHADERGLOBAL_POINTWRAP_SAMPLERSLOT                  11
+#define SHADERGLOBAL_LINEARCLAMP_SAMPLERSLOT                12
+#define SHADERGLOBAL_LINEARWRAP_SAMPLERSLOT                 13
+#define SHADERGLOBAL_ANISOTROPICCLAMP_SAMPLERSLOT           14
+#define SHADERGLOBAL_ANISOTROPICWRAP_SAMPLERSLOT            15
+//////////////////////////////////////////////////////////////////////////
 
 
-// TODO: delete?
-#define RENDERMESH_TEXTURE_SLOT0                            0
-#define RENDERMESH_TEXTURE_SLOT1                            1
-#define RENDERMESH_TEXTURE_SLOT2                            2
-#define RENDERMESH_TEXTURE_SLOT3                            3
-#define RENDERMESH_TEXTURE_SLOT4                            4
-#define RENDERMESH_TEXTURE_SLOT5                            5
 
-
-#define SHADERGLOBAL_LIGHTING_ENVMAP_TEXTURESLOT            20
-#define SHADERGLOBAL_LIGHTING_CUBE_SHADOW_TEXTURESLOT       21
-
-struct ShaderLightDirectional
-{
-    static const int    MaxLights                       = 16;
-
-    vaVector3           Intensity;
-    float               IntensityLength;
-
-    vaVector3           Direction;
-    float               Dummy1;
-};
-//struct ShaderLightPoint - no longer used, just using spot instead
-//{
-//    static const int    MaxLights                       = 16;
+//////////////////////////////////////////////////////////////////////////
+// PREDEFINED CONSTANTS BUFFER SLOTS
+#define POSTPROCESS_CONSTANTSBUFFERSLOT                     1
+#define RENDERMESHMATERIAL_CONSTANTSBUFFERSLOT              1
+#define RENDERMESH_CONSTANTSBUFFERSLOT                      2
+#define SIMPLEPARTICLESYSTEM_CONSTANTSBUFFERSLOT            2
+#define SKYBOX_CONSTANTSBUFFERSLOT                          4
+#define ZOOMTOOL_CONSTANTSBUFFERSLOT                        4
+#define CDLOD2_CONSTANTS_BUFFERSLOT                         3
 //
-//    vaVector3           Intensity;
-//    float               Size;                           // distance from which to start attenuating or compute umbra/penumbra/antumbra / compute specular (making this into a 'sphere' light) - useful to avoid near-infinities for when close-to-point lights
-//    vaVector3           Position;
-//    float               EffectiveRadius;                // distance at which it is considered that it cannot effectively contribute any light and can be culled
-//};
-struct ShaderLightSpot
-{
-    static const int    MaxLights                       = 32;
+// global/system constant slots go from EXTENDED_SRV_CBV_UAV_SLOT_BASE to EXTENDED_SRV_CBV_UAV_SLOT_BASE+...16?
+#define SHADERGLOBAL_CONSTANTSBUFFERSLOT                    (EXTENDED_CBV_SLOT_BASE + 0)
+#define LIGHTINGGLOBAL_CONSTANTSBUFFERSLOT                  (EXTENDED_CBV_SLOT_BASE + 1)
+#define LIGHTINGGLOBAL_DIRLIGHTS_CONSTANTSBUFFERSLOT        (EXTENDED_CBV_SLOT_BASE + 2)
+#define LIGHTINGGLOBAL_PTLIGHTS_CONSTANTSBUFFERSLOT         (EXTENDED_CBV_SLOT_BASE + 3)
+//
+// need to do this so X_CONCATENATER-s work
+#define SHADERGLOBAL_CONSTANTSBUFFERSLOT_V                  8
+#define LIGHTINGGLOBAL_CONSTANTSBUFFERSLOT_V                9
+#define LIGHTINGGLOBAL_DIRLIGHTS_CONSTANTSBUFFERSLOT_V      10
+#define LIGHTINGGLOBAL_PTLIGHTS_CONSTANTSBUFFERSLOT_V       11
+#if (SHADERGLOBAL_CONSTANTSBUFFERSLOT_V != SHADERGLOBAL_CONSTANTSBUFFERSLOT) || (LIGHTINGGLOBAL_CONSTANTSBUFFERSLOT_V != LIGHTINGGLOBAL_CONSTANTSBUFFERSLOT) || (LIGHTINGGLOBAL_DIRLIGHTS_CONSTANTSBUFFERSLOT_V != LIGHTINGGLOBAL_DIRLIGHTS_CONSTANTSBUFFERSLOT) || (LIGHTINGGLOBAL_PTLIGHTS_CONSTANTSBUFFERSLOT_V != LIGHTINGGLOBAL_PTLIGHTS_CONSTANTSBUFFERSLOT)
+    #error _V values above not in sync, just fix them up please
+#endif
 
-    vaVector3           Intensity;
-    float               IntensityLength;
-    vaVector3           Position;
-    float               EffectiveRadius;                // distance at which it is considered that it cannot effectively contribute any light and can be culled
-    vaVector3           Direction;
-    float               Size;                           // distance from which to start attenuating or compute umbra/penumbra/antumbra / compute specular (making this into a 'sphere' light) - useful to avoid near-infinities for when close-to-point lights
-    float               SpotInnerAngle;                 // angle from Direction below which the spot light has the full intensity (a.k.a. inner cone angle)
-    float               SpotOuterAngle;                 // angle from Direction below which the spot light intensity starts dropping (a.k.a. outer cone angle)
-    
-    float               CubeShadowIndex;                // if used, index of cubemap shadow in the cubemap array texture; otherwise -1
-    float               Dummy1;
-};
+// PREDEFINED CONSTANTS BUFFER SLOTS
+//////////////////////////////////////////////////////////////////////////
 
-struct LightingShaderConstants
-{
-    static const int        MaxShadowCubes                  = 8;   // so the number of cube faces is x6 this - lots of RAM
 
-    vaVector4               AmbientLightIntensity;
+//////////////////////////////////////////////////////////////////////////
+// PREDEFINED SHADER RESOURCE VIEW SLOTS
+//
+// 10 should be enough for materials, right, right?
+#define RENDERMESH_TEXTURE_SLOT_MIN                         0
+#define RENDERMESH_TEXTURE_SLOT_MAX                         9
+//
+#define CDLOD2_TEXTURE_SLOT0            10
+#define CDLOD2_TEXTURE_SLOT1            11
+#define CDLOD2_TEXTURE_SLOT2            12
+#define CDLOD2_TEXTURE_OVERLAYMAP_0     13
 
-    // See vaFogSphere for descriptions
-    vaVector3               FogCenter;
-    int                     FogEnabled;
 
-    vaVector3               FogColor;
-    float                   FogRadiusInner;
+// global texture slots go from EXTENDED_SRV_CBV_UAV_SLOT_BASE to EXTENDED_SRV_CBV_UAV_SLOT_BASE+ ... 8?
+#define SHADERGLOBAL_LIGHTING_ENVMAP_TEXTURESLOT            (EXTENDED_SRV_SLOT_BASE + 0)
+#define SHADERGLOBAL_LIGHTING_CUBE_SHADOW_TEXTURESLOT       (EXTENDED_SRV_SLOT_BASE + 1)
+#define SHADERGLOBAL_LIGHTING_ENVMAP_TEXTURESLOT_V          32
+#define SHADERGLOBAL_LIGHTING_CUBE_SHADOW_TEXTURESLOT_V     33
+#if ( SHADERGLOBAL_LIGHTING_ENVMAP_TEXTURESLOT_V != SHADERGLOBAL_LIGHTING_ENVMAP_TEXTURESLOT || SHADERGLOBAL_LIGHTING_CUBE_SHADOW_TEXTURESLOT_V != SHADERGLOBAL_LIGHTING_CUBE_SHADOW_TEXTURESLOT )
+    #error _V values above not in sync, just fix them up please
+#endif
 
-    float                   FogRadiusOuter;
-    float                   FogBlendCurvePow;
-    float                   FogBlendMultiplier;
-    float                   FogRange;                   // FogRadiusOuter - FogRadiusInner
-
-    vaMatrix4x4             EnvmapRotation;             // ideally we shouldn't need this but at the moment we support this to simplify asset side...
-    
-    int                     EnvmapEnabled;
-    float                   EnvmapMultiplier;
-    int                     LightCountDirectional;
-    int                     LightCountSpotAndPoint;
-
-    int                     LightCountSpotOnly;
-    float                   CubeShadowDirJitterOffset;          // 'sideways' offset when doing PCF jitter for cubemap shadows
-    float                   CubeShadowViewDistJitterOffset;     // multiplication offset along cube sampling dir - similar to ViewspaceDepthOffsetFlatMul but only identical at the cube face centers!!
-    float                   CubeShadowViewDistJitterOffsetSqrt; // same as above but for use with sqrt-packed cube shadowmaps
-
-    ShaderLightDirectional  LightsDirectional[ShaderLightDirectional::MaxLights];
-    //ShaderLightPoint        LightsPoint[ShaderLightPoint::MaxLights];
-    ShaderLightSpot         LightsSpotAndPoint[ShaderLightSpot::MaxLights];
-
-    //
-    // vaVector4               ShadowCubes[MaxShadowCubes];    // .xyz is cube center and .w is unused at the moment
-};
 
 struct ShaderGlobalConstants
 {
-    vaMatrix4x4             View;
+    //vaMatrix4x4             View;
     vaMatrix4x4             ViewInv;
     vaMatrix4x4             Proj;
+    //vaMatrix4x4             ProjInv;
     vaMatrix4x4             ViewProj;
     vaMatrix4x4             ViewProjInv;
 
-    vaVector4               ViewDirection;
-    vaVector4               CameraWorldPosition;
+    //vaVector4               ViewDirection;
+    //vaVector4               CameraWorldPosition;
     vaVector4               CameraSubpixelOffset;   // .xy contains value of subpixel offset used for supersampling/TAA (otheriwse knows as jitter) or (0,0) if no jitter enabled; .zw are 0
 
     vaVector2               ViewportSize;           // ViewportSize.x, ViewportSize.y
@@ -230,13 +192,13 @@ struct RenderMeshMaterialConstants
 
 struct RenderMeshConstants
 {
-    vaMatrix4x4         World;
+    // vaMatrix4x4         World;
     vaMatrix4x4         WorldView;
     vaMatrix4x4         ShadowWorldViewProj;
     
     // since we now support non-uniform scale, we need the 'normal matrix' to keep normals correct 
     // (for more info see : https://www.scratchapixel.com/lessons/mathematics-physics-for-computer-graphics/geometry/transforming-normals or http://www.lighthouse3d.com/tutorials/glsl-12-tutorial/the-normal-matrix/ )
-    vaMatrix4x4         NormalWorld;
+    //vaMatrix4x4         NormalWorld;
     vaMatrix4x4         NormalWorldView;    
 
     vaVector4           ColorOverride;          // used for highlights, wireframe, etc - finalColor = finalColor * ColorOverride.aaa + ColorOverride.rgb
@@ -272,7 +234,7 @@ struct ZoomToolShaderConstants
 // Global buffers
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-cbuffer GlobalConstantsBuffer                       : register( B_CONCATENATER( SHADERGLOBAL_CONSTANTSBUFFERSLOT ) )
+cbuffer GlobalConstantsBuffer                       : register( B_CONCATENATER( SHADERGLOBAL_CONSTANTSBUFFERSLOT_V ) )
 {
     ShaderGlobalConstants                   g_Global;
 }
@@ -283,22 +245,22 @@ cbuffer GlobalConstantsBuffer                       : register( B_CONCATENATER( 
 //    ShaderSimpleShadowsGlobalConstants      g_SimpleShadowsGlobal;
 //}
 
-cbuffer RenderMeshMaterialConstantsBuffer : register( B_CONCATENATER( RENDERMESHMATERIAL_CONSTANTS_BUFFERSLOT ) )
+cbuffer RenderMeshMaterialConstantsBuffer : register( B_CONCATENATER( RENDERMESHMATERIAL_CONSTANTSBUFFERSLOT ) )
 {
     RenderMeshMaterialConstants             g_RenderMeshMaterialGlobal;
 }
 
-cbuffer RenderMeshConstantsBuffer                   : register( B_CONCATENATER( RENDERMESH_CONSTANTS_BUFFERSLOT ) )
+cbuffer RenderMeshConstantsBuffer                   : register( B_CONCATENATER( RENDERMESH_CONSTANTSBUFFERSLOT ) )
 {
     RenderMeshConstants                     g_RenderMeshGlobal;
 }
 
-cbuffer ShaderSimpleParticleSystemConstantsBuffer   : register( B_CONCATENATER( SIMPLEPARTICLESYSTEM_CONSTANTS_BUFFERSLOT ) )
+cbuffer ShaderSimpleParticleSystemConstantsBuffer   : register( B_CONCATENATER( SIMPLEPARTICLESYSTEM_CONSTANTSBUFFERSLOT ) )
 {
     ShaderSimpleParticleSystemConstants     g_ParticleSystemConstants;
 }
 
-// cbuffer GBufferConstantsBuffer                      : register( B_CONCATENATER( GBUFFER_CONSTANTS_BUFFERSLOT ) )
+// cbuffer GBufferConstantsBuffer                      : register( B_CONCATENATER( GBUFFER_CONSTANTSBUFFERSLOT ) )
 // {
 //     GBufferConstants                        g_GBufferConstants;
 // }

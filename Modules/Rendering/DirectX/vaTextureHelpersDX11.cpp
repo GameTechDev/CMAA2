@@ -28,8 +28,6 @@
 
 #include "vaTextureDX11.h"
 
-#include "vaRenderingToolsDX11.h"
-
 #include "Rendering/DirectX/vaRenderDeviceContextDX11.h"
 
 #include "Core/Misc/vaProfiler.h"

@@ -49,7 +49,7 @@ namespace VertexAsylum
 } // namespace VertexAsylum
 #endif
 
-#define POSTPROCESS_TONEMAP_CONSTANTS_BUFFERSLOT    1
+#define POSTPROCESS_TONEMAP_CONSTANTSBUFFERSLOT    1
 
 #define POSTPROCESS_TONEMAP_TEXTURE_SLOT0           0
 #define POSTPROCESS_TONEMAP_TEXTURE_SLOT1           1
@@ -57,7 +57,7 @@ namespace VertexAsylum
 
 #ifdef VA_COMPILED_AS_SHADER_CODE
 
-cbuffer PostProcessTonemapConstantsBuffer : register( B_CONCATENATER( POSTPROCESS_TONEMAP_CONSTANTS_BUFFERSLOT ) )
+cbuffer PostProcessTonemapConstantsBuffer : register( B_CONCATENATER( POSTPROCESS_TONEMAP_CONSTANTSBUFFERSLOT ) )
 {
     PostProcessTonemapConstants              g_PostProcessTonemapConsts;
 }

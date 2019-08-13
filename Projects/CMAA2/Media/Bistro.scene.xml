@@ -1,75 +1,420 @@
-<VertexAsylumScene Name="Bistro_Research_Interior_Scene">
-    <Lights count="16">
-        <a0>
-            <Light Name="Sun" Type="1" Intensity="{0.000000,0.000000,0.000000}" Position="{0.000000,0.000000,5.000000}" Direction="{0.674543,-0.674530,-0.300000}" Up="{0.000000,0.000000,0.000000}" Size="0.20000000298023224" SpotInnerAngle="0" SpotOuterAngle="0" CastShadows="false"/>
-        </a0>
-        <a1>
-            <Light Name="Ambient" Type="0" Intensity="{0.002000,0.002000,0.003000}" Position="{0.000000,0.000000,0.000000}" Direction="{0.000000,0.000000,0.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.20000000298023224" SpotInnerAngle="0" SpotOuterAngle="0" CastShadows="false"/>
-        </a1>
-        <a2>
-            <Light Name="CeilingLamp_0" Type="3" Intensity="{2.000000,2.000000,2.000000}" Position="{4.995000,-0.510000,3.110000}" Direction="{0.000000,0.000000,-1.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.25999999046325684" SpotInnerAngle="1" SpotOuterAngle="1.6000000238418579" CastShadows="true"/>
-        </a2>
-        <a3>
-            <Light Name="CeilingLamp_1" Type="3" Intensity="{2.000000,2.000000,2.000000}" Position="{7.990000,0.995000,3.110000}" Direction="{0.000000,0.000000,-1.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.25999999046325684" SpotInnerAngle="1" SpotOuterAngle="1.6000000238418579" CastShadows="true"/>
-        </a3>
-        <a4>
-            <Light Name="CeilingLamp_2" Type="3" Intensity="{2.000000,2.000000,2.000000}" Position="{4.240000,-4.930000,3.110000}" Direction="{0.000000,0.000000,-1.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.25999999046325684" SpotInnerAngle="1" SpotOuterAngle="1.6000000238418579" CastShadows="true"/>
-        </a4>
-        <a5>
-            <Light Name="CeilingLamp_3" Type="3" Intensity="{1.000000,1.000000,1.000000}" Position="{6.110000,-8.495000,2.970000}" Direction="{0.000000,0.000000,-1.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.25999999046325684" SpotInnerAngle="1" SpotOuterAngle="1.6000000238418579" CastShadows="true"/>
-        </a5>
-        <a6>
-            <Light Name="wall_lamp" Type="3" Intensity="{0.100000,0.100000,0.100000}" Position="{7.730000,-4.630000,2.430000}" Direction="{0.000000,0.000000,-1.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.10000000149011612" SpotInnerAngle="0.94999998807907104" SpotOuterAngle="1.2999999523162842" CastShadows="false"/>
-        </a6>
-        <a7>
-            <Light Name="BarLamp_0" Type="3" Intensity="{0.900000,0.900000,0.200000}" Position="{7.220000,-2.786000,2.605000}" Direction="{0.000000,0.000000,-1.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.15000000596046448" SpotInnerAngle="1.5" SpotOuterAngle="2.7000000476837158" CastShadows="true"/>
-        </a7>
-        <a8>
-            <Light Name="BarLamp_1" Type="3" Intensity="{0.250000,0.250000,3.500000}" Position="{8.800000,-1.920000,2.605000}" Direction="{0.000000,0.000000,-1.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.15000000596046448" SpotInnerAngle="1.5" SpotOuterAngle="2.7000000476837158" CastShadows="true"/>
-        </a8>
-        <a9>
-            <Light Name="BarLamp_2" Type="3" Intensity="{2.000000,0.250000,0.250000}" Position="{10.370000,-1.050000,2.605000}" Direction="{0.000000,0.000000,-1.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.15000000596046448" SpotInnerAngle="1.5" SpotOuterAngle="2.7000000476837158" CastShadows="true"/>
-        </a9>
-        <a10>
-            <Light Name="BarLamp_3" Type="3" Intensity="{0.250000,1.500000,0.250000}" Position="{6.620000,-4.210000,2.605000}" Direction="{0.000000,0.000000,-1.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.15000000596046448" SpotInnerAngle="1.5" SpotOuterAngle="2.7000000476837158" CastShadows="true"/>
-        </a10>
-        <a11>
-            <Light Name="PointLightForTesting1" Type="2" Intensity="{0.000050,0.000000,0.000000}" Position="{3.000000,-3.000000,0.650000}" Direction="{0.000000,0.000000,0.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.10000000149011612" SpotInnerAngle="0" SpotOuterAngle="0" CastShadows="false"/>
-        </a11>
-        <a12>
-            <Light Name="PointLightForTesting2" Type="2" Intensity="{0.000000,0.000050,0.000000}" Position="{3.500000,-3.000000,0.650000}" Direction="{0.000000,0.000000,0.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.10000000149011612" SpotInnerAngle="0" SpotOuterAngle="0" CastShadows="false"/>
-        </a12>
-        <a13>
-            <Light Name="PointLightForTesting3" Type="2" Intensity="{0.000000,0.000000,0.000050}" Position="{3.500000,-3.500000,0.650000}" Direction="{0.000000,0.000000,0.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.10000000149011612" SpotInnerAngle="0" SpotOuterAngle="0" CastShadows="false"/>
-        </a13>
-        <a14>
-            <Light Name="PointLightForTesting4" Type="2" Intensity="{0.000030,0.000030,0.000000}" Position="{3.000000,-3.500000,0.650000}" Direction="{0.000000,0.000000,0.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.10000000149011612" SpotInnerAngle="0" SpotOuterAngle="0" CastShadows="false"/>
-        </a14>
-        <a15>
-            <Light Name="NewLight" Type="2" Intensity="{0.000000,0.000000,0.000000}" Position="{0.000000,0.000000,0.000000}" Direction="{0.000000,0.000000,0.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.20000000298023224" SpotInnerAngle="0" SpotOuterAngle="0" CastShadows="false"/>
-        </a15>
+<vaXMLSerializer>1</vaXMLSerializer>
+<VertexAsylumScene>
+    <Name>Bistro_Research_Interior_Scene</Name>
+    <Lights array="true">
+        <Light>
+            <Name>Sun</Name>
+            <Type>1</Type>
+            <Intensity>{0.000000,0.000000,0.000000}</Intensity>
+            <Position>{0.000000,0.000000,5.000000}</Position>
+            <Direction>{0.674543,-0.674530,-0.300000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.2</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>Ambient</Name>
+            <Type>0</Type>
+            <Intensity>{0.002000,0.002000,0.003000}</Intensity>
+            <Position>{0.000000,0.000000,0.000000}</Position>
+            <Direction>{0.000000,0.000000,0.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.2</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>CeilingLamp_0</Name>
+            <Type>3</Type>
+            <Intensity>{2.000000,2.000000,2.000000}</Intensity>
+            <Position>{4.995000,-0.510000,3.110000}</Position>
+            <Direction>{0.000000,0.000000,-1.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.25999999</Size>
+            <SpotInnerAngle>1</SpotInnerAngle>
+            <SpotOuterAngle>1.6</SpotOuterAngle>
+            <CastShadows>true</CastShadows>
+        </Light>
+        <Light>
+            <Name>CeilingLamp_1</Name>
+            <Type>3</Type>
+            <Intensity>{2.000000,2.000000,2.000000}</Intensity>
+            <Position>{7.990000,0.995000,3.110000}</Position>
+            <Direction>{0.000000,0.000000,-1.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.25999999</Size>
+            <SpotInnerAngle>1</SpotInnerAngle>
+            <SpotOuterAngle>1.6</SpotOuterAngle>
+            <CastShadows>true</CastShadows>
+        </Light>
+        <Light>
+            <Name>CeilingLamp_2</Name>
+            <Type>3</Type>
+            <Intensity>{2.000000,2.000000,2.000000}</Intensity>
+            <Position>{4.240000,-4.930000,3.110000}</Position>
+            <Direction>{0.000000,0.000000,-1.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.25999999</Size>
+            <SpotInnerAngle>1</SpotInnerAngle>
+            <SpotOuterAngle>1.6</SpotOuterAngle>
+            <CastShadows>true</CastShadows>
+        </Light>
+        <Light>
+            <Name>CeilingLamp_3</Name>
+            <Type>3</Type>
+            <Intensity>{1.000000,1.000000,1.000000}</Intensity>
+            <Position>{6.110000,-8.495000,2.970000}</Position>
+            <Direction>{0.000000,0.000000,-1.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.25999999</Size>
+            <SpotInnerAngle>1</SpotInnerAngle>
+            <SpotOuterAngle>1.6</SpotOuterAngle>
+            <CastShadows>true</CastShadows>
+        </Light>
+        <Light>
+            <Name>wall_lamp</Name>
+            <Type>3</Type>
+            <Intensity>{0.100000,0.100000,0.100000}</Intensity>
+            <Position>{7.730000,-4.630000,2.430000}</Position>
+            <Direction>{0.000000,0.000000,-1.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.1</Size>
+            <SpotInnerAngle>0.94999999</SpotInnerAngle>
+            <SpotOuterAngle>1.3</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>BarLamp_0</Name>
+            <Type>3</Type>
+            <Intensity>{0.900000,0.900000,0.200000}</Intensity>
+            <Position>{7.220000,-2.786000,2.605000}</Position>
+            <Direction>{0.000000,0.000000,-1.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.15000001</Size>
+            <SpotInnerAngle>1.5</SpotInnerAngle>
+            <SpotOuterAngle>2.7</SpotOuterAngle>
+            <CastShadows>true</CastShadows>
+        </Light>
+        <Light>
+            <Name>BarLamp_1</Name>
+            <Type>3</Type>
+            <Intensity>{0.250000,0.250000,3.500000}</Intensity>
+            <Position>{8.800000,-1.920000,2.605000}</Position>
+            <Direction>{0.000000,0.000000,-1.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.15000001</Size>
+            <SpotInnerAngle>1.5</SpotInnerAngle>
+            <SpotOuterAngle>2.7</SpotOuterAngle>
+            <CastShadows>true</CastShadows>
+        </Light>
+        <Light>
+            <Name>BarLamp_2</Name>
+            <Type>3</Type>
+            <Intensity>{2.000000,0.250000,0.250000}</Intensity>
+            <Position>{10.370000,-1.050000,2.605000}</Position>
+            <Direction>{0.000000,0.000000,-1.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.15000001</Size>
+            <SpotInnerAngle>1.5</SpotInnerAngle>
+            <SpotOuterAngle>2.7</SpotOuterAngle>
+            <CastShadows>true</CastShadows>
+        </Light>
+        <Light>
+            <Name>BarLamp_3</Name>
+            <Type>3</Type>
+            <Intensity>{0.250000,1.500000,0.250000}</Intensity>
+            <Position>{6.620000,-4.210000,2.605000}</Position>
+            <Direction>{0.000000,0.000000,-1.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.15000001</Size>
+            <SpotInnerAngle>1.5</SpotInnerAngle>
+            <SpotOuterAngle>2.7</SpotOuterAngle>
+            <CastShadows>true</CastShadows>
+        </Light>
+        <Light>
+            <Name>PointLightForTesting1</Name>
+            <Type>2</Type>
+            <Intensity>{0.000050,0.000000,0.000000}</Intensity>
+            <Position>{3.000000,-3.000000,0.650000}</Position>
+            <Direction>{0.000000,0.000000,0.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.1</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>PointLightForTesting2</Name>
+            <Type>2</Type>
+            <Intensity>{0.000000,0.000050,0.000000}</Intensity>
+            <Position>{3.500000,-3.000000,0.650000}</Position>
+            <Direction>{0.000000,0.000000,0.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.1</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>PointLightForTesting3</Name>
+            <Type>2</Type>
+            <Intensity>{0.000000,0.000000,0.000050}</Intensity>
+            <Position>{3.500000,-3.500000,0.650000}</Position>
+            <Direction>{0.000000,0.000000,0.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.1</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>PointLightForTesting4</Name>
+            <Type>2</Type>
+            <Intensity>{0.000030,0.000030,0.000000}</Intensity>
+            <Position>{3.000000,-3.500000,0.650000}</Position>
+            <Direction>{0.000000,0.000000,0.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.1</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>NewLight</Name>
+            <Type>2</Type>
+            <Intensity>{0.000000,0.000000,0.000000}</Intensity>
+            <Position>{0.000000,0.000000,0.000000}</Position>
+            <Direction>{0.000000,0.000000,0.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.2</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
     </Lights>
-    <RootObjects count="5">
-        <RootObjects_0 Name="Glass_Wine_53" TransformR0="{0.010000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,-0.010000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,-0.010000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
-            <RenderMeshes count="1" a0="2561b1e6-b500-41ff-ae73-673d31209f56"/>
-            <ChildObjects count="0"/>
+    <RootObjects>
+        <count>5</count>
+        <RootObjects_0>
+            <Name>Glass_Wine_53</Name>
+            <TransformR0>{0.010000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,-0.010000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,-0.010000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,0.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>2561b1e6-b500-41ff-ae73-673d31209f56</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_0>
-        <RootObjects_1 Name="MergedExterior" TransformR0="{0.010000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,-0.010000,0.000000,0.000000}" TransformR2="{0.000000,-0.000000,-0.010000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
-            <RenderMeshes count="86" a0="5a850baa-bb10-4bfc-b947-d032e670e066" a1="4c687f70-cd3f-4b5b-8aca-03bc35f7275e" a2="b74f3d11-6c8e-44b3-9d4d-03adfcb19a63" a3="af2a34bf-3765-421b-8c9f-1b91b4fe3a2c" a4="511b43dd-d0ec-477c-b074-9f5f415d3bee" a5="1bf26744-0635-4624-ab18-afbb8fe18498" a6="02ff60ce-7fe2-45e7-843a-9c4df8bdcb48" a7="3713fe97-7d21-4382-a49d-b0c8035c9ef5" a8="0807d869-9716-4294-bea0-2c90d0c4681b" a9="209fe5ee-c0b6-4e3b-81fc-4bb0b13b8fad" a10="441283b3-bad7-452b-bef2-d0ac96a03a61" a11="02f55d5a-998d-4eeb-80eb-564f9f99a919" a12="13497b7e-5469-41d7-a44e-9b80461cdf33" a13="addd3695-5da2-4952-bb46-7e569c06547d" a14="df46658f-23b2-4197-b64f-b8a78e5ce23c" a15="fb19138e-343b-4cd1-96b5-26c25bd4890d" a16="ef012d1a-4ab0-444c-ad34-c694b2cfe94a" a17="fa831fbd-236f-4200-8f4b-75d808279526" a18="1e3fb4a6-772b-4562-b2a8-c59904b493c4" a19="525954fb-25f7-4e6e-86cb-206b278eed61" a20="612e7afa-074a-41a3-9b83-0f2416813af6" a21="4872b7ef-d35b-4b36-b1d7-3ff2d41fd477" a22="a0fb99b0-b139-4302-91b3-e28e0d09f08a" a23="62524d37-b1b3-409b-8cdb-c0d4619f6950" a24="028c70a3-1178-4bdc-ac90-25b788d5d407" a25="43aa8b73-3efa-4aaa-904b-196d47961636" a26="275ab71c-bb66-4fbb-a467-12cbe625763c" a27="9ff6862d-5a6b-4e69-ad32-e219e8811b8d" a28="b49e1e31-e8a9-4325-b5a7-92d53b7a126c" a29="fcc31b93-f3d1-4806-92f2-a3d0a33c6e63" a30="a62db162-7f44-4e67-bae4-427107cd1e89" a31="2ac91f29-7bc1-47e3-9500-d932103a905b" a32="10443a9b-29ce-4d3d-996b-b56f49549e01" a33="9ac49e42-0893-4379-8961-b21a28d3d597" a34="a8669af9-f17c-4104-a1a0-d04617237cac" a35="e231a1f4-ac2c-4dab-b6e7-25b9f649c653" a36="8e49c904-6673-43d1-903a-5f71b1d9ed65" a37="76b816ed-8da4-43c4-85ee-ec68c7d9e2ed" a38="86288cf3-ec4d-416b-b068-fa87a0459cba" a39="93be195e-f6e2-4465-a3a5-bf2cf82d0c8e" a40="297c27aa-18be-4989-9851-8947f4ad725b" a41="dbf9599c-04c8-4a31-b4b9-a4dfc6cda8ac" a42="0f503c56-f29f-49f1-aa91-32912dcdd160" a43="1fcded19-4595-43f3-8833-0f0ad01b9ffc" a44="183b3463-0728-4616-bd2c-fbb31d979bcd" a45="62811064-94a7-4107-aac6-d6abd13567f4" a46="2a41ade0-71d1-4367-a3d6-866ac47352a9" a47="6d1916a6-7cea-4c30-97f3-f6853093bd8d" a48="870a0efe-0131-4674-9843-d88c6714336c" a49="674e6cdd-0d60-441b-8f11-ee9f2791d444" a50="a196dae9-407e-4b3a-878e-c2776573c2c2" a51="0e36fca3-43e6-429a-b981-3c2b9f9a7ccc" a52="294ac0c3-81ef-48c2-af5e-c91dd16a66e2" a53="e56e386f-a98d-481c-8d09-d78588d000b4" a54="72ba0aa0-cd44-410b-8501-210d0e0c886d" a55="a2c3bfde-8b84-4016-9abf-f78f7af2e133" a56="43e37b3d-3cf6-4154-b367-2e8040215e0f" a57="82b6918a-513e-49ba-811f-315d2228f351" a58="0cc2245f-d2a2-4b87-a562-2024829b8a65" a59="5cbda2bb-3b63-4b34-875a-7aedd8f80be5" a60="c0e77ea9-ffc6-413f-88e8-df6bdd21e9a2" a61="018a5539-a2c7-4cce-bf01-c548e14ecdec" a62="1dbd983a-bc86-454d-bc0b-705a4a0d82ca" a63="c53b48f8-9e8e-4cf4-a6c4-48bc15b858dd" a64="c16c1b5b-b2d7-4456-b43a-6c197604d8bd" a65="250e82fc-4855-4b69-bf31-859bc381f6b7" a66="e3bd09cd-b3bd-4475-8dd3-ffc440ef4a2a" a67="8cba5c9c-6373-423c-b9e7-31bc0d561b45" a68="0dd9b3ce-45d4-40c2-a957-fd63222b0011" a69="12673d07-96c9-4dbc-bcf9-9c9464a26402" a70="bc895a1d-93c9-4567-b6a2-a09e17af88ae" a71="6a995086-c0ea-4c95-9fdf-d1658aca2a4c" a72="ce294d6a-45e1-4fdc-b72f-b4fcf39c5b05" a73="dd4de130-c0e8-4ccf-a0d5-499f77a959e0" a74="4af33651-cb35-46ee-bda8-e4c135e992ca" a75="9073f23f-5cae-4b5e-8f06-d1ac048fb406" a76="2077875c-b83c-4877-96ff-a6a7540f2adb" a77="1147d54d-c70d-4f3a-89cd-0028a9254f8c" a78="8acd339d-8557-41a2-b6f2-b0fdb4df5597" a79="25ec3521-4049-4598-a8c0-999af089cdd2" a80="d3ff98b4-8cb2-4455-b245-c535588146fa" a81="840a3eef-6d36-4e38-90f6-3c38bbd055fc" a82="0a1d99ed-d6ca-4f99-acdc-cb535fbb47f4" a83="bfe8d624-2f36-4e77-9e16-c29ccc87cea5" a84="11a7e53e-206e-4aab-8026-fdb23a7b8ed5" a85="6f3efd07-3588-47de-9a69-6fd02bfdd007"/>
-            <ChildObjects count="0"/>
+        <RootObjects_1>
+            <Name>MergedExterior</Name>
+            <TransformR0>{0.010000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,-0.010000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,-0.000000,-0.010000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,0.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>5a850baa-bb10-4bfc-b947-d032e670e066</RenderMesh>
+                <RenderMesh>4c687f70-cd3f-4b5b-8aca-03bc35f7275e</RenderMesh>
+                <RenderMesh>b74f3d11-6c8e-44b3-9d4d-03adfcb19a63</RenderMesh>
+                <RenderMesh>af2a34bf-3765-421b-8c9f-1b91b4fe3a2c</RenderMesh>
+                <RenderMesh>511b43dd-d0ec-477c-b074-9f5f415d3bee</RenderMesh>
+                <RenderMesh>1bf26744-0635-4624-ab18-afbb8fe18498</RenderMesh>
+                <RenderMesh>02ff60ce-7fe2-45e7-843a-9c4df8bdcb48</RenderMesh>
+                <RenderMesh>3713fe97-7d21-4382-a49d-b0c8035c9ef5</RenderMesh>
+                <RenderMesh>0807d869-9716-4294-bea0-2c90d0c4681b</RenderMesh>
+                <RenderMesh>209fe5ee-c0b6-4e3b-81fc-4bb0b13b8fad</RenderMesh>
+                <RenderMesh>441283b3-bad7-452b-bef2-d0ac96a03a61</RenderMesh>
+                <RenderMesh>02f55d5a-998d-4eeb-80eb-564f9f99a919</RenderMesh>
+                <RenderMesh>13497b7e-5469-41d7-a44e-9b80461cdf33</RenderMesh>
+                <RenderMesh>addd3695-5da2-4952-bb46-7e569c06547d</RenderMesh>
+                <RenderMesh>df46658f-23b2-4197-b64f-b8a78e5ce23c</RenderMesh>
+                <RenderMesh>fb19138e-343b-4cd1-96b5-26c25bd4890d</RenderMesh>
+                <RenderMesh>ef012d1a-4ab0-444c-ad34-c694b2cfe94a</RenderMesh>
+                <RenderMesh>fa831fbd-236f-4200-8f4b-75d808279526</RenderMesh>
+                <RenderMesh>1e3fb4a6-772b-4562-b2a8-c59904b493c4</RenderMesh>
+                <RenderMesh>525954fb-25f7-4e6e-86cb-206b278eed61</RenderMesh>
+                <RenderMesh>612e7afa-074a-41a3-9b83-0f2416813af6</RenderMesh>
+                <RenderMesh>4872b7ef-d35b-4b36-b1d7-3ff2d41fd477</RenderMesh>
+                <RenderMesh>a0fb99b0-b139-4302-91b3-e28e0d09f08a</RenderMesh>
+                <RenderMesh>62524d37-b1b3-409b-8cdb-c0d4619f6950</RenderMesh>
+                <RenderMesh>028c70a3-1178-4bdc-ac90-25b788d5d407</RenderMesh>
+                <RenderMesh>43aa8b73-3efa-4aaa-904b-196d47961636</RenderMesh>
+                <RenderMesh>275ab71c-bb66-4fbb-a467-12cbe625763c</RenderMesh>
+                <RenderMesh>9ff6862d-5a6b-4e69-ad32-e219e8811b8d</RenderMesh>
+                <RenderMesh>b49e1e31-e8a9-4325-b5a7-92d53b7a126c</RenderMesh>
+                <RenderMesh>fcc31b93-f3d1-4806-92f2-a3d0a33c6e63</RenderMesh>
+                <RenderMesh>a62db162-7f44-4e67-bae4-427107cd1e89</RenderMesh>
+                <RenderMesh>2ac91f29-7bc1-47e3-9500-d932103a905b</RenderMesh>
+                <RenderMesh>10443a9b-29ce-4d3d-996b-b56f49549e01</RenderMesh>
+                <RenderMesh>9ac49e42-0893-4379-8961-b21a28d3d597</RenderMesh>
+                <RenderMesh>a8669af9-f17c-4104-a1a0-d04617237cac</RenderMesh>
+                <RenderMesh>e231a1f4-ac2c-4dab-b6e7-25b9f649c653</RenderMesh>
+                <RenderMesh>8e49c904-6673-43d1-903a-5f71b1d9ed65</RenderMesh>
+                <RenderMesh>76b816ed-8da4-43c4-85ee-ec68c7d9e2ed</RenderMesh>
+                <RenderMesh>86288cf3-ec4d-416b-b068-fa87a0459cba</RenderMesh>
+                <RenderMesh>93be195e-f6e2-4465-a3a5-bf2cf82d0c8e</RenderMesh>
+                <RenderMesh>297c27aa-18be-4989-9851-8947f4ad725b</RenderMesh>
+                <RenderMesh>dbf9599c-04c8-4a31-b4b9-a4dfc6cda8ac</RenderMesh>
+                <RenderMesh>0f503c56-f29f-49f1-aa91-32912dcdd160</RenderMesh>
+                <RenderMesh>1fcded19-4595-43f3-8833-0f0ad01b9ffc</RenderMesh>
+                <RenderMesh>183b3463-0728-4616-bd2c-fbb31d979bcd</RenderMesh>
+                <RenderMesh>62811064-94a7-4107-aac6-d6abd13567f4</RenderMesh>
+                <RenderMesh>2a41ade0-71d1-4367-a3d6-866ac47352a9</RenderMesh>
+                <RenderMesh>6d1916a6-7cea-4c30-97f3-f6853093bd8d</RenderMesh>
+                <RenderMesh>870a0efe-0131-4674-9843-d88c6714336c</RenderMesh>
+                <RenderMesh>674e6cdd-0d60-441b-8f11-ee9f2791d444</RenderMesh>
+                <RenderMesh>a196dae9-407e-4b3a-878e-c2776573c2c2</RenderMesh>
+                <RenderMesh>0e36fca3-43e6-429a-b981-3c2b9f9a7ccc</RenderMesh>
+                <RenderMesh>294ac0c3-81ef-48c2-af5e-c91dd16a66e2</RenderMesh>
+                <RenderMesh>e56e386f-a98d-481c-8d09-d78588d000b4</RenderMesh>
+                <RenderMesh>72ba0aa0-cd44-410b-8501-210d0e0c886d</RenderMesh>
+                <RenderMesh>a2c3bfde-8b84-4016-9abf-f78f7af2e133</RenderMesh>
+                <RenderMesh>43e37b3d-3cf6-4154-b367-2e8040215e0f</RenderMesh>
+                <RenderMesh>82b6918a-513e-49ba-811f-315d2228f351</RenderMesh>
+                <RenderMesh>0cc2245f-d2a2-4b87-a562-2024829b8a65</RenderMesh>
+                <RenderMesh>5cbda2bb-3b63-4b34-875a-7aedd8f80be5</RenderMesh>
+                <RenderMesh>c0e77ea9-ffc6-413f-88e8-df6bdd21e9a2</RenderMesh>
+                <RenderMesh>018a5539-a2c7-4cce-bf01-c548e14ecdec</RenderMesh>
+                <RenderMesh>1dbd983a-bc86-454d-bc0b-705a4a0d82ca</RenderMesh>
+                <RenderMesh>c53b48f8-9e8e-4cf4-a6c4-48bc15b858dd</RenderMesh>
+                <RenderMesh>c16c1b5b-b2d7-4456-b43a-6c197604d8bd</RenderMesh>
+                <RenderMesh>250e82fc-4855-4b69-bf31-859bc381f6b7</RenderMesh>
+                <RenderMesh>e3bd09cd-b3bd-4475-8dd3-ffc440ef4a2a</RenderMesh>
+                <RenderMesh>8cba5c9c-6373-423c-b9e7-31bc0d561b45</RenderMesh>
+                <RenderMesh>0dd9b3ce-45d4-40c2-a957-fd63222b0011</RenderMesh>
+                <RenderMesh>12673d07-96c9-4dbc-bcf9-9c9464a26402</RenderMesh>
+                <RenderMesh>bc895a1d-93c9-4567-b6a2-a09e17af88ae</RenderMesh>
+                <RenderMesh>6a995086-c0ea-4c95-9fdf-d1658aca2a4c</RenderMesh>
+                <RenderMesh>ce294d6a-45e1-4fdc-b72f-b4fcf39c5b05</RenderMesh>
+                <RenderMesh>dd4de130-c0e8-4ccf-a0d5-499f77a959e0</RenderMesh>
+                <RenderMesh>4af33651-cb35-46ee-bda8-e4c135e992ca</RenderMesh>
+                <RenderMesh>9073f23f-5cae-4b5e-8f06-d1ac048fb406</RenderMesh>
+                <RenderMesh>2077875c-b83c-4877-96ff-a6a7540f2adb</RenderMesh>
+                <RenderMesh>1147d54d-c70d-4f3a-89cd-0028a9254f8c</RenderMesh>
+                <RenderMesh>8acd339d-8557-41a2-b6f2-b0fdb4df5597</RenderMesh>
+                <RenderMesh>25ec3521-4049-4598-a8c0-999af089cdd2</RenderMesh>
+                <RenderMesh>d3ff98b4-8cb2-4455-b245-c535588146fa</RenderMesh>
+                <RenderMesh>840a3eef-6d36-4e38-90f6-3c38bbd055fc</RenderMesh>
+                <RenderMesh>0a1d99ed-d6ca-4f99-acdc-cb535fbb47f4</RenderMesh>
+                <RenderMesh>bfe8d624-2f36-4e77-9e16-c29ccc87cea5</RenderMesh>
+                <RenderMesh>11a7e53e-206e-4aab-8026-fdb23a7b8ed5</RenderMesh>
+                <RenderMesh>6f3efd07-3588-47de-9a69-6fd02bfdd007</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_1>
-        <RootObjects_2 Name="MergedInterior" TransformR0="{0.010000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,-0.010000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,-0.010000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
-            <RenderMeshes count="60" a0="09604ecd-48ca-4b45-ace7-882f9cfe4cd3" a1="da241393-2a0c-4cb9-8a79-97c318239d9f" a2="3c6e67af-7704-4e06-b1be-ced005de7b29" a3="8a303aa1-ff19-4573-b9da-4b61029619bc" a4="68497a04-e5da-4ae1-89bc-5fd5619cdee2" a5="e6262947-8c93-49db-a19b-6e8008546096" a6="988239ed-84a2-451f-bd5d-814771e3e79b" a7="b8fa2901-e52b-4b81-957f-13a29de88606" a8="25013c00-7a49-41f6-af7f-896585bbf24a" a9="1c7e1530-608d-4882-b53b-35ec8359ab69" a10="71a1efaa-705f-4463-b88f-6bef06238b0a" a11="d104ce00-acfb-43e1-a6fd-c2628a6355b3" a12="493931af-4ecc-456c-a0b5-55534861baef" a13="f67072d3-ce16-4762-bd8c-0157c38d4115" a14="8b4ca965-2c0d-4709-ace8-9e8d218d450e" a15="29db059b-5762-453f-9435-be9bc8053e70" a16="ef4d9fd1-151e-4720-bb58-ec290657f7b7" a17="f84e579c-94ee-40e5-b419-f424de199239" a18="a3bc55df-bd1e-4751-8b50-1c4d64fa85e5" a19="2ca19221-5034-462b-a0cf-97c9a57fc767" a20="ea4cf3f6-2426-4735-909e-f2662cbe3c37" a21="d559854f-6d0f-4517-89a8-e28dbb92aa98" a22="95bc3f9b-80f1-41a0-9bee-e44d1316d547" a23="4cb64fd6-33ab-43b9-b32a-2b2f20a8f6f4" a24="75512ce1-debf-49ec-8fee-ff046affa97e" a25="a6cf274f-7840-47c5-af7b-80f3ef3bd385" a26="8562652d-53ee-4b4b-b515-d0571230b916" a27="900f9bdd-b571-4040-9c99-9d21e6055f2f" a28="395ac5e7-d8f7-4ca4-bd2d-0d18d5558c29" a29="ef5cfce7-e221-4e3e-b43e-62493437dd2c" a30="208d74f9-a5f2-438d-adc7-0184389b196e" a31="86509a85-b8be-4ca3-8b77-5c6d8e019437" a32="8cc1bd23-5ec0-4409-bd16-861540c0e79f" a33="9226e93a-1f8d-4928-a3e0-073b5e70fe64" a34="e217568b-decf-4cd4-a27c-0f03ee70bcf3" a35="914a275b-c604-44a9-90ee-b4ca83944eb1" a36="27261974-8e71-41a0-ba40-c734e4fdb26d" a37="0aba1c79-4904-454f-8b75-92b9b6cf0188" a38="2d5ade32-33cf-4d3f-b1c1-fdd7fc6b2096" a39="ab3a7818-0a2f-427d-ab89-ad9d4e4e366a" a40="08ba1755-36db-4afa-b850-3579831b7f5d" a41="9b168be8-03a3-40a9-80b8-7c79be45d726" a42="91a5c6aa-51fa-4485-968b-da23b4cd9c69" a43="f17c67c6-a950-4b76-86e0-4bd47496af7f" a44="3202d714-4ba0-422c-9e8b-8e9a9c150476" a45="75079d43-2b90-4026-bd00-e6ac2e69441f" a46="6c8d6b60-9449-4fb2-9b10-33469af9b1e0" a47="1dc3d3ed-ecd7-442b-a47a-dcf7ad32e61e" a48="bbb6aada-8629-4317-83e9-cea01b8b659a" a49="a4df2898-8026-4397-a758-7bcbdba3c0af" a50="c0dc6b90-2a89-4f6b-aba0-7d2d41ddf1fd" a51="5c696d07-4880-4eab-8082-c6f0c3a6ad2a" a52="941d22a7-0be5-4b9b-ab61-9cca864dc311" a53="1af5cafb-532c-4f31-839e-fb1016c8c92b" a54="4a4c4c44-63d2-4023-b0c1-733364e2ef00" a55="dd3afd5e-3cad-4aef-892b-01fe286fd7b9" a56="a8199bfc-64f7-4be0-ac5d-2cd328086370" a57="78df9d6c-e562-4cd6-85ac-1ff18053dc2e" a58="0957456b-9dbd-422b-91aa-e6c43c73e099" a59="6d2acc97-8a0d-4b96-9d77-47bfc71099b7"/>
-            <ChildObjects count="0"/>
+        <RootObjects_2>
+            <Name>MergedInterior</Name>
+            <TransformR0>{0.010000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,-0.010000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,-0.010000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,0.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>09604ecd-48ca-4b45-ace7-882f9cfe4cd3</RenderMesh>
+                <RenderMesh>da241393-2a0c-4cb9-8a79-97c318239d9f</RenderMesh>
+                <RenderMesh>3c6e67af-7704-4e06-b1be-ced005de7b29</RenderMesh>
+                <RenderMesh>8a303aa1-ff19-4573-b9da-4b61029619bc</RenderMesh>
+                <RenderMesh>68497a04-e5da-4ae1-89bc-5fd5619cdee2</RenderMesh>
+                <RenderMesh>e6262947-8c93-49db-a19b-6e8008546096</RenderMesh>
+                <RenderMesh>988239ed-84a2-451f-bd5d-814771e3e79b</RenderMesh>
+                <RenderMesh>b8fa2901-e52b-4b81-957f-13a29de88606</RenderMesh>
+                <RenderMesh>25013c00-7a49-41f6-af7f-896585bbf24a</RenderMesh>
+                <RenderMesh>1c7e1530-608d-4882-b53b-35ec8359ab69</RenderMesh>
+                <RenderMesh>71a1efaa-705f-4463-b88f-6bef06238b0a</RenderMesh>
+                <RenderMesh>d104ce00-acfb-43e1-a6fd-c2628a6355b3</RenderMesh>
+                <RenderMesh>493931af-4ecc-456c-a0b5-55534861baef</RenderMesh>
+                <RenderMesh>f67072d3-ce16-4762-bd8c-0157c38d4115</RenderMesh>
+                <RenderMesh>8b4ca965-2c0d-4709-ace8-9e8d218d450e</RenderMesh>
+                <RenderMesh>29db059b-5762-453f-9435-be9bc8053e70</RenderMesh>
+                <RenderMesh>ef4d9fd1-151e-4720-bb58-ec290657f7b7</RenderMesh>
+                <RenderMesh>f84e579c-94ee-40e5-b419-f424de199239</RenderMesh>
+                <RenderMesh>a3bc55df-bd1e-4751-8b50-1c4d64fa85e5</RenderMesh>
+                <RenderMesh>2ca19221-5034-462b-a0cf-97c9a57fc767</RenderMesh>
+                <RenderMesh>ea4cf3f6-2426-4735-909e-f2662cbe3c37</RenderMesh>
+                <RenderMesh>d559854f-6d0f-4517-89a8-e28dbb92aa98</RenderMesh>
+                <RenderMesh>95bc3f9b-80f1-41a0-9bee-e44d1316d547</RenderMesh>
+                <RenderMesh>4cb64fd6-33ab-43b9-b32a-2b2f20a8f6f4</RenderMesh>
+                <RenderMesh>75512ce1-debf-49ec-8fee-ff046affa97e</RenderMesh>
+                <RenderMesh>a6cf274f-7840-47c5-af7b-80f3ef3bd385</RenderMesh>
+                <RenderMesh>8562652d-53ee-4b4b-b515-d0571230b916</RenderMesh>
+                <RenderMesh>900f9bdd-b571-4040-9c99-9d21e6055f2f</RenderMesh>
+                <RenderMesh>395ac5e7-d8f7-4ca4-bd2d-0d18d5558c29</RenderMesh>
+                <RenderMesh>ef5cfce7-e221-4e3e-b43e-62493437dd2c</RenderMesh>
+                <RenderMesh>208d74f9-a5f2-438d-adc7-0184389b196e</RenderMesh>
+                <RenderMesh>86509a85-b8be-4ca3-8b77-5c6d8e019437</RenderMesh>
+                <RenderMesh>8cc1bd23-5ec0-4409-bd16-861540c0e79f</RenderMesh>
+                <RenderMesh>9226e93a-1f8d-4928-a3e0-073b5e70fe64</RenderMesh>
+                <RenderMesh>e217568b-decf-4cd4-a27c-0f03ee70bcf3</RenderMesh>
+                <RenderMesh>914a275b-c604-44a9-90ee-b4ca83944eb1</RenderMesh>
+                <RenderMesh>27261974-8e71-41a0-ba40-c734e4fdb26d</RenderMesh>
+                <RenderMesh>0aba1c79-4904-454f-8b75-92b9b6cf0188</RenderMesh>
+                <RenderMesh>2d5ade32-33cf-4d3f-b1c1-fdd7fc6b2096</RenderMesh>
+                <RenderMesh>ab3a7818-0a2f-427d-ab89-ad9d4e4e366a</RenderMesh>
+                <RenderMesh>08ba1755-36db-4afa-b850-3579831b7f5d</RenderMesh>
+                <RenderMesh>9b168be8-03a3-40a9-80b8-7c79be45d726</RenderMesh>
+                <RenderMesh>91a5c6aa-51fa-4485-968b-da23b4cd9c69</RenderMesh>
+                <RenderMesh>f17c67c6-a950-4b76-86e0-4bd47496af7f</RenderMesh>
+                <RenderMesh>3202d714-4ba0-422c-9e8b-8e9a9c150476</RenderMesh>
+                <RenderMesh>75079d43-2b90-4026-bd00-e6ac2e69441f</RenderMesh>
+                <RenderMesh>6c8d6b60-9449-4fb2-9b10-33469af9b1e0</RenderMesh>
+                <RenderMesh>1dc3d3ed-ecd7-442b-a47a-dcf7ad32e61e</RenderMesh>
+                <RenderMesh>bbb6aada-8629-4317-83e9-cea01b8b659a</RenderMesh>
+                <RenderMesh>a4df2898-8026-4397-a758-7bcbdba3c0af</RenderMesh>
+                <RenderMesh>c0dc6b90-2a89-4f6b-aba0-7d2d41ddf1fd</RenderMesh>
+                <RenderMesh>5c696d07-4880-4eab-8082-c6f0c3a6ad2a</RenderMesh>
+                <RenderMesh>941d22a7-0be5-4b9b-ab61-9cca864dc311</RenderMesh>
+                <RenderMesh>1af5cafb-532c-4f31-839e-fb1016c8c92b</RenderMesh>
+                <RenderMesh>4a4c4c44-63d2-4023-b0c1-733364e2ef00</RenderMesh>
+                <RenderMesh>dd3afd5e-3cad-4aef-892b-01fe286fd7b9</RenderMesh>
+                <RenderMesh>a8199bfc-64f7-4be0-ac5d-2cd328086370</RenderMesh>
+                <RenderMesh>78df9d6c-e562-4cd6-85ac-1ff18053dc2e</RenderMesh>
+                <RenderMesh>0957456b-9dbd-422b-91aa-e6c43c73e099</RenderMesh>
+                <RenderMesh>6d2acc97-8a0d-4b96-9d77-47bfc71099b7</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_2>
-        <RootObjects_3 Name="Glass_Wine_58" TransformR0="{0.010000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,-0.010000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,-0.010000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
-            <RenderMeshes count="1" a0="6da5e206-642a-496a-863f-6fca56ec8f9e"/>
-            <ChildObjects count="0"/>
+        <RootObjects_3>
+            <Name>Glass_Wine_58</Name>
+            <TransformR0>{0.010000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,-0.010000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,-0.010000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,0.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>6da5e206-642a-496a-863f-6fca56ec8f9e</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_3>
-        <RootObjects_4 Name="Glass_Wine_32" TransformR0="{0.010000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,-0.010000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,-0.010000,0.000000}" TransformR3="{0.000000,0.000000,0.000000,1.000000}">
-            <RenderMeshes count="1" a0="8446b638-f98b-4c22-bd87-8b3b27a5d1fc"/>
-            <ChildObjects count="0"/>
+        <RootObjects_4>
+            <Name>Glass_Wine_32</Name>
+            <TransformR0>{0.010000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,-0.010000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,-0.010000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,0.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>8446b638-f98b-4c22-bd87-8b3b27a5d1fc</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_4>
     </RootObjects>
-    <FogSphere Enabled="true" UseCustomCenter="true" Center="{-1.000000,-1.000000,-8.000000}" Color="{0.000000,0.000000,0.000001}" RadiusInner="18" RadiusOuter="32" BlendCurvePow="1" BlendMultiplier="1"/>
+    <FogSphere>
+        <Enabled>true</Enabled>
+        <UseCustomCenter>true</UseCustomCenter>
+        <Center>{-1.000000,-1.000000,-8.000000}</Center>
+        <Color>{0.000000,0.000000,0.000001}</Color>
+        <RadiusInner>18</RadiusInner>
+        <RadiusOuter>32</RadiusOuter>
+        <BlendCurvePow>1</BlendCurvePow>
+        <BlendMultiplier>1</BlendMultiplier>
+    </FogSphere>
 </VertexAsylumScene>

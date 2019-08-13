@@ -45,14 +45,8 @@ namespace VertexAsylum
         // ID3D11Buffer *              m_fullscreenVB;
         // ID3D11Buffer *              m_fullscreenVBDynamic;
 
-        vaAutoRMI<vaPixelShader>    m_copyResourcePS;
-
-        ID3D11SamplerState *        m_shadowCmpSamplerState     = nullptr;
-
-        bool                        m_imguiFrameStarted         = false;
-
-        bool                        m_itemsStarted              = false;
-        //vaRenderItem                m_lastRenderItem;
+        vaRenderTypeFlags           m_itemsStarted              = vaRenderTypeFlags::None;
+        //vaGraphicsItem                m_lastRenderItem;
         vaSceneDrawContext *        m_lastSceneDrawContext      = nullptr;
 
     protected:
@@ -61,21 +55,21 @@ namespace VertexAsylum
 
     public:
         static vaRenderDeviceContext * Create( vaRenderDevice & device, ID3D11DeviceContext * deviceContext );
-        ID3D11DeviceContext *       GetDXContext( ) const                               { return m_deviceContext; }
+        ID3D11DeviceContext *       GetDXContext( ) const                                               { return m_deviceContext; }
 
     public:
         void                        SetStandardSamplers( );
         void                        UnsetStandardSamplers( );
         // virtual void                FullscreenPassDraw( vaPixelShader & pixelShader, vaBlendMode blendMode = vaBlendMode::Opaque );
 
-        // void                        FullscreenPassDraw( ID3D11PixelShader * pixelShader, ID3D11BlendState * blendState = vaDirectXTools::GetBS_Opaque(), ID3D11DepthStencilState * depthStencilState = vaDirectXTools::GetDSS_DepthDisabled_NoDepthWrite(), UINT stencilRef = 0, float ZDistance = 0.0f );
+        // void                        FullscreenPassDraw( ID3D11PixelShader * pixelShader, ID3D11BlendState * blendState = vaDirectXTools11::GetBS_Opaque(), ID3D11DepthStencilState * depthStencilState = vaDirectXTools11::GetDSS_DepthDisabled_NoDepthWrite(), UINT stencilRef = 0, float ZDistance = 0.0f );
 
-        virtual void                CopySRVToRTV( shared_ptr<vaTexture> destination, shared_ptr<vaTexture> source ) override;
-
-        virtual void                BeginItems( ) override;
-        virtual vaDrawResultFlags   ExecuteItem( const vaRenderItem & renderItem ) override;
+        virtual void                BeginItems( vaRenderTypeFlags typeFlags ) override;
+        virtual vaDrawResultFlags   ExecuteItem( const vaGraphicsItem & renderItem ) override;
         virtual vaDrawResultFlags   ExecuteItem( const vaComputeItem & renderItem ) override;
         virtual void                EndItems( ) override;
+        virtual vaRenderTypeFlags   GetSupportFlags( ) const override                                   { return vaRenderTypeFlags::Graphics | vaRenderTypeFlags::Compute; }
+        virtual vaRenderTypeFlags   GetStartedFlags( ) const override                                   { return m_itemsStarted; }
 
         void                        CheckNoStatesSet( );
 
@@ -84,13 +78,6 @@ namespace VertexAsylum
         void                        Destroy( );
 
         void                        UpdateSceneDrawContext( vaSceneDrawContext * sceneDrawContext );
-
-
-    protected:
-        virtual void               ImGuiCreate( ) override;
-        virtual void               ImGuiDestroy( ) override;
-        virtual void               ImGuiNewFrame( ) override;
-        virtual void               ImGuiDraw( ) override;
 
     private:
         // vaRenderDeviceContext

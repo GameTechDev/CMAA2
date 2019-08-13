@@ -85,10 +85,10 @@ namespace VertexAsylum
 //        virtual void *                              GetAPIContext( )                        { return (void*)m_deviceContext; }
 
         // vaGPUTimer implementation
-        virtual void                                Start( );
-        virtual void                                Stop( );
+        virtual void                                Start( vaRenderDeviceContext * renderDeviceContext ) override;
+        virtual void                                Stop( vaRenderDeviceContext * renderDeviceContext ) override;
 
-        virtual double                              GetLastTime( ) const { return m_lastTime; }
+        virtual double                              GetLastTime( ) const override { return m_lastTime; }
         virtual double                              GetAvgTime( ) const { return m_avgTime; }
 
     private:

@@ -26,13 +26,10 @@
 
 #include "Rendering/vaRenderingIncludes.h"
 
-#include "Rendering/DirectX/vaResourceFormatsDX11.h"
-
-
 namespace VertexAsylum
 {
 
-    class vaTextureDX11 : public vaTexture, public vaShaderResourceSRVDX11
+    class vaTextureDX11 : public vaTexture, public vaShaderResourceDX11
     {
         VA_RENDERING_MODULE_MAKE_FRIENDS( );
 
@@ -51,16 +48,17 @@ namespace VertexAsylum
         friend class vaTexture;
         explicit                            vaTextureDX11( const vaRenderingModuleParams & params );
         virtual                             ~vaTextureDX11( )   ;
+        void                                SetViewedOriginal( const shared_ptr< vaTexture > & viewedOriginal ) { vaTexture::SetViewedOriginal( viewedOriginal ); }   // can only be done once at initialization
 
         virtual bool                        Import( const wstring & storageFilePath, vaTextureLoadFlags loadFlags, vaResourceBindSupportFlags binds, vaTextureContentsType contentsType = vaTextureContentsType::GenericColor ) override;
         virtual bool                        Import( void * buffer, uint64 bufferSize, vaTextureLoadFlags loadFlags = vaTextureLoadFlags::Default, vaResourceBindSupportFlags binds = vaResourceBindSupportFlags::ShaderResource, vaTextureContentsType contentsType = vaTextureContentsType::GenericColor ) override;
         virtual void                        Destroy( ) override;
 
-        virtual shared_ptr<vaTexture>       CreateView( vaResourceBindSupportFlags bindFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, int viewedMipSliceMin, int viewedMipSliceCount, int viewedArraySliceMin, int viewedArraySliceCount );
+        virtual shared_ptr<vaTexture>       CreateViewInternal( const shared_ptr<vaTexture> & thisTexture, vaResourceBindSupportFlags bindFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, int viewedMipSliceMin, int viewedMipSliceCount, int viewedArraySliceMin, int viewedArraySliceCount );
 
-        virtual bool                        InternalCreate1D( vaResourceFormat format, int width, int mipLevels, int arraySize, vaResourceBindSupportFlags bindFlags, vaTextureAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData ) override;
-        virtual bool                        InternalCreate2D( vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags bindFlags, vaTextureAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData, int initialDataPitch ) override;
-        virtual bool                        InternalCreate3D( vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags bindFlags, vaTextureAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData, int initialDataPitch, int initialDataSlicePitch ) override;
+        virtual bool                        InternalCreate1D( vaResourceFormat format, int width, int mipLevels, int arraySize, vaResourceBindSupportFlags bindFlags, vaResourceAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData ) override;
+        virtual bool                        InternalCreate2D( vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags bindFlags, vaResourceAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData, int initialDataRowPitch ) override;
+        virtual bool                        InternalCreate3D( vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags bindFlags, vaResourceAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData, int initialDataRowPitch, int initialDataSlicePitch ) override;
 
     public:
         ID3D11Resource *                    GetResource( ) const        { return m_resource; }
@@ -83,18 +81,20 @@ namespace VertexAsylum
         void                                InternalUpdateFromRenderingCounterpart( bool notAllBindViewsNeeded, bool dontResetFlags );
 
     protected:
-        // vaTexture
-        virtual bool                        TryMap( vaRenderDeviceContext & apiContext, vaResourceMapType mapType, bool doNotWait );
-        virtual void                        Unmap( vaRenderDeviceContext & apiContext );
+        // these can only happen on the main thread and require main render device context to be created - limitations for simplicity
+        virtual void                        UpdateSubresources( vaRenderDeviceContext & renderContext, uint32 firstSubresource, /*const*/ std::vector<vaTextureSubresourceData> & subresources ) override;
+        virtual bool                        TryMap( vaRenderDeviceContext & renderContext, vaResourceMapType mapType, bool doNotWait ) override;
+        virtual void                        Unmap( vaRenderDeviceContext & renderContext ) override;
 
-        virtual void                        ClearRTV( vaRenderDeviceContext & apiContext, const vaVector4 & clearValue );
-        virtual void                        ClearUAV( vaRenderDeviceContext & apiContext, const vaVector4ui & clearValue );
-        virtual void                        ClearUAV( vaRenderDeviceContext & apiContext, const vaVector4 & clearValue );
-        virtual void                        ClearDSV( vaRenderDeviceContext & apiContext, bool clearDepth, float depthValue, bool clearStencil, uint8 stencilValue );
-        virtual void                        CopyFrom( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcTexture );
+        virtual void                        ClearRTV( vaRenderDeviceContext & renderContext, const vaVector4 & clearValue );
+        virtual void                        ClearUAV( vaRenderDeviceContext & renderContext, const vaVector4ui & clearValue );
+        virtual void                        ClearUAV( vaRenderDeviceContext & renderContext, const vaVector4 & clearValue );
+        virtual void                        ClearDSV( vaRenderDeviceContext & renderContext, bool clearDepth, float depthValue, bool clearStencil, uint8 stencilValue );
+        virtual void                        CopyFrom( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcTexture ) override;
+        virtual void                        CopyTo( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & dstTexture ) override;
 
-        virtual void                        UpdateSubresource( vaRenderDeviceContext & apiContext, int dstSubresourceIndex, const vaBoxi & dstBox, void * srcData, int srcDataRowPitch, int srcDataDepthPitch = 0 );
-        virtual void                        ResolveSubresource( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & dstResource, uint dstSubresource, uint srcSubresource, vaResourceFormat format ) override;
+        //virtual void                        UpdateSubresource( vaRenderDeviceContext & renderContext, int dstSubresourceIndex, const vaBoxi & dstBox, void * srcData, int srcDataRowPitch, int srcDataDepthPitch = 0 );
+        virtual void                        ResolveSubresource( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & dstResource, uint dstSubresource, uint srcSubresource, vaResourceFormat format ) override;
 
         virtual bool                        LoadAPACK( vaStream & inStream ) override;
         virtual bool                        SaveAPACK( vaStream & outStream ) override;
@@ -102,73 +102,22 @@ namespace VertexAsylum
 
         virtual shared_ptr<vaTexture>       TryCompress( ) override;
 
-        virtual shared_ptr<vaTexture>       CreateLowerResFromMIPs( vaRenderDeviceContext & apiContext, int numberOfMIPsToDrop, bool neverGoBelow4x4 = true ) override;
+        virtual bool                        SaveToDDSFile( vaRenderDeviceContext & renderContext, const wstring & path ) override;
+        virtual bool                        SaveToPNGFile( vaRenderDeviceContext & renderContext, const wstring & path ) override;
+        // virtual bool                        SaveToPNGBuffer( vaRenderDeviceContext & renderContext, const wstring & path ) override; // not yet implemented but should be trivial
+
+        virtual vaResourceBindSupportFlags  GetBindSupportFlags( ) const override                           { return m_bindSupportFlags; }
 
     public:
         // Set as SRVs
-        virtual void                        SetToAPISlotSRV( vaRenderDeviceContext & apiContext, int slot, bool assertOnOverwrite = true );
-        virtual void                        UnsetFromAPISlotSRV( vaRenderDeviceContext & apiContext, int slot, bool assertOnNotSet = true );
+        virtual void                        SetToAPISlotSRV( vaRenderDeviceContext & renderContext, int slot, bool assertOnOverwrite = true );
+        virtual void                        UnsetFromAPISlotSRV( vaRenderDeviceContext & renderContext, int slot, bool assertOnNotSet = true );
 
         // Set as UAVs
-        virtual void                        SetToAPISlotUAV_CS( vaRenderDeviceContext & apiContext, int slot, uint32 initialCount = (uint32)-1, bool assertOnOverwrite = true );
-        virtual void                        UnsetFromAPISlotUAV_CS( vaRenderDeviceContext & apiContext, int slot, bool assertOnNotSet = true );
+        virtual void                        SetToAPISlotUAV_CS( vaRenderDeviceContext & renderContext, int slot, uint32 initialCount = (uint32)-1, bool assertOnOverwrite = true );
+        virtual void                        UnsetFromAPISlotUAV_CS( vaRenderDeviceContext & renderContext, int slot, bool assertOnNotSet = true );
     };
 
-    inline DXGI_FORMAT DXGIFormatFromVA( vaResourceFormat format )       
-    { 
-        return (DXGI_FORMAT)format;
-    }
-
-    inline vaResourceFormat VAFormatFromDXGI( DXGI_FORMAT format )
-    {
-        return (vaResourceFormat)format;
-    }
-
-    inline vaResourceBindSupportFlags BindFlagsVAFromDX( UINT bindFlags )
-    {
-        vaResourceBindSupportFlags ret = vaResourceBindSupportFlags::None;
-        if( ( bindFlags & D3D11_BIND_VERTEX_BUFFER ) != 0 )
-            ret |= vaResourceBindSupportFlags::VertexBuffer;
-        if( ( bindFlags & D3D11_BIND_INDEX_BUFFER ) != 0 )
-            ret |= vaResourceBindSupportFlags::IndexBuffer;
-        if( ( bindFlags & D3D11_BIND_CONSTANT_BUFFER ) != 0 )
-            ret |= vaResourceBindSupportFlags::ConstantBuffer;
-        if( ( bindFlags & D3D11_BIND_SHADER_RESOURCE ) != 0 )
-            ret |= vaResourceBindSupportFlags::ShaderResource;
-        if( ( bindFlags & D3D11_BIND_RENDER_TARGET ) != 0 )
-            ret |= vaResourceBindSupportFlags::RenderTarget;
-        if( ( bindFlags & D3D11_BIND_DEPTH_STENCIL ) != 0 )
-            ret |= vaResourceBindSupportFlags::DepthStencil;
-        if( ( bindFlags & D3D11_BIND_UNORDERED_ACCESS ) != 0 )
-            ret |= vaResourceBindSupportFlags::UnorderedAccess;
-        return ret;
-    }
-
-    inline UINT BindFlagsDXFromVA( vaResourceBindSupportFlags bindFlags )
-    {
-        UINT ret = 0;
-        if( ( bindFlags & vaResourceBindSupportFlags::VertexBuffer ) != 0 )
-            ret |= D3D11_BIND_VERTEX_BUFFER;
-        if( ( bindFlags & vaResourceBindSupportFlags::IndexBuffer ) != 0 )
-            ret |= D3D11_BIND_INDEX_BUFFER;
-        if( ( bindFlags & vaResourceBindSupportFlags::ConstantBuffer ) != 0 )
-            ret |= D3D11_BIND_CONSTANT_BUFFER;
-        if( ( bindFlags & vaResourceBindSupportFlags::ShaderResource ) != 0 )
-            ret |= D3D11_BIND_SHADER_RESOURCE;
-        if( ( bindFlags & vaResourceBindSupportFlags::RenderTarget ) != 0 )
-            ret |= D3D11_BIND_RENDER_TARGET;
-        if( ( bindFlags & vaResourceBindSupportFlags::DepthStencil ) != 0 )
-            ret |= D3D11_BIND_DEPTH_STENCIL;
-        if( ( bindFlags & vaResourceBindSupportFlags::UnorderedAccess ) != 0 )
-            ret |= D3D11_BIND_UNORDERED_ACCESS;
-        return ret;
-    }
-
-    inline UINT TexFlagsDXFromVA( vaTextureFlags texFlags )
-    {
-        UINT ret = 0;
-        if( ( texFlags & vaTextureFlags::Cubemap ) != 0 )
-            ret |= D3D11_RESOURCE_MISC_TEXTURECUBE;
-        return ret;
-    }
+    inline vaTextureDX11 & AsDX11( vaTexture & texture )   { return *texture.SafeCast<vaTextureDX11*>(); }
+    inline vaTextureDX11 * AsDX11( vaTexture * texture )   { return texture->SafeCast<vaTextureDX11*>(); }
 }

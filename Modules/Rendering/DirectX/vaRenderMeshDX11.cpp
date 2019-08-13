@@ -32,8 +32,6 @@
 
 #include "Rendering/DirectX/vaRenderMaterialDX11.h"
 
-#include "Rendering/DirectX/vaRenderingToolsDX11.h"
-
 namespace VertexAsylum
 {
     class vaRenderMeshManagerDX11 : public vaRenderMeshManager

@@ -83,7 +83,7 @@ void vaSkyDX11::Draw( vaSceneDrawContext & drawContext )
 {
     drawContext;
 
-    // needs to be ported to vaRenderItem-based approach, same as vaSkybox
+    // needs to be ported to vaGraphicsItem-based approach, same as vaSkybox
     assert( false );
 
     /*
@@ -118,8 +118,8 @@ void vaSkyDX11::Draw( vaSceneDrawContext & drawContext )
     }
 
     // make sure we're not overwriting anything else, and set our constant buffers
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, (ID3D11Buffer*)NULL, SKY_CONSTANTS_BUFFERSLOT );
-    m_constantsBuffer.SetToAPISlot( drawContext.APIContext, SKY_CONSTANTS_BUFFERSLOT );
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, (ID3D11Buffer*)NULL, SKY_CONSTANTSBUFFERSLOT );
+    m_constantsBuffer.SetToAPISlot( drawContext.APIContext, SKY_CONSTANTSBUFFERSLOT );
 
     if( drawContext.Camera.GetUseReversedZ() )
         m_screenTriangleVertexBufferReversedZ.SetToAPI( drawContext.APIContext, 0, 0 );
@@ -133,7 +133,7 @@ void vaSkyDX11::Draw( vaSceneDrawContext & drawContext )
     m_pixelShader->SetToAPI( drawContext.APIContext );
 
     dx11Context->RSSetState( NULL );
-    dx11Context->OMSetDepthStencilState( (drawContext.Camera.GetUseReversedZ())?( vaDirectXTools::GetDSS_DepthEnabledGE_NoDepthWrite( ) ):( vaDirectXTools::GetDSS_DepthEnabledLE_NoDepthWrite( ) ), 0 );
+    dx11Context->OMSetDepthStencilState( (drawContext.Camera.GetUseReversedZ())?( vaDirectXTools11::GetDSS_DepthEnabledGE_NoDepthWrite( ) ):( vaDirectXTools11::GetDSS_DepthEnabledLE_NoDepthWrite( ) ), 0 );
     float blendFactor[4] = { 0, 0, 0, 0 };
     dx11Context->OMSetBlendState( NULL, blendFactor, 0xFFFFFFFF );
 
@@ -142,8 +142,8 @@ void vaSkyDX11::Draw( vaSceneDrawContext & drawContext )
     dx11Context->PSSetShader( nullptr, nullptr, 0 );
 
     // make sure nothing messed with our constant buffers and nothing uses them after
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11Buffer*)NULL, SKY_CONSTANTS_BUFFERSLOT );
-    m_constantsBuffer.UnsetFromAPISlot( drawContext.APIContext, SKY_CONSTANTS_BUFFERSLOT );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11Buffer*)NULL, SKY_CONSTANTSBUFFERSLOT );
+    m_constantsBuffer.UnsetFromAPISlot( drawContext.APIContext, SKY_CONSTANTSBUFFERSLOT );
     m_vertexShader->UnsetFromAPI( drawContext.APIContext );
     m_pixelShader->UnsetFromAPI( drawContext.APIContext );
     */

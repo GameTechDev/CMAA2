@@ -175,11 +175,9 @@ namespace VertexAsylum
 
         shared_ptr<T> object = inOutCachedPtr.lock( );
 
-        // this lock is perhaps too early here
-        std::unique_lock<mutex> mapLock( vaUIDObjectRegistrar::GetInstance( ).m_objectsMapMutex );
-
         if( object == nullptr || object->m_uid != uid )
         {
+            std::unique_lock<mutex> mapLock( vaUIDObjectRegistrar::GetInstance( ).m_objectsMapMutex );
             T * objPtr = FindNoMutexLock<T>( uid );
             if( objPtr != nullptr )
             {

@@ -165,11 +165,12 @@ namespace VertexAsylum
 
     enum class vaResourceMapType : uint32
     {
-        Read                        = 1,
-        Write	                    = 2,
-        ReadWrite                   = 3,
-        WriteDiscard                = 4,
-        WriteNoOverwrite            = 5
+        None                        = 0,
+        Read                        = 1,    // see D3D11_MAP_READ
+        Write	                    = 2,    // see D3D11_MAP_WRITE
+        ReadWrite                   = 3,    // this is not actually supported and will probably be removed
+        WriteDiscard                = 4,    // see D3D11_MAP_WRITE_DISCARD
+        WriteNoOverwrite            = 5     // see D3D11_MAP_WRITE_NO_OVERWRITE
     };
 
 
@@ -192,19 +193,15 @@ namespace VertexAsylum
     // generic bindable resource base class
     class vaShaderResource
     { 
+        void *                      m_cachedPlatformPtr = nullptr;
     public:
-        virtual ~vaShaderResource() {}; 
+        virtual ~vaShaderResource( ) {}; 
 
         virtual vaResourceBindSupportFlags  GetBindSupportFlags( ) const = 0;
 
     public:
-        template< typename CastToType >
-        CastToType                          SafeCast( )                                                                 
-        { 
-           CastToType ret = dynamic_cast< CastToType >( this );
-           assert( ret != NULL );
-           return ret;
-        }
+       // to avoid dynamic_cast for performance reasons (as this specific call happens very, very frequently) 
+       template< typename OutType > OutType SafeCast( ) { return vaCachedDynamicCast<OutType>( this, m_cachedPlatformPtr ); }
     };
 
 

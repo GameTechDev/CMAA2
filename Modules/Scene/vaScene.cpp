@@ -25,6 +25,8 @@
 
 #include "Core/System/vaFileTools.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
 
@@ -163,17 +165,20 @@ bool vaSceneObject::Serialize( vaXMLSerializer & serializer )
 
     // element opened by the parent, just fill in attributes
 
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Name", m_name ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "Name", m_name ) );
 
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "TransformR0", m_localTransform.r0 ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "TransformR1", m_localTransform.r1 ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "TransformR2", m_localTransform.r2 ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "TransformR3", m_localTransform.r3 ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector4>( "TransformR0", m_localTransform.r0 ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector4>( "TransformR1", m_localTransform.r1 ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector4>( "TransformR2", m_localTransform.r2 ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector4>( "TransformR3", m_localTransform.r3 ) );
 
-    // VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "AABBMin", m_boundingBox.Min ) );
-    // VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "AABBSize", m_boundingBox.Size ) );
+    // VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector3>( "AABBMin", m_boundingBox.Min ) );
+    // VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector3>( "AABBSize", m_boundingBox.Size ) );
 
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValueVector( "RenderMeshes", m_renderMeshes ) );
+    if( serializer.GetVersion() > 0 )
+        serializer.SerializeArray( "RenderMeshes", "RenderMesh", m_renderMeshes );
+    else
+        VERIFY_TRUE_RETURN_ON_FALSE( serializer.OldSerializeValueVector( "RenderMeshes", m_renderMeshes ) );
 
     VERIFY_TRUE_RETURN_ON_FALSE( scene->SerializeObjectsRecursive( serializer, "ChildObjects", m_children, this->shared_from_this() ) );
 
@@ -378,8 +383,9 @@ void vaSceneObject::UpdateLocalBoundingBox( )
     }
 }
 
-void vaSceneObject::IHO_Draw( )
+void vaSceneObject::UIPropertiesItemDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     auto scene = m_scene.lock();
     assert( scene != nullptr );
 
@@ -421,15 +427,16 @@ void vaSceneObject::IHO_Draw( )
     ImGui::Text( "Parent: %s", parentName.c_str() );
     ImGui::Text( "Child object count: %d", m_children.size() );
     ImGui::Text( "Render mesh count: %d", m_renderMeshes.size() );
+#endif
 }
 
 
-vaScene::vaScene( )
+vaScene::vaScene( ) : vaUIPanel( "Scene", 0, true, vaUIPanel::DockLocation::DockedLeft, "Scenes" )
 {
     Clear();
 }
 
-vaScene::vaScene( const string & name )
+vaScene::vaScene( const string & name ) : vaUIPanel( "Scene", 0, true, vaUIPanel::DockLocation::DockedLeft, "Scenes"  )
 {
     Clear( );
     m_name = name;
@@ -680,7 +687,7 @@ bool vaScene::SerializeObjectsRecursive( vaXMLSerializer & serializer, const str
     VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeOpenChildElement( name.c_str() ) );
 
     uint32 count = (uint32)objectList.size();
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "count", count ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<uint32>( "count", count ) );
 
     if( serializer.IsReading() )
     {
@@ -743,24 +750,33 @@ bool vaScene::Serialize( vaXMLSerializer & serializer, bool mergeToExistingIfLoa
         string mergingName;
         if( mergeToExistingIfLoading )
         {
-            VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Name", mergingName ) );
+            VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "Name", mergingName ) );
             //vaVector3 mergingAmbientLight;
-            //VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "AmbientLight", mergingAmbientLight ) );
+            //VERIFY_TRUE_RETURN_ON_FALSE( serializer.OldSerializeValue( "AmbientLight", mergingAmbientLight ) );
             vector<shared_ptr<vaLight>> mergingLights;
-            VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeObjectVector( "Lights", mergingLights ) );
+            
+            if( serializer.GetVersion() > 0 )
+                VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeArray( "Lights", "Light", mergingLights ) );
+            else
+                VERIFY_TRUE_RETURN_ON_FALSE( serializer.OldSerializeObjectVector( "Lights", mergingLights ) );
+            
             m_lights.insert( m_lights.end(), mergingLights.begin(), mergingLights.end() );
         }
         else
         {
-            VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Name", m_name ) );
-            //VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "AmbientLight", m_lightAmbient ) );
-            VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeObjectVector( "Lights", m_lights ) );
+            VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "Name", m_name ) );
+            //VERIFY_TRUE_RETURN_ON_FALSE( serializer.OldSerializeValue( "AmbientLight", m_lightAmbient ) );
+            if( serializer.GetVersion() > 0 )
+                VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeArray( "Lights", "Light", m_lights ) );
+            else
+                VERIFY_TRUE_RETURN_ON_FALSE( serializer.OldSerializeObjectVector( "Lights", m_lights ) );
+            //serializer.SerializeArray( "Inputs", "Item", m_lights );
         }
 
         VERIFY_TRUE_RETURN_ON_FALSE( SerializeObjectsRecursive( serializer, "RootObjects", m_rootObjects, nullptr ) );
 
-        /*VERIFY_TRUE_RETURN_ON_FALSE(*/ m_fog.Serialize( serializer );
-
+        serializer.Serialize<vaXMLSerializable>( "FogSphere", m_fog );
+        ///*VERIFY_TRUE_RETURN_ON_FALSE(*/ m_fog.Serialize( serializer );
 
         bool ok = serializer.SerializePopToParentElement( "VertexAsylumScene" );
         assert( ok ); 
@@ -800,21 +816,23 @@ void vaScene::RegisterUsedAssetPackNameCallback( const vaAssetPack & assetPack )
 {
     for( size_t i = 0; i < m_assetPackNames.size(); i++ )
     {
-        if( vaStringTools::ToLower( m_assetPackNames[i] ) == vaStringTools::ToLower( assetPack.Name() ) )
+        if( vaStringTools::ToLower( m_assetPackNames[i] ) == vaStringTools::ToLower( assetPack.GetName() ) )
         {
             // found, all is good
             return;
         }
     }
     // not found, add to list
-    m_assetPackNames.push_back( assetPack.Name() );
+    m_assetPackNames.push_back( assetPack.GetName() );
 }
 
 // void vaScene::LoadAndConnectAssets( )
 // {
 // }
 
-static shared_ptr<vaSceneObject> DisplaySceneObjectTreeRecursive( const vector<shared_ptr<vaSceneObject>> & elements, const shared_ptr<vaSceneObject> & selectedObject )
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+
+static shared_ptr<vaSceneObject> ImGuiDisplaySceneObjectTreeRecursive( const vector<shared_ptr<vaSceneObject>> & elements, const shared_ptr<vaSceneObject> & selectedObject )
 {
     ImGuiTreeNodeFlags defaultFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
 
@@ -823,7 +841,7 @@ static shared_ptr<vaSceneObject> DisplaySceneObjectTreeRecursive( const vector<s
     for( int i = 0; i < elements.size(); i++ )
     {
         ImGuiTreeNodeFlags nodeFlags = defaultFlags | ((elements[i] == selectedObject)?(ImGuiTreeNodeFlags_Selected):(0)) | ((elements[i]->GetChildren().size() == 0)?(ImGuiTreeNodeFlags_Leaf):(0));
-        bool nodeOpen = ImGui::TreeNodeEx( elements[i]->IHO_GetPersistentObjectID().c_str(), nodeFlags, elements[i]->GetName().c_str() );
+        bool nodeOpen = ImGui::TreeNodeEx( elements[i]->UIPropertiesItemGetUniqueID().c_str(), nodeFlags, elements[i]->GetName().c_str() );
                 
         if( ImGui::IsItemClicked() )
         {
@@ -834,7 +852,7 @@ static shared_ptr<vaSceneObject> DisplaySceneObjectTreeRecursive( const vector<s
         {
             if( elements[i]->GetChildren().size() > 0 )
             {
-                shared_ptr<vaSceneObject> retRec = DisplaySceneObjectTreeRecursive( elements[i]->GetChildren(), selectedObject );
+                shared_ptr<vaSceneObject> retRec = ImGuiDisplaySceneObjectTreeRecursive( elements[i]->GetChildren(), selectedObject );
                 if( retRec != nullptr )
                     ret = retRec;
             }
@@ -844,6 +862,7 @@ static shared_ptr<vaSceneObject> DisplaySceneObjectTreeRecursive( const vector<s
     }
     return ret;
 }
+#endif
 
 bool vaScene::Save( const wstring & fileName )
 {
@@ -851,7 +870,7 @@ bool vaScene::Save( const wstring & fileName )
     assert( m_deferredObjectActions.size() == 0 );
 
     vaFileStream fileOut;
-    if( fileOut.Open( fileName, FileCreationMode::Create ) )
+    if( fileOut.Open( fileName, FileCreationMode::OpenOrCreate, FileAccessMode::Write ) )
     {
         vaXMLSerializer serializer;
 
@@ -866,7 +885,7 @@ bool vaScene::Save( const wstring & fileName )
 
         serializer.WriterSaveToFile( fileOut );
         fileOut.Close();
-        VA_LOG( L"Scene successfully saved to '%s'.", fileName.c_str() )
+        VA_LOG( L"Scene successfully saved to '%s'.", fileName.c_str() );
         return true;
     }
     else
@@ -903,7 +922,7 @@ bool vaScene::Load( const wstring & fileName, bool mergeToExisting )
                 fileIn.Close();
                 return false;
             }
-            VA_LOG( L"Scene successfully loaded from '%s', running PostLoadInit()", fileName.c_str() )
+            VA_LOG( L"Scene successfully loaded from '%s', running PostLoadInit()", fileName.c_str() );
             return true;
         }
         else
@@ -914,13 +933,15 @@ bool vaScene::Load( const wstring & fileName, bool mergeToExisting )
     }
     else
     {
-        VA_LOG_WARNING( L"Unable to load scene from '%s', file error.", fileName.c_str() )
+        VA_LOG_WARNING( L"Unable to load scene from '%s', file error.", fileName.c_str() );
         return false;
     }
 }
 
-void vaScene::IHO_Draw( )
+void vaScene::UIPanelDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+
     ImGui::PushItemWidth( 200.0f );
 
     if( ImGui::Button( " Rename " ) )
@@ -979,7 +1000,7 @@ void vaScene::IHO_Draw( )
             vector<shared_ptr<vaSceneObject>> elements = m_rootObjects;
             if( ImGui::BeginChild( "TreeFrame", ImVec2( 0.0f, uiListHeight ), true ) )
             {
-                shared_ptr<vaSceneObject> objectClicked = DisplaySceneObjectTreeRecursive( m_rootObjects, selectedObject );
+                shared_ptr<vaSceneObject> objectClicked = ImGuiDisplaySceneObjectTreeRecursive( m_rootObjects, selectedObject );
                 if( objectClicked != nullptr )
                 {
                     selectedObject = objectClicked;
@@ -992,8 +1013,8 @@ void vaScene::IHO_Draw( )
             {
                 if( selectedObject != nullptr )
                 {
-                    ImGui::PushID( selectedObject->IHO_GetPersistentObjectID( ).c_str( ) );
-                    selectedObject->IHO_Draw();
+                    ImGui::PushID( selectedObject->UIPropertiesItemGetUniqueID( ).c_str( ) );
+                    selectedObject->UIPropertiesItemDraw();
                     ImGui::PopID();
                 }
                 else
@@ -1005,7 +1026,7 @@ void vaScene::IHO_Draw( )
         }
         else
         {
-            vaImguiHierarchyObject * ptrsToDisplay[ 65536 ]; // if this ever becomes not enough, change DrawList into a template and make it accept allObjects directly...
+            vaUIPropertiesItem * ptrsToDisplay[ 65536 ]; // if this ever becomes not enough, change DrawList into a template and make it accept allObjects directly...
             int countToShow = std::min( (int)m_allObjects.size(), (int)_countof(ptrsToDisplay) );
         
             int currentObject = -1;
@@ -1016,7 +1037,7 @@ void vaScene::IHO_Draw( )
                 ptrsToDisplay[i] = m_allObjects[i].get();
             }
 
-            vaImguiHierarchyObject::DrawList( "Objects", ptrsToDisplay, countToShow, currentObject, 0.0f, uiListHeight, uiPropertiesHeight );
+            vaUIPropertiesItem::DrawList( "Objects", ptrsToDisplay, countToShow, currentObject, 0.0f, uiListHeight, uiPropertiesHeight );
 
             if( currentObject >= 0 && currentObject < countToShow )
                 m_UI_SelectedObject = m_allObjects[currentObject];
@@ -1035,7 +1056,7 @@ void vaScene::IHO_Draw( )
 
     if( m_lights.size() > 0 )
     {
-        vaImguiHierarchyObject * ptrsToDisplay[ 4096 ];
+        vaUIPropertiesItem * ptrsToDisplay[ 4096 ];
         int countToShow = std::min( (int)m_lights.size(), (int)_countof(ptrsToDisplay) );
         for( int i = 0; i < countToShow; i++ ) ptrsToDisplay[i] = m_lights[i].get();
 
@@ -1047,7 +1068,7 @@ void vaScene::IHO_Draw( )
             ptrsToDisplay[i] = m_lights[i].get();
         }
 
-        vaImguiHierarchyObject::DrawList( "Lights", ptrsToDisplay, countToShow, currentLight, 0.0f, 90, 200 );
+        vaUIPropertiesItem::DrawList( "Lights", ptrsToDisplay, countToShow, currentLight, 0.0f, 90, 200 );
         if( currentLight >= 0 && currentLight < countToShow )
             m_UI_SelectedLight = m_lights[currentLight];
 
@@ -1104,9 +1125,11 @@ void vaScene::IHO_Draw( )
         }
     }
 
-    vaImguiHierarchyObject::DrawCollapsable( m_fog, false, false );
+    m_fog.UIItemDrawCollapsable( false, false );
 
     ImGui::PopItemWidth( );
+
+#endif
 }
 
 void vaScene::DrawUI( vaCameraBase & camera, vaDebugCanvas2D & canvas2D, vaDebugCanvas3D & canvas3D )
@@ -1240,6 +1263,19 @@ vaDrawResultFlags vaScene::SelectForRendering( vaRenderSelection & renderSelecti
 
     //g_doCull = false;
     return drawResults;
+}
+
+vector<shared_ptr<vaSceneObject>> vaScene::FindObjects( std::function<bool(vaSceneObject&obj)> searchCriteria )
+{
+    vector<shared_ptr<vaSceneObject>> ret;
+
+    for( auto object : m_allObjects )
+    {
+        if( searchCriteria( *object ) )
+            ret.push_back( object );
+    }
+
+    return std::move(ret);
 }
 
 void vaScene::OnMouseClick( const vaVector3 & worldClickLocation )

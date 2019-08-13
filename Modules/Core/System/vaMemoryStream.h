@@ -20,15 +20,12 @@
 #pragma once
 
 #include "Core/vaCore.h"
+#include "Core/vaMemory.h"
 
 #include "vaStream.h"
 
-struct _iobuf;
-typedef struct _iobuf FILE;
-
 namespace VertexAsylum
 {
-
     class vaMemoryStream : public vaStream
     {
         uint8 *                 m_buffer;
@@ -44,7 +41,7 @@ namespace VertexAsylum
         vaMemoryStream( void * buffer, int64 bufferSize );
 
         // this version keep internal buffer that grows on use (or can be manually resized)
-        vaMemoryStream( int64 initialSize, int64 reserve = 1024 );
+        vaMemoryStream( int64 initialSize = 0, int64 reserve = 0 );
 
         vaMemoryStream( const vaMemoryStream & copyFrom );
 

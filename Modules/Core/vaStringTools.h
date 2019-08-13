@@ -28,48 +28,48 @@ namespace VertexAsylum
     public:
 
         // TODO: switch all Format methods to use variadic template version of https://github.com/c42f/tinyformat (no need to keep the C++98 version) once wstring version becomes available
-        static wstring            Format( const wchar_t * fmtString, ... );
-        static string             Format( const char * fmtString, ... );
+        static wstring              Format( const wchar_t * fmtString, ... );
+        static string               Format( const char * fmtString, ... );
 
-        static wstring            Format( const wchar_t * fmtString, va_list args );
-        static string             Format( const char * fmtString, va_list args );
+        static wstring              Format( const wchar_t * fmtString, va_list args );
+        static string               Format( const char * fmtString, va_list args );
 
-        static wstring            FormatArray( const int intArr[], int count );
-        static wstring            FormatArray( const float intArr[], int count );
+        static wstring              FormatArray( const int intArr[], int count );
+        static wstring              FormatArray( const float intArr[], int count );
 
-        static wstring            SimpleWiden( const string & s );
-        static string             SimpleNarrow( const wstring & s );
+        static wstring              SimpleWiden( const string & s );
+        static string               SimpleNarrow( const wstring & s );
 
-        static wstring            ToLower( const wstring & str );
-        static string             ToLower( const string & str );
+        static wstring              ToLower( const wstring & str );
+        static string               ToLower( const string & str );
 
-        static wstring            ToUpper( const wstring & str );
-        static string             ToUpper( const string & str );
+        static wstring              ToUpper( const wstring & str );
+        static string               ToUpper( const string & str );
 
-        static int                CompareNoCase( const wstring & left, const wstring & right );
-        static int                CompareNoCase( const string & left, const string & right );
+        static int                  CompareNoCase( const wstring & left, const wstring & right );
+        static int                  CompareNoCase( const string & left, const string & right );
 
         // switch / value pairs
         static std::vector< std::pair<wstring, wstring> >
-            SplitCmdLineParams( const wstring & cmdLine );
+                                    SplitCmdLineParams( const wstring & cmdLine );
 
-        static wstring            Trim( const wchar_t * inputStr, const wchar_t * trimCharStr );
-        static string             Trim( const char * inputStr, const char * trimCharStr );
-        //static wstring          TrimLeft( const wchar_t * trimCharsStr );
-        //static wstring          TrimRight( const wchar_t * trimCharsStr );
+        static wstring              Trim( const wchar_t * inputStr, const wchar_t * trimCharStr );
+        static string               Trim( const char * inputStr, const char * trimCharStr );
+        //static wstring            TrimLeft( const wchar_t * trimCharsStr );
+        //static wstring            TrimRight( const wchar_t * trimCharsStr );
 
-        static std::vector<wstring>
-            Tokenize( const wchar_t * inputStr, const wchar_t * separatorStr, const wchar_t * trimCharsStr = NULL );
-        static std::vector<string>
-            Tokenize( const char * inputStr, const char * separatorStr, const char * trimCharsStr = NULL );
+        static std::vector<wstring> Tokenize( const wchar_t * inputStr, const wchar_t * separatorStr, const wchar_t * trimCharsStr = NULL );
+        static std::vector<string>  Tokenize( const char * inputStr, const char * separatorStr, const char * trimCharsStr = NULL );
 
-        static float              StringToFloat( const char * inputStr );
-        static float              StringToFloat( const wchar_t * inputStr );
+        static float                StringToFloat( const char * inputStr );
+        static float                StringToFloat( const wchar_t * inputStr );
 
-        static wstring            FromGUID( const GUID & id );
+        static wstring              FromGUID( const GUID & id );
 
-        static void               ReplaceAll( string & inoutStr, const string & searchStr, const string & replaceStr );
+        static void                 ReplaceAll( string & inoutStr, const string & searchStr, const string & replaceStr );
 
-        static bool               WriteTextFile( const wstring & filePath, const string & textData );
+        static bool                 WriteTextFile( const wstring & filePath, const string & textData );
+
+        static string               ReplaceSpacesWithUnderscores( string text )             { std::replace( text.begin( ), text.end( ), ' ', '_' ); return text; }
     };
 }

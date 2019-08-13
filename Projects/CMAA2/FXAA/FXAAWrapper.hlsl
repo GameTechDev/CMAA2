@@ -81,6 +81,8 @@ struct FXAAShaderConstants
 
 #include "Fxaa3_11.h"
 
+#include "vaStandardSamplers.hlsl"
+
 cbuffer FXAAGlobals : register(b0)
 {
    FXAAShaderConstants g_FXAA;
@@ -89,7 +91,7 @@ cbuffer FXAAGlobals : register(b0)
 
 Texture2D           g_screenTexture	            : register( t0 );
 Texture2D           g_screenTextureLumaOnly	    : register( t1 );
-SamplerState	    g_samplerBilinearClamp      : register( s0 );
+//SamplerState	    g_samplerBilinearClamp      : register( s0 );
 
 // // copy and place L in alpha, as described in Fxaa3_8.h
 // float4 FXAACopyAndLumaPS( float4 screenPos : SV_Position ) : SV_Target
@@ -108,11 +110,11 @@ float4 FXAAEffectPS( float4 screenPos : SV_Position ) : SV_Target
     //return float4( texel.r, texel.g, 0, 1 );
 
     FxaaTex tex;
-    tex.smpl = g_samplerBilinearClamp;
+    tex.smpl = g_samplerLinearClamp;
     tex.tex  = g_screenTexture;
 
     FxaaTex texLuma;
-    texLuma.smpl = g_samplerBilinearClamp;
+    texLuma.smpl = g_samplerLinearClamp;
 #if (FXAA_LUMA_SEPARATE_R8 == 0)
     texLuma.tex  = g_screenTexture;
 #else

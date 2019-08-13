@@ -10,11 +10,29 @@
     <Filter Include="IntegratedExternals\tinyxml2">
       <UniqueIdentifier>{f2185e0b-a2fe-45c6-b71e-9af171292637}</UniqueIdentifier>
     </Filter>
+    <Filter Include="IntegratedExternals\remotery">
+      <UniqueIdentifier>{e39cb3da-5f3b-4482-934c-3677c4f509ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IntegratedExternals\remotery\lib">
+      <UniqueIdentifier>{f4bca98a-bbd2-41ef-bd6e-c13e0ba7d2be}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IntegratedExternals\remotery\lib\vis">
+      <UniqueIdentifier>{eecceb39-cce3-4863-9323-58a712dbb85e}</UniqueIdentifier>
+    </Filter>
     <Filter Include="IntegratedExternals\enkiTS">
       <UniqueIdentifier>{5500a273-470b-4f53-bf4d-2edb3ab31888}</UniqueIdentifier>
     </Filter>
+    <Filter Include="IntegratedExternals\remotery\vis">
+      <UniqueIdentifier>{43661580-c9bd-4404-8cd9-6791b11ad869}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IntegratedExternals\remotery\vis\Code">
+      <UniqueIdentifier>{6dae24c5-61f9-4614-8dde-407da76e941a}</UniqueIdentifier>
+    </Filter>
     <Filter Include="IntegratedExternals\zlib">
       <UniqueIdentifier>{768cd35f-e639-4f26-88c3-b59b1c0d2cc3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IntegratedExternals\assimp">
+      <UniqueIdentifier>{f57ae276-d3a0-4f95-8975-14264e34ec2d}</UniqueIdentifier>
     </Filter>
     <Filter Include="IntegratedExternals\zlib\c">
       <UniqueIdentifier>{de98d652-65df-4d6c-9936-ff6be60fdbcc}</UniqueIdentifier>
@@ -30,6 +48,9 @@
     </Filter>
     <Filter Include="IntegratedExternals\DirectXTex\h">
       <UniqueIdentifier>{af43fd85-99d6-49c0-958b-90ea9367193f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IntegratedExternals\imgui\examples">
+      <UniqueIdentifier>{b98178a3-1437-4347-9c58-fe4ff59c53b4}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -47,6 +68,9 @@
     </ClCompile>
     <ClCompile Include="..\..\Modules\IntegratedExternals\vaImguiIntegration.cpp">
       <Filter>IntegratedExternals</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\IntegratedExternals\remotery\lib\Remotery.c">
+      <Filter>IntegratedExternals\remotery\lib</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Modules\IntegratedExternals\enkiTS\TaskScheduler.cpp">
       <Filter>IntegratedExternals\enkiTS</Filter>
@@ -180,6 +204,18 @@
     <ClCompile Include="..\..\Modules\IntegratedExternals\DirectXTex\WICTextureLoader\WICTextureLoader12.cpp">
       <Filter>IntegratedExternals\DirectXTex\cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\imgui_widgets.cpp">
+      <Filter>IntegratedExternals\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_dx11.cpp">
+      <Filter>IntegratedExternals\imgui\examples</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_win32.cpp">
+      <Filter>IntegratedExternals\imgui\examples</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_dx12.cpp">
+      <Filter>IntegratedExternals\imgui\examples</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\imconfig.h">
@@ -200,9 +236,6 @@
     <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\stb_truetype.h">
       <Filter>IntegratedExternals\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Modules\IntegratedExternals\vaBulletPhysicsIntegration.h">
-      <Filter>IntegratedExternals</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Modules\IntegratedExternals\vaImguiIntegration.h">
       <Filter>IntegratedExternals</Filter>
     </ClInclude>
@@ -214,6 +247,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Modules\IntegratedExternals\vaAssimpIntegration.h">
       <Filter>IntegratedExternals</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\IntegratedExternals\remotery\lib\Remotery.h">
+      <Filter>IntegratedExternals\remotery\lib</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\IntegratedExternals\vaRemoteryIntegration.h">
       <Filter>IntegratedExternals</Filter>
@@ -227,8 +263,8 @@
     <ClInclude Include="..\..\Modules\IntegratedExternals\vaEnkiTSIntegration.h">
       <Filter>IntegratedExternals</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Modules\IntegratedExternals\vaLibTIFFIntegration.h">
-      <Filter>IntegratedExternals</Filter>
+    <ClInclude Include="..\..\Modules\IntegratedExternals\assimp\vaAssimpIntegrationSpecifics.h">
+      <Filter>IntegratedExternals\assimp</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\IntegratedExternals\zlib\vaZLIBIntegrationSpecifics.h">
       <Filter>IntegratedExternals\zlib</Filter>
@@ -274,9 +310,6 @@
       <Filter>IntegratedExternals\DirectXTex\h</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DirectXTex\BCDirectCompute.h">
-      <Filter>IntegratedExternals\DirectXTex\h</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DirectXTex\d3dx12.h">
       <Filter>IntegratedExternals\DirectXTex\h</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\DirectXTex\DDS.h">
@@ -333,6 +366,30 @@
     <ClInclude Include="..\..\Modules\IntegratedExternals\DirectXTex\ScreenGrab\ScreenGrab.h">
       <Filter>IntegratedExternals\DirectXTex\h</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Modules\IntegratedExternals\remotery\vaRemoteryIntegrationSpecifics.h">
+      <Filter>IntegratedExternals\remotery</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\IntegratedExternals\assimp\config.h">
+      <Filter>IntegratedExternals\assimp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\imstb_textedit.h">
+      <Filter>IntegratedExternals\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\imstb_truetype.h">
+      <Filter>IntegratedExternals\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\imstb_rectpack.h">
+      <Filter>IntegratedExternals\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_dx11.h">
+      <Filter>IntegratedExternals\imgui\examples</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_win32.h">
+      <Filter>IntegratedExternals\imgui\examples</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\examples\imgui_impl_dx12.h">
+      <Filter>IntegratedExternals\imgui\examples</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Modules\IntegratedExternals\imgui\LICENSE">
@@ -340,6 +397,39 @@
     </None>
     <None Include="..\..\Modules\IntegratedExternals\imgui\README.md">
       <Filter>IntegratedExternals\imgui</Filter>
+    </None>
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\Console.js">
+      <Filter>IntegratedExternals\remotery\vis\Code</Filter>
+    </None>
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\DataViewReader.js">
+      <Filter>IntegratedExternals\remotery\vis\Code</Filter>
+    </None>
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\PixelTimeRange.js">
+      <Filter>IntegratedExternals\remotery\vis\Code</Filter>
+    </None>
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\Remotery.js">
+      <Filter>IntegratedExternals\remotery\vis\Code</Filter>
+    </None>
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\SampleWindow.js">
+      <Filter>IntegratedExternals\remotery\vis\Code</Filter>
+    </None>
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\ThreadFrame.js">
+      <Filter>IntegratedExternals\remotery\vis\Code</Filter>
+    </None>
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\TimelineRow.js">
+      <Filter>IntegratedExternals\remotery\vis\Code</Filter>
+    </None>
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\TimelineWindow.js">
+      <Filter>IntegratedExternals\remotery\vis\Code</Filter>
+    </None>
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\TitleWindow.js">
+      <Filter>IntegratedExternals\remotery\vis\Code</Filter>
+    </None>
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\Code\WebSocketConnection.js">
+      <Filter>IntegratedExternals\remotery\vis\Code</Filter>
+    </None>
+    <None Include="..\..\Modules\IntegratedExternals\remotery\vis\index.html">
+      <Filter>IntegratedExternals\remotery\vis</Filter>
     </None>
     <None Include="..\..\Modules\IntegratedExternals\zlib\README">
       <Filter>IntegratedExternals\zlib</Filter>

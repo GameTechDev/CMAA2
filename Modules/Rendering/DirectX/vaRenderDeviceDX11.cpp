@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -24,7 +24,6 @@
 #include "Rendering/DirectX/vaRenderDeviceContextDX11.h"
 
 #include "Rendering/DirectX/vaTextureDX11.h"
-#include "Rendering/DirectX/vaRenderDeviceContextDX11.h"
 
 #include "Rendering/DirectX/vaDirectXTools.h"
 #include "Rendering/DirectX/vaShaderDX11.h"
@@ -34,31 +33,43 @@
 
 #include "Rendering/DirectX/vaRenderBuffersDX11.h"
 
+#include "Core/vaUI.h"
 #include "IntegratedExternals/vaImguiIntegration.h"
 
 #include "Core/Misc/vaProfiler.h"
 
 #include "Core/vaInput.h"
 
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+#include "IntegratedExternals/imgui/examples/imgui_impl_dx11.h"
+#include "IntegratedExternals/imgui/examples/imgui_impl_win32.h"
+#endif
+
 using namespace VertexAsylum;
 
-const DXGI_FORMAT                            c_DefaultBackbufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-const uint32                                 c_DefaultSwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+#define ALLOW_DXGI_FULLSCREEN
 
-typedef HRESULT( WINAPI * LPCREATEDXGIFACTORY )( REFIID, void ** );
-typedef HRESULT( WINAPI * LPD3D11CREATEDEVICE )( IDXGIAdapter*, D3D_DRIVER_TYPE, HMODULE, UINT32, D3D_FEATURE_LEVEL*, UINT, UINT32, ID3D11Device**, D3D_FEATURE_LEVEL*, ID3D11DeviceContext** );
+namespace 
+{
+    const DXGI_FORMAT                           c_DefaultBackbufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    const uint32                                c_DefaultSwapChainFlags = 0; //DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
-static HMODULE                               s_hModDXGI = NULL;
-static LPCREATEDXGIFACTORY                   s_DynamicCreateDXGIFactory = NULL;
-static HMODULE                               s_hModD3D11 = NULL;
-static LPD3D11CREATEDEVICE                   s_DynamicD3D11CreateDevice = NULL;
+    D3D_FEATURE_LEVEL                           c_RequestedFeatureLevels[] = { D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0 };
+
+    typedef HRESULT( WINAPI * LPCREATEDXGIFACTORY )( REFIID, void ** );
+    typedef HRESULT( WINAPI * LPD3D11CREATEDEVICE )( IDXGIAdapter*, D3D_DRIVER_TYPE, HMODULE, UINT32, D3D_FEATURE_LEVEL*, UINT, UINT32, ID3D11Device**, D3D_FEATURE_LEVEL*, ID3D11DeviceContext** );
+
+    static HMODULE                              s_hModDXGI = NULL;
+    static LPCREATEDXGIFACTORY                  s_DynamicCreateDXGIFactory = NULL;
+    static HMODULE                              s_hModD3D11 = NULL;
+    static LPD3D11CREATEDEVICE                  s_DynamicD3D11CreateDevice = NULL;
+}
 
 void RegisterDeviceContextDX11( );
 void RegisterSkyDX11( );
 void RegisterSkyboxDX11( );
-void RegisterASSAODX11( );
 void RegisterSimpleParticleSystemDX11( );
-void RegisterRenderingGlobals( );
+void RegisterRenderGlobalsDX11( );
 void RegisterRenderMeshDX11( );
 void RegisterPrimitiveShapeRendererDX11( );
 void RegisterRenderMaterialDX11( );
@@ -68,7 +79,6 @@ void RegisterLightingDX11( );
 void RegisterPostProcessTonemapDX11( );
 void RegisterPostProcessBlurDX11( );
 void RegisterTextureToolsDX11( );
-void RegisterZoomToolDX11( );
 
 void RegisterShaderDX11( );
 
@@ -87,9 +97,8 @@ void vaRenderDeviceDX11::RegisterModules( )
     RegisterDeviceContextDX11( );
     RegisterSkyDX11( );
     RegisterSkyboxDX11( );
-    RegisterASSAODX11( );
     RegisterSimpleParticleSystemDX11( );
-    RegisterRenderingGlobals( );
+    RegisterRenderGlobalsDX11( );
     RegisterRenderMaterialDX11( );
     RegisterRenderMeshDX11( );
     RegisterPrimitiveShapeRendererDX11( );
@@ -99,10 +108,9 @@ void vaRenderDeviceDX11::RegisterModules( )
     RegisterPostProcessTonemapDX11( );
     RegisterPostProcessBlurDX11( );
     RegisterTextureToolsDX11( );
-    RegisterZoomToolDX11( );
 }
 
-vaRenderDeviceDX11::vaRenderDeviceDX11( const vector<wstring> & shaderSearchPaths ) : vaRenderDevice( )
+vaRenderDeviceDX11::vaRenderDeviceDX11( const string & preferredAdapterNameID, const vector<wstring> & shaderSearchPaths ) : vaRenderDevice( )
 {
     static bool modulesRegistered = false;
     if( !modulesRegistered )
@@ -111,25 +119,15 @@ vaRenderDeviceDX11::vaRenderDeviceDX11( const vector<wstring> & shaderSearchPath
         RegisterModules();
     }
 
+    m_preferredAdapterNameID = preferredAdapterNameID;
     m_device = NULL;
     m_deviceImmediateContext = NULL;
     m_DXGIFactory = NULL;
     m_swapChain = NULL;
     m_mainOutput = NULL;
     m_mainRenderTargetView = NULL;
-    m_mainDepthStencil = NULL;
-    m_mainDepthStencilView = NULL;
-    m_mainDepthSRV = NULL;
-
-    m_application = NULL;
 
     memset( &m_backbufferTextureDesc, 0, sizeof( m_backbufferTextureDesc ) );
-
-    //assert( s_mainDevice == NULL );
-    //s_mainDevice = this;
-
-    m_renderFrameCounter = 0;
-    //    m_canvas2D = new vaDebugCanvas2DDX11( m_mainViewport );
 
     Initialize( shaderSearchPaths );
     assert( m_shaderManager != nullptr ); // should be created just after device is created but before any contexts are created
@@ -138,13 +136,34 @@ vaRenderDeviceDX11::vaRenderDeviceDX11( const vector<wstring> & shaderSearchPath
 
 vaRenderDeviceDX11::~vaRenderDeviceDX11( void )
 {
-//    vaDirectXFont::DeinitializeFontGlobals( );
+    assert( !m_frameStarted );
+
+    if( m_fullscreenState != vaFullscreenState::Windowed )
+        SetWindowed();
+
+    // did we miss to call these? some logic could be broken but lambdas shouldn't hold any references anyway so it might be safe!
+    if( m_beginFrameCallbacks.size( ) != 0 )
+    {
+        int count = (int)m_beginFrameCallbacks.size( );
+        VA_WARN( "vaRenderDeviceDX12::Deinitialize() - m_beginFrameCallbacks still has %d elements; this likely means that some resources were created just before shutdown which is probably safe but inefficient", count );
+
+        // call them so any cleanup can be performed
+        if( m_beginFrameCallbacks.size() > 0 )
+        {
+            for( auto callback : m_beginFrameCallbacks )
+                callback( *this );
+        }
+        m_beginFrameCallbacks.clear();
+    }
+
+    e_DeviceAboutToBeDestroyed.Invoke();
 
     // have to release these first!
     m_mainDeviceContext->SetRenderTarget( NULL, NULL, false );
 
     ImGuiDestroy( );
     m_mainDeviceContext = nullptr;
+    vaGPUTimerDX11::OnDeviceAboutToBeDestroyed( );
     DeinitializeBase( );
     Deinitialize( );
     //    if( m_canvas2D != NULL )
@@ -188,8 +207,15 @@ static void EnsureDirectXAPILoaded( )
 //     vaDirectX11ShaderManager::GetInstance( ).RegisterShaderSearchPath( path, pushBack );
 // }
 
-void vaDirectXTools_OnDeviceCreated( ID3D11Device* device, IDXGISwapChain* swapChain );
-void vaDirectXTools_OnDeviceDestroyed( );
+void vaDirectXTools_OnDevice11Created( ID3D11Device* device, IDXGISwapChain* swapChain );
+void vaDirectXTools_OnDevice11Destroyed( );
+
+string FormatAdapterID( const DXGI_ADAPTER_DESC1 & desc )
+{
+    string strID = vaStringTools::SimpleNarrow(wstring(desc.Description)) + vaStringTools::Format( " (%#010x)", desc.SubSysId );
+    //std::replace( strID.begin( ), strID.end( ), ' ', '_' );
+    return strID;
+}
 
 bool vaRenderDeviceDX11::Initialize( const vector<wstring> & shaderSearchPaths )
 {
@@ -204,32 +230,55 @@ bool vaRenderDeviceDX11::Initialize( const vector<wstring> & shaderSearchPaths )
             VA_ERROR( L"Unable to create DXGIFactory1; Vista SP2, Win7 or above required" );
     }
 
-    vaCOMSmartPtr<IDXGIAdapter1> adapter;
+    ComPtr<IDXGIAdapter1> adapter;
 
-    D3D_DRIVER_TYPE ddt = D3D_DRIVER_TYPE_HARDWARE;
-    //D3D_DRIVER_TYPE ddt = D3D_DRIVER_TYPE_WARP;
-    //D3D_DRIVER_TYPE ddt = D3D_DRIVER_TYPE_REFERENCE;
+    bool useWarpDevice = m_preferredAdapterNameID == "WARP";
+    D3D_DRIVER_TYPE driverType = D3D_DRIVER_TYPE_UNKNOWN;
 
-    // create IDXGIAdapter1
+    // create IDXGIAdapter1 based on m_preferredAdapterNameID
     {
-        int  adapterOrdinal = 0;
+        if (useWarpDevice)
+        {
+            // for DX11 one creates a WARP device with a null adapter (see https://docs.microsoft.com/en-us/windows/desktop/direct3d11/overviews-direct3d-11-devices-create-warp)
+            driverType = D3D_DRIVER_TYPE_WARP;
+        }
+        else
+        {
+            int i = 0;
+            IDXGIAdapter1* adapterTemp;
+            ComPtr<IDXGIAdapter1> adapterCandidate;
+            while( m_DXGIFactory->EnumAdapters1(i, &adapterTemp) != DXGI_ERROR_NOT_FOUND )
+            { 
+	            i++; 
+                hr = ComPtr<IDXGIAdapter1>(adapterTemp).As(&adapterCandidate);
+                SAFE_RELEASE( adapterTemp );
 
-        if( ddt == D3D_DRIVER_TYPE_HARDWARE )
-        {
-            IDXGIAdapter1* pRet;
-            hr = m_DXGIFactory->EnumAdapters1( adapterOrdinal, &pRet );
-            if( FAILED( hr ) )
-                VA_ERROR( L"Error trying to EnumAdapters1" );
-            adapter = pRet;
-            ddt = D3D_DRIVER_TYPE_UNKNOWN;
-        }
-        else if( ddt == D3D_DRIVER_TYPE_WARP )
-        {
-            assert( false );
-        }
-        else if( ddt == D3D_DRIVER_TYPE_REFERENCE )
-        {
-            assert( false );
+                if( SUCCEEDED( hr ) )
+                {
+                    DXGI_ADAPTER_DESC1 desc;
+                    adapterCandidate->GetDesc1( &desc );
+
+                    // only hardware devices enumerated
+                    if( (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0 )
+                        continue;
+
+                    // check feature level
+                    if( FAILED( s_DynamicD3D11CreateDevice( adapterCandidate.Get( ), D3D_DRIVER_TYPE_UNKNOWN, NULL, 0, c_RequestedFeatureLevels, _countof( c_RequestedFeatureLevels ), D3D11_SDK_VERSION, nullptr, nullptr, nullptr ) ) )
+                        continue;
+
+                    // use first good by default
+                    if( adapter == nullptr )
+                    {
+                        adapter = adapterCandidate;
+                    }
+
+                    if( FormatAdapterID(desc) == m_preferredAdapterNameID )
+                    {
+                        adapter = adapterCandidate;
+                        break;
+                    }
+                }
+            } 
         }
     }
 
@@ -241,20 +290,18 @@ bool vaRenderDeviceDX11::Initialize( const vector<wstring> & shaderSearchPaths )
         flags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
-        D3D_FEATURE_LEVEL requestedFeatureLevels[] = { D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0 }; // D3D_FEATURE_LEVEL_11_1, 
         D3D_FEATURE_LEVEL createdFeatureLevel;
 
         ID3D11Device *         device = nullptr;
         ID3D11DeviceContext *  deviceImmediateContext = nullptr;
 
-        //s_DynamicD3D11CreateDevice
-        hr = s_DynamicD3D11CreateDevice( adapter.Get( ), ddt, NULL, flags, requestedFeatureLevels, _countof( requestedFeatureLevels ), D3D11_SDK_VERSION, &device, &createdFeatureLevel, &deviceImmediateContext );
+        hr = s_DynamicD3D11CreateDevice( adapter.Get( ), driverType, NULL, flags, c_RequestedFeatureLevels, _countof( c_RequestedFeatureLevels ), D3D11_SDK_VERSION, &device, &createdFeatureLevel, &deviceImmediateContext );
 
         if( ( ( flags & D3D11_CREATE_DEVICE_DEBUG ) != 0 ) && FAILED( hr ) )
         {
             VA_WARN( L"Error trying to create D3D11 device, might be because of the debug flag and missing Windows 10 SDK, retrying..." );
             flags &= ~D3D11_CREATE_DEVICE_DEBUG;
-            hr = s_DynamicD3D11CreateDevice( adapter.Get( ), ddt, NULL, flags, requestedFeatureLevels, _countof( requestedFeatureLevels ), D3D11_SDK_VERSION, &device, &createdFeatureLevel, &deviceImmediateContext );
+            hr = s_DynamicD3D11CreateDevice( adapter.Get( ), driverType, NULL, flags, c_RequestedFeatureLevels, _countof( c_RequestedFeatureLevels ), D3D11_SDK_VERSION, &device, &createdFeatureLevel, &deviceImmediateContext );
         }
 
         if( FAILED( hr ) )
@@ -266,31 +313,22 @@ bool vaRenderDeviceDX11::Initialize( const vector<wstring> & shaderSearchPaths )
         m_device = device;
         m_deviceImmediateContext = deviceImmediateContext;
 
-        /*
-        if( !SUCCEEDED( device->QueryInterface( IID_ID3D11DeviceContext2, (void**)&m_device ) ) )
+        if( adapter == nullptr && device != nullptr )
         {
-            assert( false ); // sorry, this is the min supported
-            m_device = nullptr;
+            // case of WARP - maybe somehow get adapter? not yet implemented
         }
-
-        if( !SUCCEEDED( deviceImmediateContext->QueryInterface( IID_ID3D11DeviceContext2, (void**)&m_deviceImmediateContext ) ) )
-        {
-            assert( false ); // sorry, this is the min supported
-            m_deviceImmediateContext = nullptr;
-        }
-        */
 
         if( ( m_device == nullptr ) || ( m_deviceImmediateContext == nullptr ) )
         {
-            VA_ERROR( L"Unable to create DirectX11 device." )
-                return false;
+            VA_ERROR( L"Unable to create DirectX11 device." );
+            return false;
         }
     }
 
     // enumerate outputs
     {
         int outputCount;
-        for( outputCount = 0;; ++outputCount )
+        for( outputCount = 0; adapter != nullptr; ++outputCount )
         {
             IDXGIOutput * pOutput;
             if( FAILED( adapter->EnumOutputs( outputCount, &pOutput ) ) )
@@ -307,8 +345,12 @@ bool vaRenderDeviceDX11::Initialize( const vector<wstring> & shaderSearchPaths )
         }
 
         // select first
-        m_mainOutput = ppOutputArray[0];
-        m_mainOutput->AddRef( );
+        m_mainOutput = nullptr;
+        if( outputCount > 0 )
+        {   
+            m_mainOutput = ppOutputArray[0];
+            m_mainOutput->AddRef( );
+        }
 
         // release the rest
         for( int output = 0; output < outputCount; ++output )
@@ -317,27 +359,39 @@ bool vaRenderDeviceDX11::Initialize( const vector<wstring> & shaderSearchPaths )
         delete[] ppOutputArray;
     }
 
-    DXGI_ADAPTER_DESC1 adapterDesc1;
-    adapter->GetDesc1( &adapterDesc1 );
+    if( adapter != nullptr )
+    {
+        DXGI_ADAPTER_DESC1 adapterDesc1;
+        adapter->GetDesc1( &adapterDesc1 );
 
-    wstring name = wstring( adapterDesc1.Description );
-    std::replace( name.begin( ), name.end( ), L' ', L'_' );
+        string name = vaStringTools::SimpleNarrow( wstring( adapterDesc1.Description ) );
+        // std::replace( name.begin( ), name.end( ), ' ', '_' );
 
-    m_adapterNameShort = name;
-    m_adapterNameID = vaStringTools::Format( L"%s-%08X_%08X", name.c_str( ), adapterDesc1.DeviceId, adapterDesc1.Revision );
-    m_adapterVendorID = adapterDesc1.VendorId;
+        m_adapterNameShort = name;
+        m_adapterNameID = FormatAdapterID(adapterDesc1); //vaStringTools::Format( L"%s-%08X_%08X", name.c_str( ), adapterDesc1.DeviceId, adapterDesc1.Revision );
+        m_adapterVendorID = adapterDesc1.VendorId;
+    }
+    else
+    {
+        m_adapterNameShort  = "WARP";
+        m_adapterNameID     = "WARP";
+        m_adapterVendorID   = 0;
+    }
 
     m_shaderManager = shared_ptr<vaShaderManager>( new vaDirectX11ShaderManager( *this ) );
     for( auto s : shaderSearchPaths ) m_shaderManager->RegisterShaderSearchPath( s );
 
-    // main canvas
+    // main context
     {
         m_mainDeviceContext = std::shared_ptr< vaRenderDeviceContext >( vaRenderDeviceContextDX11::Create( *this, m_deviceImmediateContext ) );
     }
 
     // vaDirectXFont::InitializeFontGlobals( vaRenderingModuleParams( *this ) );
 
-    e_DeviceFullyInitialized.Invoke();
+    // BeginFrame( 0.0f );
+    // EndAndPresentFrame( );
+
+    e_DeviceFullyInitialized.Invoke( *this );
 
     return true;
 }
@@ -346,38 +400,39 @@ void vaRenderDeviceDX11::Deinitialize( )
 {
     if( m_device != NULL )
     {
-        vaGPUTimerDX11::OnDeviceAboutToBeDestroyed( );
-
         ReleaseSwapChainRelatedObjects( );
 
         //vaDirectXCore::GetInstance( ).PostDeviceDestroyed( );
-        vaDirectXTools_OnDeviceDestroyed( );
+        vaDirectXTools_OnDevice11Destroyed( );
 
         m_deviceImmediateContext->ClearState( );
 
         SAFE_RELEASE( m_mainOutput );
         SAFE_RELEASE( m_deviceImmediateContext );
         SAFE_RELEASE( m_swapChain );
+        m_swapChainTextureSize = vaVector2i( 0, 0 );
+        SAFE_RELEASE( m_DXGIFactory );
 
         // more on http://seanmiddleditch.com/direct3d-11-debug-api-tricks/
-#if 0//_DEBUG
+#if _DEBUG
         ID3D11Debug* debugDevice = nullptr;
         HRESULT hr = m_device->QueryInterface( __uuidof( ID3D11Debug ), reinterpret_cast<void**>( &debugDevice ) );
         assert( SUCCEEDED( hr ) );
-        debugDevice->ReportLiveDeviceObjects( D3D11_RLDO_DETAIL );
+        SAFE_RELEASE( m_device );
+        debugDevice->ReportLiveDeviceObjects( D3D11_RLDO_DETAIL | D3D11_RLDO_IGNORE_INTERNAL );
         SAFE_RELEASE( debugDevice );
+#else
+        SAFE_RELEASE( m_device );
 #endif
 
-        SAFE_RELEASE( m_device );
-        SAFE_RELEASE( m_DXGIFactory );
         m_hwnd = 0;
     }
 }
 
-void vaRenderDeviceDX11::CreateSwapChain( int width, int height, bool windowed, HWND hwnd )
+void vaRenderDeviceDX11::CreateSwapChain( int width, int height, HWND hwnd, vaFullscreenState fullscreenState )
 {
-    m_swapChainSize.x = width;
-    m_swapChainSize.y = height;
+    m_swapChainTextureSize.x = width;
+    m_swapChainTextureSize.y = height;
 
     DXGI_SWAP_CHAIN_DESC desc;
     memset( &desc, 0, sizeof( desc ) );
@@ -393,28 +448,31 @@ void vaRenderDeviceDX11::CreateSwapChain( int width, int height, bool windowed, 
     desc.SampleDesc.Count = 1;
     desc.SampleDesc.Quality = 0;
 
-    desc.BufferCount = c_DefaultBackbufferCount;
+    desc.BufferCount = c_BackbufferCount;
     desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_BACK_BUFFER; // | DXGI_USAGE_SHADER_INPUT; //DXGI_USAGE_UNORDERED_ACCESS
     desc.OutputWindow = hwnd;
     desc.Flags = c_DefaultSwapChainFlags;
-    desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+    desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD; // DXGI_SWAP_EFFECT_FLIP_DISCARD; 
 
     m_hwnd = hwnd;
 
-    desc.Windowed = windowed;
+    //bool windowed = true;
+    desc.Windowed = true; //!fullscreen;
+    //m_fullscreen = fullscreen;
+    //m_fullscreenBorderless = false;
 
-    if( !windowed )
-    {
-        DXGI_MODE_DESC closestMatch;
-        memset( &closestMatch, 0, sizeof( closestMatch ) );
-
-        HRESULT hr = m_mainOutput->FindClosestMatchingMode( &desc.BufferDesc, &closestMatch, m_device );
-        if( FAILED( hr ) )
-        {
-            VA_ERROR( L"Error trying to find closest matching display mode" );
-        }
-        desc.BufferDesc = closestMatch;
-    }
+//    if( !desc.Windowed )
+//    {
+//        DXGI_MODE_DESC closestMatch;
+//        memset( &closestMatch, 0, sizeof( closestMatch ) );
+//
+//        HRESULT hr = m_mainOutput->FindClosestMatchingMode( &desc.BufferDesc, &closestMatch, m_device );
+//        if( FAILED( hr ) )
+//        {
+//            VA_ERROR( L"Error trying to find closest matching display mode" );
+//        }
+//        desc.BufferDesc = closestMatch;
+//    }
 
     //IDXGISwapChain * pSwapChain = NULL;
     HRESULT hr = m_DXGIFactory->CreateSwapChain( m_device, &desc, &m_swapChain ); //&pSwapChain );
@@ -428,6 +486,8 @@ void vaRenderDeviceDX11::CreateSwapChain( int width, int height, bool windowed, 
         hr = m_DXGIFactory->MakeWindowAssociation( hwnd, DXGI_MWA_NO_ALT_ENTER );
     }
 
+    CreateSwapChainRelatedObjects( );
+
     //if( FAILED( d3dResource->QueryInterface( __uuidof( IDXGISwapChain1 ), (void**)&m_swapChain ) ) )
     //{
     //   VA_ERROR( L"Error trying to cast into IDXGISwapChain1" );
@@ -438,15 +498,20 @@ void vaRenderDeviceDX11::CreateSwapChain( int width, int height, bool windowed, 
 
     // Broadcast that the device was created!
     //vaDirectXCore::GetInstance( ).PostDeviceCreated( m_device, m_swapChain );
-    vaDirectXTools_OnDeviceCreated( m_device, m_swapChain );
+    vaDirectXTools_OnDevice11Created( m_device, m_swapChain );
 
     vaGPUTimerDX11::OnDeviceAndContextCreated( m_device );
-
-    CreateSwapChainRelatedObjects( );
 
     vaLog::GetInstance( ).Add( LOG_COLORS_NEUTRAL, L"DirectX 11 device and swap chain created" );
 
     ImGuiCreate( );
+
+    // now switch to fullscreen if we are in fullscreen
+    assert( fullscreenState != vaFullscreenState::Unknown );
+    if( fullscreenState == vaFullscreenState::Fullscreen )
+        ResizeSwapChain( m_swapChainTextureSize.x, m_swapChainTextureSize.y, fullscreenState );
+    else
+        m_fullscreenState = fullscreenState;
 }
 
 void vaRenderDeviceDX11::CreateSwapChainRelatedObjects( )
@@ -464,25 +529,27 @@ void vaRenderDeviceDX11::CreateSwapChainRelatedObjects( )
         }
         pBackBuffer->GetDesc( &m_backbufferTextureDesc );
 
-        m_mainRenderTargetView = vaDirectXTools::CreateRenderTargetView( pBackBuffer );
+        m_mainRenderTargetView = vaDirectXTools11::CreateRenderTargetView( pBackBuffer );
 
         m_mainColor = std::shared_ptr< vaTexture >( vaTextureDX11::CreateWrap( *this, pBackBuffer ) );
 
         SAFE_RELEASE( pBackBuffer );
     }
 
+    /*
     // Create depth-stencil
     {
         CD3D11_TEXTURE2D_DESC desc( DXGI_FORMAT_R32G8X24_TYPELESS, m_backbufferTextureDesc.Width, m_backbufferTextureDesc.Height, 1, 1, D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE );
         V( m_device->CreateTexture2D( &desc, nullptr, &m_mainDepthStencil ) );
 
-        m_mainDepthStencilView = vaDirectXTools::CreateDepthStencilView( m_mainDepthStencil, DXGI_FORMAT_D32_FLOAT_S8X24_UINT );
-        m_mainDepthSRV = vaDirectXTools::CreateShaderResourceView( m_mainDepthStencil, DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS );
+        m_mainDepthStencilView = vaDirectXTools11::CreateDepthStencilView( m_mainDepthStencil, DXGI_FORMAT_D32_FLOAT_S8X24_UINT );
+        m_mainDepthSRV = vaDirectXTools11::CreateShaderResourceView( m_mainDepthStencil, DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS );
 
-        m_mainDepth = std::shared_ptr< vaTexture >( vaTextureDX11::CreateWrap( *this, m_mainDepthStencil, vaResourceFormat::R32_FLOAT_X8X24_TYPELESS, vaResourceFormat::Automatic, vaResourceFormat::D32_FLOAT_S8X24_UINT ) );
+//        m_mainDepth = std::shared_ptr< vaTexture >( vaTextureDX11::CreateWrap( *this, m_mainDepthStencil, vaResourceFormat::R32_FLOAT_X8X24_TYPELESS, vaResourceFormat::Automatic, vaResourceFormat::D32_FLOAT_S8X24_UINT ) );
 
         //delete vaTexture::CreateView( m_mainDepth, vaResourceBindSupportFlags::ShaderResource, vaResourceFormat::R32_FLOAT_X8X24_TYPELESS );
     }
+    */
 
     DXGI_SWAP_CHAIN_DESC scdesc;
     m_swapChain->GetDesc( &scdesc );
@@ -493,7 +560,7 @@ void vaRenderDeviceDX11::CreateSwapChainRelatedObjects( )
     sdesc.SampleDesc = scdesc.SampleDesc;
     sdesc.Format = scdesc.BufferDesc.Format;
 
-    m_mainDeviceContext->SetRenderTarget( m_mainColor, m_mainDepth, true );
+    m_mainDeviceContext->SetRenderTarget( m_mainColor, nullptr, true );
 
     //m_mainViewport.X = 0;
     //m_mainViewport.Y = 0;
@@ -509,27 +576,33 @@ void vaRenderDeviceDX11::ReleaseSwapChainRelatedObjects( )
     // vaDirectXCore::GetInstance( ).PostReleasingSwapChain( );
 
     SAFE_RELEASE( m_mainRenderTargetView );
-    SAFE_RELEASE( m_mainDepthStencil );
-    SAFE_RELEASE( m_mainDepthStencilView );
-    SAFE_RELEASE( m_mainDepthSRV );
+    // SAFE_RELEASE( m_mainDepthStencil );
+    // SAFE_RELEASE( m_mainDepthStencilView );
+    // SAFE_RELEASE( m_mainDepthSRV );
 
     if( m_mainDeviceContext != nullptr )
         m_mainDeviceContext->SetRenderTarget( NULL, NULL, false );
     m_mainColor = nullptr;
-    m_mainDepth = nullptr;
+//    m_mainDepth = nullptr;
 }
 
-bool vaRenderDeviceDX11::IsFullscreen( )
+void vaRenderDeviceDX11::SetWindowed( )
 {
-    BOOL fullscreen = FALSE;
-    if( m_swapChain != NULL )
-    {
-        m_swapChain->GetFullscreenState( &fullscreen, NULL );
-    }
+    m_fullscreenState = vaFullscreenState::Windowed;
 
-    return fullscreen != FALSE;
+#ifdef ALLOW_DXGI_FULLSCREEN
+    if( m_swapChain != nullptr )
+    {
+        HRESULT hr = m_swapChain->SetFullscreenState( false, NULL );
+        if( FAILED( hr ) )
+        {
+            VA_WARN( L"Error in a call to m_swapChain->SetFullscreenState( false ) [%x]", hr );
+        }
+    }
+#endif
 }
 
+#if 0
 void vaRenderDeviceDX11::FindClosestFullscreenMode( int & width, int & height )
 {
     assert( m_mainOutput != NULL );
@@ -554,45 +627,59 @@ void vaRenderDeviceDX11::FindClosestFullscreenMode( int & width, int & height )
     width = closestMatch.Width;
     height = closestMatch.Height;
 }
+#endif
 
-bool vaRenderDeviceDX11::ResizeSwapChain( int width, int height, bool windowed )
+bool vaRenderDeviceDX11::ResizeSwapChain( int width, int height, vaFullscreenState fullscreenState )
 {
+    assert( fullscreenState != vaFullscreenState::Unknown );
+
     if( m_swapChain == NULL ) return false;
-    if( (int)m_backbufferTextureDesc.Width == width && (int)m_backbufferTextureDesc.Height == height && windowed == !IsFullscreen( ) ) return false;
 
-    if( (int)m_backbufferTextureDesc.Width != width || (int)m_backbufferTextureDesc.Height != height )
+    if( (int)m_swapChainTextureSize.x == width && (int)m_swapChainTextureSize.y == height && m_fullscreenState == fullscreenState ) 
+        return false;
+
+    m_swapChainTextureSize.x = width;
+    m_swapChainTextureSize.y = height;
+    m_fullscreenState = fullscreenState;
+
+    HRESULT hr;
+
+    ReleaseSwapChainRelatedObjects( );
+        
+#ifdef ALLOW_DXGI_FULLSCREEN
+    if( m_fullscreenState == vaFullscreenState::Fullscreen )
     {
-        ReleaseSwapChainRelatedObjects( );
-
-        HRESULT hr = m_swapChain->ResizeBuffers( c_DefaultBackbufferCount, width, height, DXGI_FORMAT_UNKNOWN, c_DefaultSwapChainFlags );
+        hr = m_swapChain->ResizeBuffers( c_BackbufferCount, width, height, DXGI_FORMAT_UNKNOWN, c_DefaultSwapChainFlags );
         if( FAILED( hr ) )
         {
             assert( false );
             //VA_ERROR( L"Error trying to m_swapChain->ResizeBuffers" );
             return false;
         }
-
-        CreateSwapChainRelatedObjects( );
-        return true;
     }
 
-    //if( windowed != !IsFullscreen( ) )
-    //{
-    //    HRESULT hr = m_swapChain->SetFullscreenState( !windowed, NULL );
-    //    if( FAILED( hr ) )
-    //    {
-    //        //VA_ERROR( L"Error trying to m_swapChain->SetFullscreenState" );
-    //    }
-    //
-    //    IsFullscreen( );
-    //    return true;
-    //}
-    return true;
-}
+    hr = m_swapChain->SetFullscreenState( m_fullscreenState == vaFullscreenState::Fullscreen, NULL );
+    if( FAILED( hr ) )
+    {
+        VA_WARN( L"Error in a call to m_swapChain->SetFullscreenState [%x]", hr );
+        if( m_fullscreenState != vaFullscreenState::Windowed )
+        {
+            m_fullscreenState = vaFullscreenState::FullscreenBorderless;
+            VA_WARN( L"Falling back to borderless fullscreen", hr );
+        }
+    }
+#endif
 
-void vaRenderDeviceDX11::SetMainRenderTargetToImmediateContext( )
-{
-    m_mainDeviceContext->SetRenderTarget( m_mainColor, m_mainDepth, true );
+    hr = m_swapChain->ResizeBuffers( c_BackbufferCount, width, height, DXGI_FORMAT_UNKNOWN, c_DefaultSwapChainFlags );
+    if( FAILED( hr ) )
+    {
+        assert( false );
+        //VA_ERROR( L"Error trying to m_swapChain->ResizeBuffers" );
+        return false;
+    }
+
+    CreateSwapChainRelatedObjects( );
+    return true;
 }
 
 void vaRenderDeviceDX11::BeginFrame( float deltaTime )
@@ -601,42 +688,56 @@ void vaRenderDeviceDX11::BeginFrame( float deltaTime )
 
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
     ImGui::GetIO( ).DeltaTime = (float)deltaTime;
-
-    if( ImGuiIsVisible( ) )
-        m_mainDeviceContext->ImGuiNewFrame( );
 #endif
-
-    m_renderFrameCounter++;
 
     // m_directXCore.TickInternal( );
 
     vaGPUTimerDX11::OnFrameStart( );
 
     assert( m_frameProfilingNode == nullptr );
-    m_frameProfilingNode = vaProfiler::GetInstance( ).StartScope( "FrameDrawAndPresent", GetMainContext( ), false );
+    m_frameProfilingNode = vaProfiler::GetInstance( ).StartScope( "WholeFrame", false, GetMainContext( ) );
 
-    SetMainRenderTargetToImmediateContext( );
+    // execute begin frame callbacks - mostly initialization stuff that requires a command list (main context)
+    if( m_beginFrameCallbacks.size() > 0 )
+    {
+        for( auto callback : m_beginFrameCallbacks )
+            callback( *this );
+        m_beginFrameCallbacks.clear();
+    }
 }
 
 void vaRenderDeviceDX11::EndAndPresentFrame( int vsyncInterval )
 {
     m_mainDeviceContext->SafeCast<vaRenderDeviceContextDX11*>()->CheckNoStatesSet( );
 
+    assert( m_frameProfilingNode != nullptr );
+    vaProfiler::GetInstance( ).StopScope( m_frameProfilingNode, nullptr );
+    m_frameProfilingNode = nullptr;
+
     {
         VA_SCOPE_CPUGPU_TIMER( Present, *m_mainDeviceContext );
 
         UINT flags = 0;
 
-        HRESULT hr = m_swapChain->Present( (UINT)vsyncInterval, flags );
-        if( FAILED( hr ) )
+#ifdef ALLOW_DXGI_FULLSCREEN
+        BOOL isFullscreen = false;
+        m_swapChain->GetFullscreenState( &isFullscreen, nullptr );
+        if( m_fullscreenState == vaFullscreenState::Fullscreen && !isFullscreen )
         {
-            assert( false );
+            m_fullscreenState = vaFullscreenState::Windowed;
+            VA_WARN( "Fullscreen state changed by external factors (alt+tab or an unexpected issue), readjusting..." );
+        }
+        else
+#endif
+        {
+            HRESULT hr = m_swapChain->Present( (UINT)vsyncInterval, flags );
+            if( FAILED( hr ) )
+            {
+                assert( false );
+            }
         }
     }
 
-    assert( m_frameProfilingNode != nullptr );
-    vaProfiler::GetInstance( ).StopScope( m_frameProfilingNode );
-    m_frameProfilingNode = nullptr;
     vaGPUTimerDX11::OnFrameEnd( );
 
     vaRenderDevice::EndAndPresentFrame( );
@@ -666,4 +767,117 @@ void vaRenderDeviceDX11::NameObject( ID3D11Resource * resource, const char * per
 vaShaderManager &     vaRenderDeviceDX11::GetShaderManager( )
 {
     return *m_shaderManager;
+}
+
+
+
+void vaRenderDeviceDX11::ImGuiCreate( )
+{
+    vaRenderDevice::ImGuiCreate();
+
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+    ImGui_ImplWin32_Init( GetHWND( ) );
+    ImGui_ImplDX11_Init(m_device, m_mainDeviceContext->SafeCast<vaRenderDeviceContextDX11*>()->GetDXContext());
+    ImGui_ImplDX11_CreateDeviceObjects();
+#endif
+
+    assert( !m_imguiFrameStarted );
+    ImGuiNewFrame( );
+}
+void vaRenderDeviceDX11::ImGuiDestroy( )
+{
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+    ImGui_ImplDX11_InvalidateDeviceObjects();
+    ImGui_ImplDX11_Shutdown( );
+    ImGui_ImplWin32_Shutdown( );
+#endif
+    vaRenderDevice::ImGuiDestroy();
+}
+
+void vaRenderDeviceDX11::ImGuiNewFrame( )
+{
+    assert( !m_imguiFrameStarted ); // forgot to call ImGuiEndFrameAndRender?
+    m_imguiFrameStarted = true;
+
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+//            // hacky mouse handling, but good for now
+//            bool dontTouchMyCursor = vaInputMouseBase::GetCurrent( )->IsCaptured( );
+
+    // Feed inputs to dear imgui, start new frame
+    ImGui_ImplDX11_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+#endif
+}
+
+void vaRenderDeviceDX11::ImGuiEndFrameAndRender( vaRenderDeviceContext & renderContext )
+{
+    assert( &renderContext == GetMainContext() ); renderContext; // at the moment only main context supported
+
+    assert( m_imguiFrameStarted ); // forgot to call ImGuiNewFrame? you must not do that!
+
+    // assert( vaUIManager::GetInstance().IsVisible() );
+
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+    ImGui::Render();
+    IMGUI_API void        ImGui_ImplDX11_RenderDrawData(ImDrawData* draw_data);
+    if( vaUIManager::GetInstance().IsVisible() )
+    {
+        {
+            VA_SCOPE_CPUGPU_TIMER( ImGuiRender, renderContext );
+            ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+        }
+        GetTextureTools().UIDrawImages( *m_mainDeviceContext );
+    }
+#endif
+
+    m_imguiFrameStarted = false;
+}
+
+void vaRenderDeviceDX11::StaticEnumerateAdapters( vector<pair<string, string>> & outAdapters )
+{
+    outAdapters;
+    EnsureDirectXAPILoaded( );
+
+    HRESULT hr = S_OK;
+
+    IDXGIFactory1 * dxgiFactory = nullptr;
+
+    // create DXGI factory
+    {
+        hr = s_DynamicCreateDXGIFactory( __uuidof( IDXGIFactory1 ), (LPVOID*)&dxgiFactory );
+        if( FAILED( hr ) )
+            VA_ERROR( L"Unable to create DXGIFactory1; Vista SP2, Win7 or above required" );
+    }
+
+    ComPtr<IDXGIAdapter1> adapter;
+
+    UINT i = 0; 
+
+    IDXGIAdapter1* adapterTemp;
+    while( dxgiFactory->EnumAdapters1(i, &adapterTemp) != DXGI_ERROR_NOT_FOUND )
+    { 
+	    i++; 
+        hr = ComPtr<IDXGIAdapter1>(adapterTemp).As(&adapter);
+        SAFE_RELEASE( adapterTemp );
+
+        if( SUCCEEDED( hr ) )
+        {
+            DXGI_ADAPTER_DESC1 desc;
+            adapter->GetDesc1( &desc );
+
+            // only hardware devices enumerated
+            if( (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0 )
+                continue;
+
+            // check feature level
+            if( FAILED( s_DynamicD3D11CreateDevice( adapter.Get( ), D3D_DRIVER_TYPE_UNKNOWN, NULL, 0, c_RequestedFeatureLevels, _countof( c_RequestedFeatureLevels ), D3D11_SDK_VERSION, nullptr, nullptr, nullptr ) ) )
+                continue;
+
+            outAdapters.push_back( make_pair( StaticGetAPIName(), FormatAdapterID(desc) ) );
+        }
+    } 
+    outAdapters.push_back( make_pair( StaticGetAPIName(), "WARP" ) );
+
+    SAFE_RELEASE( dxgiFactory );
 }

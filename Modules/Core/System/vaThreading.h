@@ -119,10 +119,10 @@ namespace VertexAsylum
 
     public:
         vaBackgroundTaskManager( );
-        ~vaBackgroundTaskManager( ) { assert(IsManagerStopped()); }  // tasks probably need to be stopped 
+        ~vaBackgroundTaskManager( ) { ClearAndRestart(); }  // tasks probably need to be stopped 
 
-        // Stop all tasks, wait for them to finish, place vaBackgroundTaskManager in a stopped state
-        void                    StopManager( );
+        // Stop all tasks, wait for them to finish, place vaBackgroundTaskManager in a stopped state and then restart - ensures all background processing is done
+        void                    ClearAndRestart( );
         bool                    IsManagerStopped( ) const  { return m_stopped; }
 
         // This Spawn version guarantees that the outTask will always receive the new handle BEFORE the taskFunction has started on another thread (is this actually useful?)
@@ -138,7 +138,11 @@ namespace VertexAsylum
         void                    WaitUntilFinished( const shared_ptr<Task> & task );
 
     public:
-        void                    InsertImGuiContentTask( const shared_ptr<Task> & task );
+        // used internally to show task progress but can be used from any vaIOPanel::IOPanelDraw() or similar imgui-suitable location to insert ImGui commands showing progress/info on the task!
+        void                    ImGuiTaskProgress( const shared_ptr<Task> & task );
+
+    protected:
+        friend class vaUIManager;
         void                    InsertImGuiContent( );
         void                    InsertImGuiWindow( const string & title = "Background tasks in progress" );
 

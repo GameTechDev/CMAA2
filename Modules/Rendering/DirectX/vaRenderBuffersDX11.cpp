@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2017, filip.strugar@gmail.com
+// Copyright (c) 2019, filip.strugar@gmail.com
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -14,8 +14,6 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "vaRenderBuffersDX11.h"
-
-#include "vaRenderingToolsDX11.h"
 
 #include "Rendering/DirectX/vaRenderDeviceContextDX11.h"
 
@@ -58,15 +56,19 @@ static ID3D11Buffer * CreateBuffer( ID3D11Device * device, uint32 sizeInBytes, u
     }
     if( FAILED( hr ) )
         return NULL;
-    // vaDirectXCore::NameObject( buffer, "vaDirectXTools::CreateBuffer" );
+    // vaDirectXCore::NameObject( buffer, "vaDirectXTools11::CreateBuffer" );
     return buffer;
 }
 
-void vaConstantBufferDX11::Create( int bufferSize, const void * initialData )
+void vaConstantBufferDX11::Create( int bufferSize, const void * initialData, bool dynamicUpload )
 {
+    dynamicUpload;
+    // dynamic const buffers not implemented yet sadly
+
     Destroy( );
     if( bufferSize > 0 )
     {
+        // m_buffer = CreateBuffer( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), bufferSize, D3D11_BIND_CONSTANT_BUFFER, (dynamicUpload)?(D3D11_USAGE_DYNAMIC):(D3D11_USAGE_DEFAULT), (dynamicUpload)?(D3D11_CPU_ACCESS_WRITE):(0), 0, 0, initialData );
         m_buffer = CreateBuffer( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), bufferSize, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, 0, 0, 0, initialData );
         m_dataSize = bufferSize;
     }
@@ -85,31 +87,31 @@ void vaConstantBufferDX11::Update( ID3D11DeviceContext * dx11Context, const void
     dx11Context->UpdateSubresource( m_buffer, 0, NULL, data, (UINT)dataSize, 0 );
 }
 
-void vaConstantBufferDX11::Update( vaRenderDeviceContext & apiContext, const void * data, uint32 dataSize )
+void vaConstantBufferDX11::Update( vaRenderDeviceContext & renderContext, const void * data, uint32 dataSize )
 {
-    Update( apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext(), data, dataSize );
+    Update( renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext(), data, dataSize );
 }
 
-void vaConstantBufferDX11::SetToAPISlot( vaRenderDeviceContext & apiContext, int slot, bool assertOnOverwrite )
+void vaConstantBufferDX11::SetToAPISlot( vaRenderDeviceContext & renderContext, int slot, bool assertOnOverwrite )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     if( assertOnOverwrite )
     {
-        vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* )nullptr, slot );
+        vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* )nullptr, slot );
     }
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* )GetBuffer(), slot );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* )GetBuffer(), slot );
 }
 
-void vaConstantBufferDX11::UnsetFromAPISlot( vaRenderDeviceContext & apiContext, int slot, bool assertOnNotSet )
+void vaConstantBufferDX11::UnsetFromAPISlot( vaRenderDeviceContext & renderContext, int slot, bool assertOnNotSet )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     if( assertOnNotSet )
     {
-        vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* )GetBuffer(), slot );
+        vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* )GetBuffer(), slot );
     }
-   vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* )nullptr, slot );
+   vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* )nullptr, slot );
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -145,9 +147,9 @@ void vaIndexBufferDX11::Destroy( )
     m_dataSize      = 0;
 }
 
-void vaIndexBufferDX11::Update( vaRenderDeviceContext & apiContext, const void * data, uint32  dataSize )
+void vaIndexBufferDX11::Update( vaRenderDeviceContext & renderContext, const void * data, uint32  dataSize )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     assert( dataSize <= m_dataSize );
 
@@ -164,14 +166,10 @@ vaVertexBufferDX11::vaVertexBufferDX11( const vaRenderingModuleParams & params )
 vaVertexBufferDX11::~vaVertexBufferDX11( )
 {
     SAFE_RELEASE( m_buffer );
-    m_vertexCount = 0;
-    m_vertexSize = 0;
-    m_dataSize = 0;
-    m_dynamic = 0;
     assert( !IsMapped() );
 }
 
-void vaVertexBufferDX11::Create( int vertexCount, int vertexSize, const void * initialData, bool dynamic )
+void vaVertexBufferDX11::Create( int vertexCount, int vertexSize, const void * initialData, bool dynamicUpload )
 {
     Destroy();
 
@@ -183,7 +181,7 @@ void vaVertexBufferDX11::Create( int vertexCount, int vertexSize, const void * i
 
         D3D11_USAGE usage = D3D11_USAGE_DEFAULT;
         uint32 cpuAccessFlags = 0;
-        if( dynamic )
+        if( dynamicUpload )
         {
             usage = D3D11_USAGE_DYNAMIC;
             cpuAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -193,7 +191,7 @@ void vaVertexBufferDX11::Create( int vertexCount, int vertexSize, const void * i
         m_vertexCount   = vertexCount;
         m_vertexSize    = vertexSize;
         m_dataSize      = bufferSize;
-        m_dynamic       = dynamic;
+        m_dynamicUpload = dynamicUpload;
     }
 }
 
@@ -204,12 +202,12 @@ void vaVertexBufferDX11::Destroy( )
     m_vertexCount   = 0;
     m_vertexSize    = 0;
     m_dataSize      = 0;
-    m_dynamic       = 0;
+    m_dynamicUpload = 0;
 }
 
-void vaVertexBufferDX11::Update( vaRenderDeviceContext & apiContext, const void * data, uint32 dataSize )
+void vaVertexBufferDX11::Update( vaRenderDeviceContext & renderContext, const void * data, uint32 dataSize )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     assert( dataSize <= m_dataSize );
 
@@ -221,28 +219,29 @@ void vaVertexBufferDX11::Update( vaRenderDeviceContext & apiContext, const void 
     dstBox.front = 0;
     dstBox.back = 1;
 
+    assert( !m_dynamicUpload ); // do map/unmap?
     dx11Context->UpdateSubresource( m_buffer, 0, &dstBox, data, 0, 0 );
 }
 
-bool vaVertexBufferDX11::TryMap( vaRenderDeviceContext & apiContext, vaResourceMapType mapType, bool doNotWait )
+bool vaVertexBufferDX11::Map( vaRenderDeviceContext & renderContext, vaResourceMapType mapType )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
-    if( IsMapped() || !m_dynamic )
+    if( IsMapped() || !m_dynamicUpload )
         { assert( false ); return false; }
 
 
     D3D11_MAP d3d11MapType = D3D11_MAP_WRITE;
     switch( mapType )
     {
-    case( vaResourceMapType::Write ):           d3d11MapType = D3D11_MAP_WRITE;                 break;
+    case( vaResourceMapType::Write ):           d3d11MapType = D3D11_MAP_WRITE;                 assert( false ); break; // not supported on DX12
     case( vaResourceMapType::WriteDiscard ):    d3d11MapType = D3D11_MAP_WRITE_DISCARD;         break;
     case( vaResourceMapType::WriteNoOverwrite ):d3d11MapType = D3D11_MAP_WRITE_NO_OVERWRITE;    break;
     default: { assert( false ); return false; } 
     }
 
     D3D11_MAPPED_SUBRESOURCE mappedSubresource;
-    HRESULT hr = dx11Context->Map( m_buffer, 0, d3d11MapType, (doNotWait)?(D3D11_MAP_FLAG_DO_NOT_WAIT):(0), &mappedSubresource );
+    HRESULT hr = dx11Context->Map( m_buffer, 0, d3d11MapType, 0, &mappedSubresource );
     if( !SUCCEEDED( hr ) )
         return false;
 
@@ -251,9 +250,9 @@ bool vaVertexBufferDX11::TryMap( vaRenderDeviceContext & apiContext, vaResourceM
     return true;
 }
 
-void vaVertexBufferDX11::Unmap( vaRenderDeviceContext & apiContext )
+void vaVertexBufferDX11::Unmap( vaRenderDeviceContext & renderContext )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     assert( IsMapped() );
     if( !IsMapped() )
@@ -360,9 +359,9 @@ void vaStructuredBufferDX11::Destroy( )
     m_dataSize          = 0;
 }
 
-void vaStructuredBufferDX11::Update( vaRenderDeviceContext & apiContext, const void * data, uint32 dataSize )
+void vaStructuredBufferDX11::Update( vaRenderDeviceContext & renderContext, const void * data, uint32 dataSize )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     assert( dataSize <= m_dataSize );
 

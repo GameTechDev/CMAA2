@@ -19,11 +19,13 @@
 
 #include "vaPostProcessTonemap.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
 
 using namespace VertexAsylum;
 
 vaPostProcessTonemap::vaPostProcessTonemap( const vaRenderingModuleParams & params )
  : vaRenderingModule( params ),
+    vaUIPanel( "Tonemap", 0, false, vaUIPanel::DockLocation::DockedLeftBottom ),
     m_PSPassThrough( params ),
     m_PSTonemap( params ),
     m_PSAverageLuminance( params ),
@@ -36,32 +38,34 @@ vaPostProcessTonemap::vaPostProcessTonemap( const vaRenderingModuleParams & para
     m_avgLuminance = vaTexture::Create2D( params.RenderDevice, vaResourceFormat::R32_FLOAT, dims, dims, c_avgLuminanceMIPs, 1, 1, vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::RenderTarget );
 
     for( int i = 0; i < c_avgLuminanceMIPs; i++ )
-        m_avgLuminanceMIPViews[i] = shared_ptr<vaTexture>( vaTexture::CreateView( *m_avgLuminance, m_avgLuminance->GetBindSupportFlags( ), vaResourceFormat::Automatic, m_avgLuminance->GetRTVFormat( ), vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, i, 1 ) );
+        m_avgLuminanceMIPViews[i] = shared_ptr<vaTexture>( vaTexture::CreateView( m_avgLuminance, m_avgLuminance->GetBindSupportFlags( ), vaResourceFormat::Automatic, m_avgLuminance->GetRTVFormat( ), vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, i, 1 ) );
 
     float initialValue[] = { 0.0f };
-    m_avgLuminancePrevLastWrittenIndex = -1;
-    for( int i = 0; i < _countof( m_avgLuminancePrev ); i++ )
+    m_avgLuminancePrevLastWrittenIndex = 0;
+    for( int i = 0; i < c_backbufferCount; i++ )
     {
-        m_avgLuminancePrev[i] = vaTexture::Create2D( params.RenderDevice, vaResourceFormat::R32_FLOAT, 1, 1, 1, 1, 1, vaResourceBindSupportFlags::RenderTarget, vaTextureAccessFlags::None, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialValue, 4 );
-        m_avgLuminancePrevCPU[i] = vaTexture::Create2D( params.RenderDevice, vaResourceFormat::R32_FLOAT, 1, 1, 1, 1, 1, vaResourceBindSupportFlags::None, vaTextureAccessFlags::CPURead, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialValue, 4 );
+        m_avgLuminancePrev[i] = vaTexture::Create2D( params.RenderDevice, vaResourceFormat::R32_FLOAT, 1, 1, 1, 1, 1, vaResourceBindSupportFlags::RenderTarget, vaResourceAccessFlags::Default, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialValue, 4 );
+        m_avgLuminancePrevCPU[i] = vaTexture::Create2D( params.RenderDevice, vaResourceFormat::R32_FLOAT, 1, 1, 1, 1, 1, vaResourceBindSupportFlags::None, vaResourceAccessFlags::CPURead | vaResourceAccessFlags::CPUReadManuallySynced, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialValue, 4 );
     }
+    ResetHistory();
 
     m_lastAverageLuminance  = 0.0f;
 
-    m_bloomBlur = VA_RENDERING_MODULE_CREATE_UNIQUE( vaPostProcessBlur, params.RenderDevice );
+    m_bloomBlur = VA_RENDERING_MODULE_CREATE_SHARED( vaPostProcessBlur, params.RenderDevice );
 
     m_shadersDirty = true;
     
     // init to defaults
-    UpdateShaders( 1, nullptr, nullptr, nullptr );
+    UpdateShaders( 1, nullptr, nullptr, nullptr, false );
 }
 
 vaPostProcessTonemap::~vaPostProcessTonemap( )
 {
 }
 
-void vaPostProcessTonemap::IHO_Draw( )
+void vaPostProcessTonemap::UIPanelDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     ImGui::PushItemWidth( 120.0f );
 
     ImGui::Checkbox( "Enabled", &m_settings.Enabled );
@@ -71,7 +75,7 @@ void vaPostProcessTonemap::IHO_Draw( )
     ImGui::InputFloat( "Saturation", &m_settings.Saturation, 0.1f );
     ImGui::Checkbox( "UseAutoExposure", &m_settings.UseAutoExposure );
     ImGui::InputFloat( "Exposure", &m_settings.Exposure, 0.1f );
-    ImGui::InputFloat2( "ExposureMinMax", &m_settings.ExposureMin, 2 );
+    ImGui::InputFloat2( "ExposureMinMax", &m_settings.ExposureMin, "%.2f" );
     ImGui::InputFloat( "AutoExposureAdaptationSpeed", &m_settings.AutoExposureAdaptationSpeed, 0.5f );
     ImGui::Checkbox( "UseAutoAutoExposureKeyValue", &m_settings.UseAutoAutoExposureKeyValue );
     ImGui::InputFloat( "AutoExposureKeyValue", &m_settings.AutoExposureKeyValue, 0.05f );
@@ -85,12 +89,13 @@ void vaPostProcessTonemap::IHO_Draw( )
     ImGui::InputFloat( "BloomMultiplier", &m_settings.BloomMultiplier, 0.05f );
 
     ImGui::PopItemWidth();
+#endif
 }
 
-void vaPostProcessTonemap::UpdateConstants( vaRenderDeviceContext & apiContext, const std::shared_ptr<vaTexture> & srcRadiance )
+void vaPostProcessTonemap::UpdateConstants( vaRenderDeviceContext & renderContext, const std::shared_ptr<vaTexture> & srcRadiance )
 {
-//    vaRenderDeviceContextDX11 * apiContext = drawContext.APIContext.SafeCast<vaRenderDeviceContextDX11*>( );
-//    ID3D11DeviceContext * dx11Context = apiContext->GetDXContext( );
+//    vaRenderDeviceContextDX11 * renderContext = drawContext.renderContext.SafeCast<vaRenderDeviceContextDX11*>( );
+//    ID3D11DeviceContext * dx11Context = renderContext->GetDXContext( );
 
     // Constants
     {
@@ -110,11 +115,11 @@ void vaPostProcessTonemap::UpdateConstants( vaRenderDeviceContext & apiContext, 
         consts.Exp2Exposure             = vaMath::Exp2( consts.Exposure );
         consts.WhiteLevelSquared        = consts.WhiteLevel * consts.WhiteLevel;
 
-        m_constantsBuffer.Update( apiContext, consts );
+        m_constantsBuffer.Update( renderContext, consts );
     }
 }
 
-void vaPostProcessTonemap::UpdateShaders( int msaaSampleCount, const std::shared_ptr<vaTexture> & outMSTonemappedColor, const std::shared_ptr<vaTexture> & outMSTonemappedColorComplexityMask, const std::shared_ptr<vaTexture> & outExportLuma )
+void vaPostProcessTonemap::UpdateShaders( int msaaSampleCount, const std::shared_ptr<vaTexture> & outMSTonemappedColor, const std::shared_ptr<vaTexture> & outMSTonemappedColorComplexityMask, const std::shared_ptr<vaTexture> & outExportLuma, bool waitCompileShaders )
 {
     vector< pair< string, string > > newShaderMacros;
     if( msaaSampleCount > 1 )
@@ -151,35 +156,53 @@ void vaPostProcessTonemap::UpdateShaders( int msaaSampleCount, const std::shared
     {
         m_shadersDirty = false;
 
-        m_PSPassThrough->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSPassThrough", m_staticShaderMacros );
-        m_PSTonemap->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSTonemap", m_staticShaderMacros );
+        m_PSPassThrough->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSPassThrough", m_staticShaderMacros, false );
+        m_PSTonemap->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSTonemap", m_staticShaderMacros, false );
 
-        m_PSAverageLuminance->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSAverageLuminance", m_staticShaderMacros );
-        m_PSAverageLuminanceGenerateMIP->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSAverageLuminanceGenerateMIP", m_staticShaderMacros );
+        m_PSAverageLuminance->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSAverageLuminance", m_staticShaderMacros, false );
+        m_PSAverageLuminanceGenerateMIP->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSAverageLuminanceGenerateMIP", m_staticShaderMacros, false );
 
-        m_PSDownsampleToHalf->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSDownsampleToHalf", m_staticShaderMacros );
-        m_PSAddBloom->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSAddBloom", m_staticShaderMacros );
+        m_PSDownsampleToHalf->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSDownsampleToHalf", m_staticShaderMacros, false );
+        m_PSAddBloom->CreateShaderFromFile( L"vaPostProcessTonemap.hlsl", "ps_5_0", "PSAddBloom", m_staticShaderMacros, false );
     }
 
+    if( waitCompileShaders )
+    {
+        m_PSPassThrough->WaitFinishIfBackgroundCreateActive();
+        m_PSTonemap->WaitFinishIfBackgroundCreateActive();
+        m_PSAddBloom->WaitFinishIfBackgroundCreateActive();
+        m_PSAverageLuminanceGenerateMIP->WaitFinishIfBackgroundCreateActive();
+        m_PSDownsampleToHalf->WaitFinishIfBackgroundCreateActive();
+        m_PSAddBloom->WaitFinishIfBackgroundCreateActive();
+    }
 }
 
-void vaPostProcessTonemap::UpdateLastAverageLuminance( vaRenderDeviceContext & apiContext, bool noDelayInGettingLuminance )
+void vaPostProcessTonemap::UpdateLastAverageLuminance( vaRenderDeviceContext & renderContext, bool noDelayInGettingLuminance )
 {
-    VA_SCOPE_CPUGPU_TIMER( UpdateLastAverageLuminance, apiContext );
+    VA_SCOPE_CPUGPU_TIMER( UpdateLastAverageLum, renderContext );
 
     // copy oldest used GPU texture to CPU (will induce sync if still being rendered to, so that's why use the one from
     // _countof( m_avgLuminancePrev )-1 frames behind.
-    int oldestLuminanceIndex = ( m_avgLuminancePrevLastWrittenIndex + 1 ) % _countof( m_avgLuminancePrev );
+    int oldestLuminanceIndex = ( m_avgLuminancePrevLastWrittenIndex + 1 ) % c_backbufferCount;
 
     if( noDelayInGettingLuminance )
-        oldestLuminanceIndex = m_avgLuminancePrevLastWrittenIndex;
+        oldestLuminanceIndex = m_avgLuminancePrevLastWrittenIndex % c_backbufferCount;
+
+    // we must work on the main context due to mapping limitations
+    assert( &renderContext == GetRenderDevice().GetMainContext() );
+
+    if( !m_avgLuminancePrevCPUHasData[oldestLuminanceIndex] )
+    {
+        m_lastAverageLuminance = m_settings.DefaultAvgLuminanceWhenDataNotAvailable;
+        return;
+    }
 
     float data[1] = { 0.0f };
-    if( m_avgLuminancePrevCPU[oldestLuminanceIndex]->TryMap( apiContext, vaResourceMapType::Read, false ) )
+    if( m_avgLuminancePrevCPU[oldestLuminanceIndex]->TryMap( renderContext, vaResourceMapType::Read, false ) )
     {
         auto & mappedData = m_avgLuminancePrevCPU[oldestLuminanceIndex]->GetMappedData();
         memcpy( data, mappedData[0].Buffer, sizeof( data ) );
-        m_avgLuminancePrevCPU[oldestLuminanceIndex]->Unmap( apiContext );
+        m_avgLuminancePrevCPU[oldestLuminanceIndex]->Unmap( renderContext );
         m_lastAverageLuminance = data[0];
     }
     else
@@ -229,7 +252,15 @@ void vaPostProcessTonemap::Tick( float deltaTime )
     }
 }
 
-vaDrawResultFlags vaPostProcessTonemap::TickAndTonemap( float deltaTime, vaCameraBase & camera, vaRenderDeviceContext & apiContext, const std::shared_ptr<vaTexture> & srcRadiance, const AdditionalParams & additionalParams )
+void vaPostProcessTonemap::ResetHistory( )
+{
+    for( int i = 0; i < _countof( m_avgLuminancePrev ); i++ )
+    {
+        m_avgLuminancePrevCPUHasData[i] = false;
+    }
+}
+
+vaDrawResultFlags vaPostProcessTonemap::TickAndTonemap( float deltaTime, vaCameraBase & camera, vaRenderDeviceContext & renderContext, const std::shared_ptr<vaTexture> & srcRadiance, const AdditionalParams & additionalParams )
 {
     vaDrawResultFlags renderResults = vaDrawResultFlags::None;
     bool skipTickOnlyApply = additionalParams.SkipTickOnlyApply;
@@ -237,9 +268,9 @@ vaDrawResultFlags vaPostProcessTonemap::TickAndTonemap( float deltaTime, vaCamer
     const std::shared_ptr<vaTexture> & outMSTonemappedColorComplexityMask = additionalParams.OutMSTonemappedColorComplexityMask;
     const std::shared_ptr<vaTexture> & outExportLuma = additionalParams.OutExportLuma;
 
-    VA_SCOPE_CPUGPU_TIMER( PP_Tonemap, apiContext );
+    VA_SCOPE_CPUGPU_TIMER( PP_Tonemap, renderContext );
 
-    vaRenderDeviceContext::RenderOutputsState backupOutputs = apiContext.GetOutputs( );
+    vaRenderDeviceContext::RenderOutputsState backupOutputs = renderContext.GetOutputs( );
 
     if( outMSTonemappedColor != nullptr )
     {
@@ -250,7 +281,7 @@ vaDrawResultFlags vaPostProcessTonemap::TickAndTonemap( float deltaTime, vaCamer
         assert( ( outMSTonemappedColor->GetSizeX() == backupOutputs.RenderTargets[0]->GetSizeX() ) &&  ( outMSTonemappedColor->GetSizeY() == backupOutputs.RenderTargets[0]->GetSizeY() ) );
     }
 
-    UpdateShaders( srcRadiance->GetSampleCount(), outMSTonemappedColor, outMSTonemappedColorComplexityMask, outExportLuma );
+    UpdateShaders( srcRadiance->GetSampleCount(), outMSTonemappedColor, outMSTonemappedColorComplexityMask, outExportLuma, !additionalParams.SkipTickOnlyApply );
 
     // to simplify things, resolve radiance into this as an input for bloom and luminance calculation - however, it's not used for final tone mapping + MSAA resolve!
     std::shared_ptr<vaTexture> sourceOrResolvedSourceRadiance;
@@ -258,9 +289,9 @@ vaDrawResultFlags vaPostProcessTonemap::TickAndTonemap( float deltaTime, vaCamer
     {
         if( (m_resolvedSrcRadiance == nullptr) || !( ( srcRadiance->GetSizeX() == m_resolvedSrcRadiance->GetSizeX() ) && ( srcRadiance->GetSizeY() == m_resolvedSrcRadiance->GetSizeY() ) && ( srcRadiance->GetSRVFormat() == m_resolvedSrcRadiance->GetSRVFormat() ) ) )
         {
-            m_resolvedSrcRadiance = vaTexture::Create2D( GetRenderDevice(), srcRadiance->GetSRVFormat(), srcRadiance->GetSizeX(), srcRadiance->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::ShaderResource, vaTextureAccessFlags::None );
+            m_resolvedSrcRadiance = vaTexture::Create2D( GetRenderDevice(), srcRadiance->GetSRVFormat(), srcRadiance->GetSizeX(), srcRadiance->GetSizeY(), 1, 1, 1, vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default );
         }
-        srcRadiance->ResolveSubresource( apiContext, m_resolvedSrcRadiance, 0, 0, vaResourceFormat::Automatic );
+        srcRadiance->ResolveSubresource( renderContext, m_resolvedSrcRadiance, 0, 0, vaResourceFormat::Automatic );
         sourceOrResolvedSourceRadiance = m_resolvedSrcRadiance;
     }
     else
@@ -279,10 +310,10 @@ vaDrawResultFlags vaPostProcessTonemap::TickAndTonemap( float deltaTime, vaCamer
         vaVector2i halfSize = vaVector2i( (srcRadiance->GetSizeX() + 1) / 2, (srcRadiance->GetSizeY() + 1) / 2 );
         if( useHalfResBloom && ((m_halfResRadiance == nullptr) || !( ( halfSize.x == m_halfResRadiance->GetSizeX() ) && ( halfSize.y == m_halfResRadiance->GetSizeY() ) && ( srcRadiance->GetSRVFormat() == m_halfResRadiance->GetSRVFormat() ) ) ) )
         {
-            m_halfResRadiance = vaTexture::Create2D( GetRenderDevice(), srcRadiance->GetSRVFormat(), halfSize.x, halfSize.y, 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource, vaTextureAccessFlags::None );
+            m_halfResRadiance = vaTexture::Create2D( GetRenderDevice(), srcRadiance->GetSRVFormat(), halfSize.x, halfSize.y, 1, 1, 1, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default );
         }
 
-        UpdateConstants( apiContext, srcRadiance );
+        UpdateConstants( renderContext, srcRadiance );
 
         if( m_settings.UseBloom && m_settings.Enabled )
         {
@@ -291,94 +322,103 @@ vaDrawResultFlags vaPostProcessTonemap::TickAndTonemap( float deltaTime, vaCamer
 
             if( useHalfResBloom )
             {
-                VA_SCOPE_CPUGPU_TIMER( HalfResBlur, apiContext );
+                VA_SCOPE_CPUGPU_TIMER( HalfResBlur, renderContext );
 
                 // Downsample
-                vaRenderItem renderItem;
-                apiContext.FillFullscreenPassRenderItem( renderItem );
-                renderItem.ConstantBuffers[POSTPROCESS_TONEMAP_CONSTANTS_BUFFERSLOT]= m_constantsBuffer.GetBuffer();
+                vaGraphicsItem renderItem;
+                renderContext.FillFullscreenPassRenderItem( renderItem );
+                renderItem.ConstantBuffers[POSTPROCESS_TONEMAP_CONSTANTSBUFFERSLOT]= m_constantsBuffer.GetBuffer();
                 renderItem.ShaderResourceViews[POSTPROCESS_TONEMAP_TEXTURE_SLOT0]   = sourceOrResolvedSourceRadiance;
                 renderItem.PixelShader = m_PSDownsampleToHalf.get();
-                apiContext.SetRenderTarget( m_halfResRadiance, nullptr, true );
-                renderResults |= apiContext.ExecuteSingleItem( renderItem );
+                renderContext.SetRenderTarget( m_halfResRadiance, nullptr, true );
+                renderResults |= renderContext.ExecuteSingleItem( renderItem );
 
                 // Blur
-                renderResults |= m_bloomBlur->BlurToScratch( apiContext, m_halfResRadiance, bloomSize / 2.0f );
-                apiContext.SetOutputs( backupOutputs );
+                renderResults |= m_bloomBlur->BlurToScratch( renderContext, m_halfResRadiance, bloomSize / 2.0f );
+                renderContext.SetOutputs( backupOutputs );
             }
             else
             {
-                VA_SCOPE_CPUGPU_TIMER( FullResBlur, apiContext );
+                VA_SCOPE_CPUGPU_TIMER( FullResBlur, renderContext );
                 m_halfResRadiance = nullptr;
-                renderResults |= m_bloomBlur->BlurToScratch( apiContext, sourceOrResolvedSourceRadiance, bloomSize );
+                renderResults |= m_bloomBlur->BlurToScratch( renderContext, sourceOrResolvedSourceRadiance, bloomSize );
             }
         }
 
-        vaRenderItem renderItem;
-        apiContext.FillFullscreenPassRenderItem( renderItem );
-        renderItem.ConstantBuffers[POSTPROCESS_TONEMAP_CONSTANTS_BUFFERSLOT] = m_constantsBuffer.GetBuffer();
+        vaGraphicsItem renderItem;
+        renderContext.FillFullscreenPassRenderItem( renderItem );
+        renderItem.ConstantBuffers[POSTPROCESS_TONEMAP_CONSTANTSBUFFERSLOT] = m_constantsBuffer.GetBuffer();
 
         // Compute average luminance
         // TODO: add bloom here as input as well, as otherwise luminance will ignore it, which isn't really correct - not that just 'adding' bloom is energy-preserving anyway but 
         // adding it before computing luminance will at least give correct tonemapping
         if( !skipTickOnlyApply )
         {
-            VA_SCOPE_CPUGPU_TIMER( AverageLuminance, apiContext );
+            VA_SCOPE_CPUGPU_TIMER( AverageLuminance, renderContext );
             renderItem.ShaderResourceViews[POSTPROCESS_TONEMAP_TEXTURE_SLOT0]   = sourceOrResolvedSourceRadiance;
             renderItem.PixelShader = m_PSAverageLuminance.get();
-            apiContext.SetRenderTarget( m_avgLuminanceMIPViews[0], nullptr, true );
-            renderResults |= apiContext.ExecuteSingleItem( renderItem );
+            renderContext.SetRenderTarget( m_avgLuminanceMIPViews[0], nullptr, true );
+            renderResults |= renderContext.ExecuteSingleItem( renderItem );
+        }
+
+        // best time to read luminance copied two+ frames ago!
+        if( !additionalParams.NoDelayInGettingLuminance )
+        {
+            if( !skipTickOnlyApply )
+                UpdateLastAverageLuminance( renderContext, additionalParams.NoDelayInGettingLuminance );
         }
 
         if( !skipTickOnlyApply )
         {
-            VA_SCOPE_CPUGPU_TIMER( AverageLuminanceGenerateMIPs, apiContext );
+            VA_SCOPE_CPUGPU_TIMER( AverageLumGenMIPs, renderContext );
             for( int i = 1; i < c_avgLuminanceMIPs; i++ )
             {
                 renderItem.ShaderResourceViews[POSTPROCESS_TONEMAP_TEXTURE_SLOT0]   = m_avgLuminanceMIPViews[i-1];
                 renderItem.PixelShader = m_PSAverageLuminanceGenerateMIP.get();
-                apiContext.SetRenderTarget( m_avgLuminanceMIPViews[i], nullptr, true );
-                renderResults |= apiContext.ExecuteSingleItem( renderItem );
+                renderContext.SetRenderTarget( m_avgLuminanceMIPViews[i], nullptr, true );
+                renderResults |= renderContext.ExecuteSingleItem( renderItem );
 
                 // just copy the last results to GPU->CPU transfer textures
                 if( i == ( c_avgLuminanceMIPs - 1 ) )
                 {
-                    bool initializeAll = m_avgLuminancePrevLastWrittenIndex == -1; // only first time! this avoids reading unitialized memory and potential numerical differences because of it
                     m_avgLuminancePrevLastWrittenIndex = ( m_avgLuminancePrevLastWrittenIndex + 1 ) % _countof( m_avgLuminancePrev );
 
                     renderItem.ShaderResourceViews[POSTPROCESS_TONEMAP_TEXTURE_SLOT0]   = m_avgLuminanceMIPViews[i-1];
                     renderItem.PixelShader = m_PSAverageLuminanceGenerateMIP;
-                    apiContext.SetRenderTarget( m_avgLuminancePrev[m_avgLuminancePrevLastWrittenIndex], nullptr, true );
-                    renderResults |= apiContext.ExecuteSingleItem( renderItem );
+                    renderContext.SetRenderTarget( m_avgLuminancePrev[m_avgLuminancePrevLastWrittenIndex], nullptr, true );
+                    renderResults |= renderContext.ExecuteSingleItem( renderItem );
 
-                    m_avgLuminancePrevCPU[m_avgLuminancePrevLastWrittenIndex]->CopyFrom( apiContext, m_avgLuminancePrev[m_avgLuminancePrevLastWrittenIndex] );
+                    m_avgLuminancePrevCPU[m_avgLuminancePrevLastWrittenIndex]->CopyFrom( renderContext, m_avgLuminancePrev[m_avgLuminancePrevLastWrittenIndex] );
+                    m_avgLuminancePrevCPUHasData[m_avgLuminancePrevLastWrittenIndex] = renderResults == vaDrawResultFlags::None;
 
-                    // only first time! this avoids reading unitialized memory and potential numerical differences because of it
-                    if( initializeAll )
-                        for( int j = 1; j < _countof(m_avgLuminancePrevCPU); j++ )
-                            m_avgLuminancePrevCPU[j]->CopyFrom( apiContext, m_avgLuminancePrev[m_avgLuminancePrevLastWrittenIndex] );
+                    //// only first time! this avoids reading unitialized memory and potential numerical differences because of it
+                    //if( initializeAll )
+                    //    for( int j = 1; j < _countof(m_avgLuminancePrevCPU); j++ )
+                    //        m_avgLuminancePrevCPU[j]->CopyFrom( renderContext, m_avgLuminancePrev[m_avgLuminancePrevLastWrittenIndex] );
                 }
             }
         }
 
-        if( renderResults == vaDrawResultFlags::None )
+        if( renderResults == vaDrawResultFlags::None && additionalParams.NoDelayInGettingLuminance )
         {
             if( !skipTickOnlyApply )
-                UpdateLastAverageLuminance( apiContext, additionalParams.NoDelayInGettingLuminance );
-            Tick( (!skipTickOnlyApply)?(deltaTime):(0.0f) );
+                UpdateLastAverageLuminance( renderContext, additionalParams.NoDelayInGettingLuminance );
         }
+
+        if( renderResults == vaDrawResultFlags::None )
+            Tick( (!skipTickOnlyApply)?(deltaTime):(0.0f) );
 
         // Apply bloom
         // TODO: combine into tone mapping / resolve; not nearly as optimal as it could be this way but good enough for now
         if( m_settings.UseBloom )
         {
-            VA_SCOPE_CPUGPU_TIMER( AddBloom, apiContext );
+            VA_SCOPE_CPUGPU_TIMER( AddBloom, renderContext );
 
             renderItem.ShaderResourceViews[POSTPROCESS_TONEMAP_TEXTURE_SLOT0]   = m_bloomBlur->GetLastScratch();
             renderItem.PixelShader  = m_PSAddBloom.get();
             renderItem.BlendMode    = vaBlendMode::Additive;
-            apiContext.SetRenderTarget( srcRadiance, nullptr, true );
-            renderResults |= apiContext.ExecuteSingleItem( renderItem );
+            renderContext.SetRenderTarget( srcRadiance, nullptr, true );
+            renderResults |= renderContext.ExecuteSingleItem( renderItem );
             renderItem.BlendMode    = vaBlendMode::Opaque;
         }
 
@@ -386,15 +426,15 @@ vaDrawResultFlags vaPostProcessTonemap::TickAndTonemap( float deltaTime, vaCamer
 
     if( renderResults == vaDrawResultFlags::None )
     {
-        VA_SCOPE_CPUGPU_TIMER( Apply, apiContext );
+        VA_SCOPE_CPUGPU_TIMER( Apply, renderContext );
 
-        UpdateConstants( apiContext, srcRadiance );
+        UpdateConstants( renderContext, srcRadiance );
 
         vaRenderDeviceContext::RenderOutputsState backupOutputsCopy = backupOutputs;
 
-        vaRenderItem renderItem;
-        apiContext.FillFullscreenPassRenderItem( renderItem );
-        renderItem.ConstantBuffers[POSTPROCESS_TONEMAP_CONSTANTS_BUFFERSLOT] = m_constantsBuffer.GetBuffer();
+        vaGraphicsItem renderItem;
+        renderContext.FillFullscreenPassRenderItem( renderItem );
+        renderItem.ConstantBuffers[POSTPROCESS_TONEMAP_CONSTANTSBUFFERSLOT] = m_constantsBuffer.GetBuffer();
         
         // special case - we want independent tonemapped MS elements and the control surface
         if( outMSTonemappedColor != nullptr || outExportLuma != nullptr )
@@ -410,7 +450,7 @@ vaDrawResultFlags vaPostProcessTonemap::TickAndTonemap( float deltaTime, vaCamer
             backupOutputsCopy.UAVs[2]               = outExportLuma;
         }
 
-        apiContext.SetOutputs( backupOutputsCopy );
+        renderContext.SetOutputs( backupOutputsCopy );
 
         renderItem.ShaderResourceViews[POSTPROCESS_TONEMAP_TEXTURE_SLOT0]   = srcRadiance;
         renderItem.ShaderResourceViews[POSTPROCESS_TONEMAP_TEXTURE_SLOT1]   = m_avgLuminance;
@@ -418,22 +458,22 @@ vaDrawResultFlags vaPostProcessTonemap::TickAndTonemap( float deltaTime, vaCamer
         // Apply tonemapping
         if( m_settings.Enabled )
         {
-            //apiContext.FullscreenPassDraw( *m_PSTonemap );
+            //renderContext.FullscreenPassDraw( *m_PSTonemap );
             renderItem.PixelShader  = m_PSTonemap.get();
-            renderResults |= apiContext.ExecuteSingleItem( renderItem );
+            renderResults |= renderContext.ExecuteSingleItem( renderItem );
         }
         else
         {
             // Just copy the floating point source radiance into output color
             renderItem.ShaderResourceViews[POSTPROCESS_TONEMAP_TEXTURE_SLOT0]   = sourceOrResolvedSourceRadiance;
-            renderItem.PixelShader  = m_PSTonemap.get();
-            renderResults |= apiContext.ExecuteSingleItem( renderItem );
+            renderItem.PixelShader  = m_PSPassThrough.get();
+            renderResults |= renderContext.ExecuteSingleItem( renderItem );
         }
 
         // need to restore outputs
         if( outMSTonemappedColor != nullptr )
         {
-            apiContext.SetOutputs( backupOutputs );
+            renderContext.SetOutputs( backupOutputs );
         }
     }
     return renderResults;

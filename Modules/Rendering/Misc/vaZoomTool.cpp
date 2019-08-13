@@ -20,18 +20,21 @@
 #include "vaZoomTool.h"
 #include "Core/vaInput.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
 vaZoomTool::vaZoomTool( const vaRenderingModuleParams & params ) : 
     vaRenderingModule( params ), 
     m_constantsBuffer( params ),
     m_CSZoomToolFloat( params ),
-    m_CSZoomToolUnorm( params )
+    m_CSZoomToolUnorm( params ),
+    vaUIPanel( "ZoomTool", -1, true, vaUIPanel::DockLocation::DockedLeftBottom )
 { 
 //    assert( vaRenderingCore::IsInitialized() );
 
-    m_CSZoomToolFloat->CreateShaderFromFile( L"vaHelperTools.hlsl", "cs_5_0", "ZoomToolCS", { ( pair< string, string >( "VA_ZOOM_TOOL_SPECIFIC", "" ) ) } );
-    m_CSZoomToolUnorm->CreateShaderFromFile( L"vaHelperTools.hlsl", "cs_5_0", "ZoomToolCS", { ( pair< string, string >( "VA_ZOOM_TOOL_SPECIFIC", "" ) ), pair< string, string >( "VA_ZOOM_TOOL_USE_UNORM_FLOAT", "" ) } );
+    m_CSZoomToolFloat->CreateShaderFromFile( L"vaHelperTools.hlsl", "cs_5_0", "ZoomToolCS", { ( pair< string, string >( "VA_ZOOM_TOOL_SPECIFIC", "" ) ) }, false );
+    m_CSZoomToolUnorm->CreateShaderFromFile( L"vaHelperTools.hlsl", "cs_5_0", "ZoomToolCS", { ( pair< string, string >( "VA_ZOOM_TOOL_SPECIFIC", "" ) ), pair< string, string >( "VA_ZOOM_TOOL_USE_UNORM_FLOAT", "" ) }, false );
 }
 
 vaZoomTool::~vaZoomTool( )
@@ -49,20 +52,20 @@ void vaZoomTool::HandleMouseInputs( vaInputMouseBase & mouseInput )
     }
 }
 
-void vaZoomTool::Draw( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut )
+void vaZoomTool::Draw( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut )
 {
     if( !m_settings.Enabled )
         return;
 
     // backup & remove outputs just in case colorInOut is in them - we don't care about overhead for this debugging tool
-    vaRenderDeviceContext::RenderOutputsState rtState = apiContext.GetOutputs( );
-    apiContext.SetRenderTarget( nullptr, nullptr, false );
+    vaRenderDeviceContext::RenderOutputsState rtState = renderContext.GetOutputs( );
+    renderContext.SetRenderTarget( nullptr, nullptr, false );
 
-    UpdateConstants( apiContext );
+    UpdateConstants( renderContext );
 
     vaComputeItem computeItem;
 
-    computeItem.ConstantBuffers[ ZOOMTOOL_CONSTANTS_BUFFERSLOT ] = m_constantsBuffer;
+    computeItem.ConstantBuffers[ ZOOMTOOL_CONSTANTSBUFFERSLOT ] = m_constantsBuffer;
     computeItem.UnorderedAccessViews[ 0 ] = colorInOut;
     
     int threadGroupCountX = ( colorInOut->GetSizeX( ) + 16 - 1 ) / 16;
@@ -71,14 +74,15 @@ void vaZoomTool::Draw( vaRenderDeviceContext & apiContext, const shared_ptr<vaTe
     computeItem.ComputeShader = ( vaResourceFormatHelpers::IsFloat( colorInOut->GetUAVFormat() ) ) ? ( m_CSZoomToolFloat.get() ) : ( m_CSZoomToolUnorm.get() );
     computeItem.SetDispatch( threadGroupCountX, threadGroupCountY, 1 );
 
-    apiContext.ExecuteSingleItem( computeItem );
+    renderContext.ExecuteSingleItem( computeItem );
 
     // restore previous RTs
-    apiContext.SetOutputs( rtState );
+    renderContext.SetOutputs( rtState );
 }
 
-void vaZoomTool::IHO_Draw( )
+void vaZoomTool::UIPanelDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     ImGui::PushItemWidth( 120.0f );
 
     ImGui::Checkbox( "Enabled", &m_settings.Enabled );
@@ -89,16 +93,17 @@ void vaZoomTool::IHO_Draw( )
     ImGui::InputInt2( "BoxSize", &m_settings.BoxSize.x );
 
     ImGui::PopItemWidth();
+#endif
 }
 
-void vaZoomTool::UpdateConstants( vaRenderDeviceContext & apiContext )
+void vaZoomTool::UpdateConstants( vaRenderDeviceContext & renderContext )
 {
     ZoomToolShaderConstants consts;
 
     consts.SourceRectangle  = vaVector4( (float)m_settings.BoxPos.x, (float)m_settings.BoxPos.y, (float)m_settings.BoxPos.x+m_settings.BoxSize.x, (float)m_settings.BoxPos.y+m_settings.BoxSize.y );
     consts.ZoomFactor       = m_settings.ZoomFactor;
 
-    m_constantsBuffer.Update( apiContext, consts );
+    m_constantsBuffer.Update( renderContext, consts );
 }
 
 

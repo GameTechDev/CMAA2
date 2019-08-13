@@ -19,6 +19,8 @@
 
 #include "vaTextureHelpers.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
 void vaTexturePool::FillDesc( ItemDesc & desc, const shared_ptr< vaTexture > texture )
@@ -39,15 +41,12 @@ void vaTexturePool::FillDesc( ItemDesc & desc, const shared_ptr< vaTexture > tex
     desc.MIPLevels          = texture->GetMipLevels();
 }
 
-shared_ptr< vaTexture > vaTexturePool::FindOrCreate2D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags bindFlags, vaTextureAccessFlags accessFlags, void * initialData, int initialDataPitch, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags )
+shared_ptr< vaTexture > vaTexturePool::FindOrCreate2D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags bindFlags, vaResourceAccessFlags accessFlags, void * initialData, int initialDataRowPitch, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags )
 {
     std::unique_lock<std::mutex> lock( m_mutex );
 
     ItemDesc desc;
     desc.Type = vaTextureType::Texture2D;
-    if( (arraySize > 1 ) && (sampleCount == 1) ) desc.Type = vaTextureType::Texture2DArray;
-    if( (arraySize == 1) && (sampleCount > 1 ) ) desc.Type = vaTextureType::Texture2DMS;
-    if( (arraySize > 1 ) && (sampleCount > 1 ) ) desc.Type = vaTextureType::Texture2DMSArray;
 
     if( (srvFormat == vaResourceFormat::Automatic) && ((bindFlags & vaResourceBindSupportFlags::ShaderResource) != 0) )
         srvFormat = format;
@@ -83,7 +82,7 @@ shared_ptr< vaTexture > vaTexturePool::FindOrCreate2D( vaRenderDevice & device, 
     }
     else
     {
-        retTexture = vaTexture::Create2D( device, format, width, height, mipLevels, arraySize, sampleCount, bindFlags, accessFlags, srvFormat, rtvFormat, dsvFormat, uavFormat, flags, vaTextureContentsType::GenericColor, initialData, initialDataPitch );
+        retTexture = vaTexture::Create2D( device, format, width, height, mipLevels, arraySize, sampleCount, bindFlags, accessFlags, srvFormat, rtvFormat, dsvFormat, uavFormat, flags, vaTextureContentsType::GenericColor, initialData, initialDataRowPitch );
 
 #ifdef _DEBUG
         ItemDesc testDesc;
@@ -142,7 +141,7 @@ bool vaTextureCPU2GPU::SetTexture( const shared_ptr< vaTexture > & gpuTexture )
 
     assert( m_GPUTexture == nullptr );
 
-    //VA_VERIFY_RETURN_IF_FALSE( gpuTexture->GetAccessFlags() == vaTextureAccessFlags::CPUWrite, "input parameter wrong" );
+    //VA_VERIFY_RETURN_IF_FALSE( gpuTexture->GetAccessFlags() == vaResourceAccessFlags::CPUWrite, "input parameter wrong" );
     m_GPUTexture = gpuTexture;
 
     m_CPUData.clear();
@@ -192,7 +191,7 @@ bool vaTextureCPU2GPU::SetTexture( const shared_ptr< vaTexture > & gpuTexture )
 shared_ptr< vaTextureCPU2GPU > vaTextureCPU2GPU::CreateFromExisting( const shared_ptr< vaTexture > & gpuTexture )
 {
     // using UpdateSubresource now, so this isn't needed. Yeah, it's messy, and if it's different on other APIs, make this function virtual and handle it separately
-    // if( gpuTexture->GetAccessFlags( ) != vaTextureAccessFlags::CPUWrite )
+    // if( gpuTexture->GetAccessFlags( ) != vaResourceAccessFlags::CPUWrite )
     // {
     //     assert( false );
     //     return nullptr;
@@ -220,7 +219,7 @@ shared_ptr< vaTextureCPU2GPU> vaTextureCPU2GPU::Create1D( vaRenderDevice & devic
     return nullptr;
 }
 
-shared_ptr< vaTextureCPU2GPU> vaTextureCPU2GPU::Create2D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags gpuBindFlags, void * initialData, int initialDataPitch, vaResourceFormat gpuSRVFormat, vaResourceFormat gpuRTVFormat, vaResourceFormat gpuDSVFormat, vaResourceFormat gpuUAVFormat, vaTextureFlags flags )
+shared_ptr< vaTextureCPU2GPU> vaTextureCPU2GPU::Create2D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags gpuBindFlags, void * initialData, int initialDataRowPitch, vaResourceFormat gpuSRVFormat, vaResourceFormat gpuRTVFormat, vaResourceFormat gpuDSVFormat, vaResourceFormat gpuUAVFormat, vaTextureFlags flags )
 {
     if( ( gpuBindFlags & ( vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::DepthStencil | vaResourceBindSupportFlags::UnorderedAccess ) ) != 0 )
     {
@@ -230,12 +229,12 @@ shared_ptr< vaTextureCPU2GPU> vaTextureCPU2GPU::Create2D( vaRenderDevice & devic
     assert( arraySize == 1 );
     assert( sampleCount == 1 );
 
-    shared_ptr< vaTexture > gpuTexture( vaTexture::Create2D( device, format, width, height, mipLevels, arraySize, sampleCount, gpuBindFlags, vaTextureAccessFlags::None/*vaTextureAccessFlags::CPUWrite*/, gpuSRVFormat, gpuRTVFormat, gpuDSVFormat, gpuUAVFormat, flags, vaTextureContentsType::GenericColor, initialData, initialDataPitch ) );
+    shared_ptr< vaTexture > gpuTexture( vaTexture::Create2D( device, format, width, height, mipLevels, arraySize, sampleCount, gpuBindFlags, vaResourceAccessFlags::Default/*vaResourceAccessFlags::CPUWrite*/, gpuSRVFormat, gpuRTVFormat, gpuDSVFormat, gpuUAVFormat, flags, vaTextureContentsType::GenericColor, initialData, initialDataRowPitch ) );
     
     return CreateFromExisting( gpuTexture );
 }
 
-shared_ptr< vaTextureCPU2GPU> vaTextureCPU2GPU::Create3D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags gpuBindFlags, void * initialData, int initialDataPitch, int initialDataSlicePitch, vaResourceFormat gpuSRVFormat, vaResourceFormat gpuRTVFormat, vaResourceFormat gpuDSVFormat, vaResourceFormat gpuUAVFormat, vaTextureFlags flags )
+shared_ptr< vaTextureCPU2GPU> vaTextureCPU2GPU::Create3D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags gpuBindFlags, void * initialData, int initialDataRowPitch, int initialDataSlicePitch, vaResourceFormat gpuSRVFormat, vaResourceFormat gpuRTVFormat, vaResourceFormat gpuDSVFormat, vaResourceFormat gpuUAVFormat, vaTextureFlags flags )
 {
     if( ( gpuBindFlags & ( vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::DepthStencil | vaResourceBindSupportFlags::UnorderedAccess ) ) != 0 )
     {
@@ -243,7 +242,7 @@ shared_ptr< vaTextureCPU2GPU> vaTextureCPU2GPU::Create3D( vaRenderDevice & devic
         return nullptr;
     }
 
-    device; format; width; height; depth; mipLevels; gpuBindFlags; initialData; initialDataPitch; initialDataSlicePitch; gpuSRVFormat; gpuRTVFormat; gpuDSVFormat; gpuUAVFormat; flags;
+    device; format; width; height; depth; mipLevels; gpuBindFlags; initialData; initialDataRowPitch; initialDataSlicePitch; gpuSRVFormat; gpuRTVFormat; gpuDSVFormat; gpuUAVFormat; flags;
 
     assert( false ); // not yet implemented
     return nullptr;
@@ -277,7 +276,7 @@ bool vaTextureGPU2CPU::SetTexture( bool directMapMode, const shared_ptr< vaTextu
 
     m_directMapMode = directMapMode;
 
-    //VA_VERIFY_RETURN_IF_FALSE( gpuTexture->GetAccessFlags() == vaTextureAccessFlags::CPUWrite, "input parameter wrong" );
+    //VA_VERIFY_RETURN_IF_FALSE( gpuTexture->GetAccessFlags() == vaResourceAccessFlags::CPUWrite, "input parameter wrong" );
     m_GPUTexture = gpuTexture;
 
     m_CPUData.clear();
@@ -336,7 +335,7 @@ bool vaTextureGPU2CPU::SetTexture( bool directMapMode, const shared_ptr< vaTextu
     if( directMapMode && gpuTexture->GetBindSupportFlags() == vaResourceBindSupportFlags::None )
         m_CPUTexture = m_GPUTexture;
     else
-        m_CPUTexture =  vaTexture::Create2D( GetRenderDevice(), gpuTexture->GetResourceFormat(), gpuTexture->GetSizeX(), gpuTexture->GetSizeY(), gpuTexture->GetMipLevels(), gpuTexture->GetSizeZ(), gpuTexture->GetSampleCount(), vaResourceBindSupportFlags::None, vaTextureAccessFlags::CPURead, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, gpuTexture->GetFlags(), vaTextureContentsType::GenericColor, nullptr, 0 );
+        m_CPUTexture =  vaTexture::Create2D( GetRenderDevice(), gpuTexture->GetResourceFormat(), gpuTexture->GetSizeX(), gpuTexture->GetSizeY(), gpuTexture->GetMipLevels(), gpuTexture->GetSizeZ(), gpuTexture->GetSampleCount(), vaResourceBindSupportFlags::None, vaResourceAccessFlags::CPURead, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, gpuTexture->GetFlags(), vaTextureContentsType::GenericColor, nullptr, 0 );
 
     m_directMappedMarkForUnmap = false;
 
@@ -386,7 +385,7 @@ void vaTextureGPU2CPU::MarkForUnmap( )
 shared_ptr< vaTextureGPU2CPU > vaTextureGPU2CPU::CreateFromExisting( bool directMapMode, const shared_ptr< vaTexture > & gpuTexture )
 {
     // using UpdateSubresource now, so this isn't needed. Yeah, it's messy, and if it's different on other APIs, make this function virtual and handle it separately
-    // if( gpuTexture->GetAccessFlags( ) != vaTextureAccessFlags::CPUWrite )
+    // if( gpuTexture->GetAccessFlags( ) != vaResourceAccessFlags::CPUWrite )
     // {
     //     assert( false );
     //     return nullptr;
@@ -413,7 +412,7 @@ shared_ptr< vaTextureGPU2CPU > vaTextureGPU2CPU::Create1D( vaRenderDevice & devi
     return nullptr;
 }
 
-shared_ptr< vaTextureGPU2CPU > vaTextureGPU2CPU::Create2D( vaRenderDevice & device, bool directMapMode, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags gpuBindFlags, void * initialData, int initialDataPitch, vaResourceFormat gpuSRVFormat, vaResourceFormat gpuRTVFormat, vaResourceFormat gpuDSVFormat, vaResourceFormat gpuUAVFormat, vaTextureFlags flags )
+shared_ptr< vaTextureGPU2CPU > vaTextureGPU2CPU::Create2D( vaRenderDevice & device, bool directMapMode, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags gpuBindFlags, void * initialData, int initialDataRowPitch, vaResourceFormat gpuSRVFormat, vaResourceFormat gpuRTVFormat, vaResourceFormat gpuDSVFormat, vaResourceFormat gpuUAVFormat, vaTextureFlags flags )
 {
 //    if( ( gpuBindFlags & ( vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::DepthStencil | vaResourceBindSupportFlags::UnorderedAccess ) ) != 0 )
 //    {
@@ -423,19 +422,19 @@ shared_ptr< vaTextureGPU2CPU > vaTextureGPU2CPU::Create2D( vaRenderDevice & devi
     assert( arraySize == 1 );
     assert( sampleCount == 1 );
 
-    vaTextureAccessFlags accessFlags = vaTextureAccessFlags::None;
+    vaResourceAccessFlags accessFlags = vaResourceAccessFlags::Default;
 
     if( directMapMode && gpuBindFlags == vaResourceBindSupportFlags::None )
     {
-        accessFlags = vaTextureAccessFlags::CPURead;
+        accessFlags = vaResourceAccessFlags::CPURead;
     }
 
-    shared_ptr< vaTexture > gpuTexture( vaTexture::Create2D( device, format, width, height, mipLevels, arraySize, sampleCount, gpuBindFlags, accessFlags, gpuSRVFormat, gpuRTVFormat, gpuDSVFormat, gpuUAVFormat, flags, vaTextureContentsType::GenericColor, initialData, initialDataPitch ) );
+    shared_ptr< vaTexture > gpuTexture( vaTexture::Create2D( device, format, width, height, mipLevels, arraySize, sampleCount, gpuBindFlags, accessFlags, gpuSRVFormat, gpuRTVFormat, gpuDSVFormat, gpuUAVFormat, flags, vaTextureContentsType::GenericColor, initialData, initialDataRowPitch ) );
     
     return CreateFromExisting( directMapMode, gpuTexture );
 }
 
-shared_ptr< vaTextureGPU2CPU > vaTextureGPU2CPU::Create3D( vaRenderDevice & device, bool directMapMode, vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags gpuBindFlags, void * initialData, int initialDataPitch, int initialDataSlicePitch, vaResourceFormat gpuSRVFormat, vaResourceFormat gpuRTVFormat, vaResourceFormat gpuDSVFormat, vaResourceFormat gpuUAVFormat, vaTextureFlags flags )
+shared_ptr< vaTextureGPU2CPU > vaTextureGPU2CPU::Create3D( vaRenderDevice & device, bool directMapMode, vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags gpuBindFlags, void * initialData, int initialDataRowPitch, int initialDataSlicePitch, vaResourceFormat gpuSRVFormat, vaResourceFormat gpuRTVFormat, vaResourceFormat gpuDSVFormat, vaResourceFormat gpuUAVFormat, vaTextureFlags flags )
 {
 //    if( ( gpuBindFlags & ( vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::DepthStencil | vaResourceBindSupportFlags::UnorderedAccess ) ) != 0 )
 //    {
@@ -443,7 +442,7 @@ shared_ptr< vaTextureGPU2CPU > vaTextureGPU2CPU::Create3D( vaRenderDevice & devi
 //        return nullptr;
 //    }
 
-    device; directMapMode; format; width; height; depth; mipLevels; gpuBindFlags; initialData; initialDataPitch; initialDataSlicePitch; gpuSRVFormat; gpuRTVFormat; gpuDSVFormat; gpuUAVFormat; flags;
+    device; directMapMode; format; width; height; depth; mipLevels; gpuBindFlags; initialData; initialDataRowPitch; initialDataSlicePitch; gpuSRVFormat; gpuRTVFormat; gpuDSVFormat; gpuUAVFormat; flags;
 
     assert( false ); // not yet implemented
     return nullptr;
@@ -458,13 +457,12 @@ vaTextureTools::vaTextureTools( vaRenderDevice & device ) //: vaRenderingModule(
 {
     {
         uint32 initialData = 0x00000000;
-        m_textures[(int)CommonTextureName::Black1x1] = vaTexture::Create2D( device, vaResourceFormat::R8G8B8A8_UNORM, 1, 1, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource, vaTextureAccessFlags::None, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, &initialData, sizeof( initialData ) );
+        m_textures[(int)CommonTextureName::Black1x1] = vaTexture::Create2D( device, vaResourceFormat::R8G8B8A8_UNORM, 1, 1, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, &initialData, sizeof( initialData ) );
     }
     {
         uint32 initialData = 0xFFFFFFFF;
-        m_textures[(int)CommonTextureName::White1x1] = vaTexture::Create2D( device, vaResourceFormat::R8G8B8A8_UNORM, 1, 1, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource, vaTextureAccessFlags::None, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, &initialData, sizeof( initialData ) );
+        m_textures[(int)CommonTextureName::White1x1] = vaTexture::Create2D( device, vaResourceFormat::R8G8B8A8_UNORM, 1, 1, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, &initialData, sizeof( initialData ) );
     }
-
     {
         uint32 initialData[16*16];
         for( int y = 0; y < 16; y++ )
@@ -472,13 +470,21 @@ vaTextureTools::vaTextureTools( vaRenderDevice & device ) //: vaRenderingModule(
             {
                 initialData[ y * 16 + x ] = (((x+y)%2) == 0)?(0xFFFFFFFF):(0x00000000);
             }
-        m_textures[(int)CommonTextureName::Checkerboard16x16] = vaTexture::Create2D( device, vaResourceFormat::R8G8B8A8_UNORM, 16, 16, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource, vaTextureAccessFlags::None, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialData, 16*sizeof( uint32 ) );
+        m_textures[(int)CommonTextureName::Checkerboard16x16] = vaTexture::Create2D( device, vaResourceFormat::R8G8B8A8_UNORM, 16, 16, 1, 1, 1, vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, vaTextureContentsType::GenericColor, initialData, 16*sizeof( uint32 ) );
+    }
+    {
+        m_textures[(int)CommonTextureName::Black1x1Cube] = vaTexture::Create2D( device, vaResourceFormat::R8G8B8A8_UNORM, 1, 1, 1, 6, 1, vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::Cubemap, vaTextureContentsType::GenericColor );
+
+        uint32 initialData = 0x00000000;
+        vaTextureSubresourceData faceSubRes = { &initialData, 4, 4 };
+        assert( device.GetMainContext() != nullptr );
+        m_textures[(int)CommonTextureName::Black1x1Cube]->UpdateSubresources( *device.GetMainContext(), 0, vector<vaTextureSubresourceData>{faceSubRes, faceSubRes, faceSubRes, faceSubRes, faceSubRes, faceSubRes } );
     }
 
 
-    m_UIDrawTexture2DPS->CreateShaderFromFile( "vaHelperTools.hlsl", "ps_5_0", "UIDrawTexture2DPS" );
-    m_UIDrawTexture2DArrayPS->CreateShaderFromFile( "vaHelperTools.hlsl", "ps_5_0", "UIDrawTexture2DArrayPS" );
-    m_UIDrawTextureCubePS->CreateShaderFromFile( "vaHelperTools.hlsl", "ps_5_0", "UIDrawTextureCubePS" );
+    m_UIDrawTexture2DPS->CreateShaderFromFile( "vaHelperTools.hlsl", "ps_5_0", "UIDrawTexture2DPS", vaShaderMacroContaner{}, false );
+    m_UIDrawTexture2DArrayPS->CreateShaderFromFile( "vaHelperTools.hlsl", "ps_5_0", "UIDrawTexture2DArrayPS", vaShaderMacroContaner{}, false );
+    m_UIDrawTextureCubePS->CreateShaderFromFile( "vaHelperTools.hlsl", "ps_5_0", "UIDrawTextureCubePS", vaShaderMacroContaner{}, false );
 }
 
 shared_ptr< vaTexture > vaTextureTools::GetCommonTexture( CommonTextureName textureName )
@@ -489,24 +495,22 @@ shared_ptr< vaTexture > vaTextureTools::GetCommonTexture( CommonTextureName text
     return m_textures[index];
 }
 
-void vaTextureTools::UIDrawImages( vaRenderDeviceContext & apiContext )
+void vaTextureTools::UIDrawImages( vaRenderDeviceContext & renderContext )
 {
     if( m_UIDrawItems.size( ) == 0 )
         return;
+    
+    VA_SCOPE_CPUGPU_TIMER( UITextures, renderContext );
 
+    vaGraphicsItem renderItem;
 
-    // everything is ok, this path was just never debug-tested so do it now :)
-    assert( false ); 
+    renderContext.BeginItems( vaRenderTypeFlags::Graphics );
 
-    vaRenderItem renderItem;
-
-    apiContext.BeginItems();
-
-    apiContext.FillFullscreenPassRenderItem(renderItem);
+    renderContext.FillFullscreenPassRenderItem(renderItem);
 
     renderItem.ConstantBuffers[TEXTURE_UI_DRAW_TOOL_BUFFERSLOT] = m_UIDrawShaderConstants;
 
-    // m_UIDrawShaderConstants.SetToAPISlot( apiContext, TEXTURE_UI_DRAW_TOOL_BUFFERSLOT );
+    // m_UIDrawShaderConstants.SetToAPISlot( renderContext, TEXTURE_UI_DRAW_TOOL_BUFFERSLOT );
 
     for( int i = (int)m_UIDrawItems.size( )-1; i >= 0; i-- )
     {
@@ -523,22 +527,22 @@ void vaTextureTools::UIDrawImages( vaRenderDeviceContext & apiContext )
         consts.TextureArrayIndex    = item.ArrayIndex;
         consts.ContentsType         = (int)texture->GetContentsType();
 
-        m_UIDrawShaderConstants.Update( apiContext, consts );
+        m_UIDrawShaderConstants.Update( renderContext, consts );
 
-        // texture->SetToAPISlotSRV( apiContext, TEXTURE_UI_DRAW_TOOL_TEXTURE_SLOT0 );
+        // texture->SetToAPISlotSRV( renderContext, TEXTURE_UI_DRAW_TOOL_TEXTURE_SLOT0 );
         renderItem.ShaderResourceViews[TEXTURE_UI_DRAW_TOOL_TEXTURE_SLOT0] = texture;
         renderItem.BlendMode = vaBlendMode::AlphaBlend;
 
-        if( texture->GetType() == vaTextureType::Texture2D )
-            //apiContext.FullscreenPassDraw( *m_UIDrawTexture2DPS, vaBlendMode::AlphaBlend );
+        if( texture->GetType() == vaTextureType::Texture2D && texture->GetArrayCount() == 1 && texture->GetSampleCount() == 1 )
+            //renderContext.FullscreenPassDraw( *m_UIDrawTexture2DPS, vaBlendMode::AlphaBlend );
             renderItem.PixelShader = m_UIDrawTexture2DPS;
-        else if( texture->GetType() == vaTextureType::Texture2DArray )
+        else if( texture->GetArrayCount() > 1 )
         {
             if( ((texture->GetFlags() & vaTextureFlags::Cubemap) != 0) && ((texture->GetFlags() & vaTextureFlags::CubemapButArraySRV) == 0) )
-                //apiContext.FullscreenPassDraw( *m_UIDrawTextureCubePS, vaBlendMode::AlphaBlend );
+                //renderContext.FullscreenPassDraw( *m_UIDrawTextureCubePS, vaBlendMode::AlphaBlend );
                 renderItem.PixelShader = m_UIDrawTextureCubePS;
             else
-                //apiContext.FullscreenPassDraw( *m_UIDrawTexture2DArrayPS, vaBlendMode::AlphaBlend );
+                //renderContext.FullscreenPassDraw( *m_UIDrawTexture2DArrayPS, vaBlendMode::AlphaBlend );
                 renderItem.PixelShader = m_UIDrawTexture2DArrayPS;
         }
         else
@@ -547,9 +551,9 @@ void vaTextureTools::UIDrawImages( vaRenderDeviceContext & apiContext )
             assert( false );
         }
 
-        apiContext.ExecuteItem( renderItem );
+        renderContext.ExecuteItem( renderItem );
 
-        //texture->UnsetFromAPISlotSRV( apiContext, TEXTURE_UI_DRAW_TOOL_TEXTURE_SLOT0 );
+        //texture->UnsetFromAPISlotSRV( renderContext, TEXTURE_UI_DRAW_TOOL_TEXTURE_SLOT0 );
 
         if( item.InUse )
             item.InUse = false;
@@ -557,15 +561,17 @@ void vaTextureTools::UIDrawImages( vaRenderDeviceContext & apiContext )
             m_UIDrawItems.erase( m_UIDrawItems.begin() + i );
     }
 
-    apiContext.EndItems();
+    renderContext.EndItems();
     
-    //m_UIDrawShaderConstants.UnsetFromAPISlot( apiContext, TEXTURE_UI_DRAW_TOOL_BUFFERSLOT );
+    //m_UIDrawShaderConstants.UnsetFromAPISlot( renderContext, TEXTURE_UI_DRAW_TOOL_BUFFERSLOT );
 
-    //apiContext.UnsetStandardSamplers();
+    //renderContext.UnsetStandardSamplers();
 }
 
 void vaTextureTools::UIDrawImGuiInfo( const shared_ptr<vaTexture> & texture )
 {
+    texture;
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     ImGui::PushID( &(*texture) );
 
     // look up previous frame draws for persistence
@@ -684,4 +690,5 @@ void vaTextureTools::UIDrawImGuiInfo( const shared_ptr<vaTexture> & texture )
     uiState.FullscreenPopUp = ImGui::IsPopupOpen("Texture View");
 
     ImGui::PopID();
+#endif
 }

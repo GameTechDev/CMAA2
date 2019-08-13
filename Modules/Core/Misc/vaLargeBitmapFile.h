@@ -40,7 +40,9 @@
 #include "Core/vaCoreIncludes.h"
 #include "Core/Misc/vaResourceFormats.h"
 
+#ifdef VA_LIBTIFF_INTEGRATION_ENABLED
 #include "IntegratedExternals/vaLibTIFFIntegration.h"
+#endif
 
 
 #define VA_LBF_THREADSAFE

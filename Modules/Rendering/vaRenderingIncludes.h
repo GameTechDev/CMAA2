@@ -48,7 +48,7 @@
 #include "vaRenderDeviceContext.h"
 #include "vaDebugCanvas.h"
 
-#include "vaRenderingGlobals.h"
+#include "vaRenderGlobals.h"
 
 #include "Effects/vaSky.h"
 #include "Effects/vaSkybox.h"

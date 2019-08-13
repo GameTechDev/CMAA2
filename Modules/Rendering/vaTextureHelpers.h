@@ -24,7 +24,8 @@
 
 #include "vaTexture.h"
 
-#include "Rendering/vaRenderingIncludes.h"
+#include "Rendering/vaRenderBuffers.h"
+#include "Rendering/vaShader.h"
 
 #include "Rendering/Shaders/vaSharedTypes_HelperTools.h"
 
@@ -44,14 +45,14 @@ namespace VertexAsylum
         {
             vaRenderDevice *                    Device;
             vaTextureFlags                      Flags;
-            vaTextureAccessFlags                AccessFlags;
+            vaResourceAccessFlags               AccessFlags;
             vaTextureType                       Type;
-            vaResourceBindSupportFlags           BindSupportFlags;
-            vaResourceFormat                     ResourceFormat;
-            vaResourceFormat                     SRVFormat;
-            vaResourceFormat                     RTVFormat;
-            vaResourceFormat                     DSVFormat;
-            vaResourceFormat                     UAVFormat;
+            vaResourceBindSupportFlags          BindSupportFlags;
+            vaResourceFormat                    ResourceFormat;
+            vaResourceFormat                    SRVFormat;
+            vaResourceFormat                    RTVFormat;
+            vaResourceFormat                    DSVFormat;
+            vaResourceFormat                    UAVFormat;
             int                                 SizeX;
             int                                 SizeY;
             int                                 SizeZ;
@@ -81,7 +82,7 @@ namespace VertexAsylum
         void                                    FillDesc( ItemDesc & desc, const shared_ptr< vaTexture > texture );
 
     public:
-        shared_ptr< vaTexture >                 FindOrCreate2D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags bindFlags, vaTextureAccessFlags accessFlags = vaTextureAccessFlags::None, void * initialData = NULL, int initialDataPitch = 0, vaResourceFormat srvFormat = vaResourceFormat::Automatic, vaResourceFormat rtvFormat = vaResourceFormat::Automatic, vaResourceFormat dsvFormat = vaResourceFormat::Automatic, vaResourceFormat uavFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
+        shared_ptr< vaTexture >                 FindOrCreate2D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags bindFlags, vaResourceAccessFlags accessFlags = vaResourceAccessFlags::Default, void * initialData = NULL, int initialDataRowPitch = 0, vaResourceFormat srvFormat = vaResourceFormat::Automatic, vaResourceFormat rtvFormat = vaResourceFormat::Automatic, vaResourceFormat dsvFormat = vaResourceFormat::Automatic, vaResourceFormat uavFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
         
         // releases a texture into the pool so it can be returned by FindOrCreateXX
         void                                    Release( const shared_ptr< vaTexture > texture );
@@ -91,13 +92,13 @@ namespace VertexAsylum
 
 
     // used for automatically updating CPU -> GPU textures in an API agnostic way; there is no handling for regions, arrays or anything clever, but there is support for MIP levels
-    // to trigger upload, set "Modified" flag on vaTextureSubresource before a call to TickGPU
+    // to trigger upload, set "Modified" flag on vaTextureMappedSubresource before a call to TickGPU
     class vaTextureCPU2GPU : public vaRenderingModule
     {
         VA_RENDERING_MODULE_MAKE_FRIENDS( );
 
     protected:
-        vector<vaTextureSubresource>            m_CPUData;
+        vector<vaTextureMappedSubresource>            m_CPUData;
         int                                     m_CPUDataBytesPerPixel      = 0;
 
         shared_ptr< vaTexture >                 m_GPUTexture;
@@ -116,7 +117,7 @@ namespace VertexAsylum
         bool                                    SetTexture( const shared_ptr< vaTexture > & gpuTexture );
 
     public:
-        vaTextureSubresource *                  GetSubresource( int mipIndex = 0, int arrayIndex = 0)   { assert( arrayIndex == 0 ); arrayIndex; return &m_CPUData[mipIndex]; }
+        vaTextureMappedSubresource *                  GetSubresource( int mipIndex = 0, int arrayIndex = 0)   { assert( arrayIndex == 0 ); arrayIndex; return &m_CPUData[mipIndex]; }
 
         const shared_ptr< vaTexture > &         GetGPUTexture( ) const                                  { return m_GPUTexture; }
 
@@ -136,8 +137,8 @@ namespace VertexAsylum
     public:
         static shared_ptr< vaTextureCPU2GPU>    CreateFromExisting( const shared_ptr< vaTexture > & gpuTexture );
         static shared_ptr< vaTextureCPU2GPU>    Create1D( vaRenderDevice & device, vaResourceFormat format, int width, int mipLevels, int arraySize, vaResourceBindSupportFlags gpuBindFlags, void * initialData = NULL, vaResourceFormat gpuSRVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuRTVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuDSVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuUAVFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
-        static shared_ptr< vaTextureCPU2GPU>    Create2D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags gpuBindFlags, void * initialData = NULL, int initialDataPitch = 0, vaResourceFormat gpuSRVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuRTVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuDSVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuUAVFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
-        static shared_ptr< vaTextureCPU2GPU>    Create3D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags gpuBindFlags, void * initialData = NULL, int initialDataPitch = 0, int initialDataSlicePitch = 0, vaResourceFormat gpuSRVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuRTVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuDSVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuUAVFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
+        static shared_ptr< vaTextureCPU2GPU>    Create2D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags gpuBindFlags, void * initialData = NULL, int initialDataRowPitch = 0, vaResourceFormat gpuSRVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuRTVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuDSVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuUAVFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
+        static shared_ptr< vaTextureCPU2GPU>    Create3D( vaRenderDevice & device, vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags gpuBindFlags, void * initialData = NULL, int initialDataRowPitch = 0, int initialDataSlicePitch = 0, vaResourceFormat gpuSRVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuRTVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuDSVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuUAVFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
 
     };
 
@@ -153,7 +154,7 @@ namespace VertexAsylum
         bool                                    m_directMapped                  = false;
         bool                                    m_directMappedMarkForUnmap      = false;
 
-        vector<vaTextureSubresource>            m_CPUData;
+        vector<vaTextureMappedSubresource>            m_CPUData;
         int                                     m_CPUDataBytesPerPixel          = 0;
 
         shared_ptr< vaTexture >                 m_CPUTexture;
@@ -176,7 +177,7 @@ namespace VertexAsylum
         bool                                    SetTexture( bool directMapMode, const shared_ptr< vaTexture > & gpuTexture );
 
     public:
-        vaTextureSubresource *                  GetSubresource( int mipIndex = 0, int arrayIndex = 0)   { assert( arrayIndex == 0 ); arrayIndex; return &m_CPUData[mipIndex]; }
+        vaTextureMappedSubresource *                  GetSubresource( int mipIndex = 0, int arrayIndex = 0)   { assert( arrayIndex == 0 ); arrayIndex; return &m_CPUData[mipIndex]; }
 
         const shared_ptr< vaTexture > &         GetGPUTexture( ) const                                  { return m_GPUTexture; }
 
@@ -203,8 +204,8 @@ namespace VertexAsylum
     public:
         static shared_ptr< vaTextureGPU2CPU >   CreateFromExisting( bool directMapMode, const shared_ptr< vaTexture > & gpuTexture );
         static shared_ptr< vaTextureGPU2CPU >   Create1D( vaRenderDevice & device, bool directMapMode, vaResourceFormat format, int width, int mipLevels, int arraySize, vaResourceBindSupportFlags gpuBindFlags, void * initialData = NULL, vaResourceFormat gpuSRVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuRTVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuDSVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuUAVFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
-        static shared_ptr< vaTextureGPU2CPU >   Create2D( vaRenderDevice & device, bool directMapMode, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags gpuBindFlags, void * initialData = NULL, int initialDataPitch = 0, vaResourceFormat gpuSRVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuRTVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuDSVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuUAVFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
-        static shared_ptr< vaTextureGPU2CPU >   Create3D( vaRenderDevice & device, bool directMapMode, vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags gpuBindFlags, void * initialData = NULL, int initialDataPitch = 0, int initialDataSlicePitch = 0, vaResourceFormat gpuSRVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuRTVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuDSVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuUAVFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
+        static shared_ptr< vaTextureGPU2CPU >   Create2D( vaRenderDevice & device, bool directMapMode, vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags gpuBindFlags, void * initialData = NULL, int initialDataRowPitch = 0, vaResourceFormat gpuSRVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuRTVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuDSVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuUAVFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
+        static shared_ptr< vaTextureGPU2CPU >   Create3D( vaRenderDevice & device, bool directMapMode, vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags gpuBindFlags, void * initialData = NULL, int initialDataRowPitch = 0, int initialDataSlicePitch = 0, vaResourceFormat gpuSRVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuRTVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuDSVFormat = vaResourceFormat::Automatic, vaResourceFormat gpuUAVFormat = vaResourceFormat::Automatic, vaTextureFlags flags = vaTextureFlags::None );
 
     };
 
@@ -219,6 +220,7 @@ namespace VertexAsylum
             Black1x1,
             White1x1,
             Checkerboard16x16,
+            Black1x1Cube,
 
             MaxValue
         };
@@ -256,7 +258,7 @@ namespace VertexAsylum
 
         shared_ptr< vaTexture >                 GetCommonTexture( CommonTextureName textureName );
         
-        void                                    UIDrawImages( vaRenderDeviceContext & apiContext );
+        void                                    UIDrawImages( vaRenderDeviceContext & renderContext );
 
         void                                    UIDrawImGuiInfo( const shared_ptr<vaTexture> & texture );
 

@@ -87,6 +87,8 @@ namespace VertexAsylum
         {
             m_tracker = tracker;
             assert( tracker != nullptr );
+            if( tracker == nullptr )
+                return;
 
             std::unique_lock<mutex> trackerLock( m_tracker->m_tracker_objects_lock );
             

@@ -1,18 +1,181 @@
-<Asset_material FileVersion="2" FaceCull="2" AlphaTest="false" AlphaTestThreshold="0.5" ReceiveShadows="true" Wireframe="false" Transparent="false" AdvancedSpecularShader="true" SpecialEmissiveLight="false" ShaderFileName="vaMaterialBasic.hlsl" ShaderEntryPS_DepthOnly="PS_DepthOnly" ShaderEntryVS_Standard="VS_Standard" ShaderEntryPS_Forward="PS_Forward" ShaderEntryPS_Deferred="PS_Deferred" ShaderEntryPS_CustomShadow="PS_CustomShadow">
-    <ShaderBaseMacros count="0"/>
-    <Inputs count="13">
-        <a0 Name="Albedo" Type="4" Value="{1.000000,1.000000,1.000000,1.000000}" ValueDefault="{1.000000,1.000000,1.000000,1.000000}" ValueMin="{0.000000,0.000000,0.000000,0.000000}" ValueMax="{340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000}" IsValueDynamic="false" SourceTextureID="2b1117f7-3240-44c7-81d7-72176025f1a5" SourceTextureUVIndex="0" SourceTextureSamplerType="5"/>
-        <a1 Name="Emissive" Type="4" Value="{0.000000,0.000000,0.000000,0.000000}" ValueDefault="{0.000000,0.000000,0.000000,0.000000}" ValueMin="{0.000000,0.000000,0.000000,0.000000}" ValueMax="{340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,1.000000}" IsValueDynamic="false" SourceTextureID="00000000-0000-0000-0000-000000000000" SourceTextureUVIndex="-1" SourceTextureSamplerType="0"/>
-        <a2 Name="Normalmap" Type="3" Value="{0.500000,0.500000,1.000000,0.000000}" ValueDefault="{0.500000,0.500000,1.000000,0.000000}" ValueMin="{0.000000,0.000000,0.000000,0.000000}" ValueMax="{1.000000,1.000000,1.000000,0.000000}" IsValueDynamic="false" SourceTextureID="e4e56829-90c8-46ce-8b79-d4defe3353fa" SourceTextureUVIndex="0" SourceTextureSamplerType="5"/>
-        <a3 Name="Specular" Type="4" Value="{1.000000,1.000000,1.000000,1.000000}" ValueDefault="{0.000000,0.000000,0.000000,0.000000}" ValueMin="{0.000000,0.000000,0.000000,0.000000}" ValueMax="{340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000}" IsValueDynamic="false" SourceTextureID="00000000-0000-0000-0000-000000000000" SourceTextureUVIndex="-1" SourceTextureSamplerType="0"/>
-        <a4 Name="SpecularMul" Type="2" Value="1" ValueDefault="0.5" ValueMin="0" ValueMax="3.4028234663852886e+38" IsValueDynamic="false" SourceTextureID="00000000-0000-0000-0000-000000000000" SourceTextureUVIndex="-1" SourceTextureSamplerType="0"/>
-        <a5 Name="SpecularPow" Type="2" Value="64" ValueDefault="16" ValueMin="0" ValueMax="3.4028234663852886e+38" IsValueDynamic="false" SourceTextureID="00000000-0000-0000-0000-000000000000" SourceTextureUVIndex="-1" SourceTextureSamplerType="0"/>
-        <a6 Name="Ambient" Type="4" Value="{0.119538,0.119538,0.119538,0.000000}" ValueDefault="{0.000000,0.000000,0.000000,0.000000}" ValueMin="{0.000000,0.000000,0.000000,0.000000}" ValueMax="{340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,1.000000}" IsValueDynamic="false" SourceTextureID="00000000-0000-0000-0000-000000000000" SourceTextureUVIndex="-1" SourceTextureSamplerType="0"/>
-        <a7 Name="Opacity" Type="2" Value="1" ValueDefault="1" ValueMin="0" ValueMax="3.4028234663852886e+38" IsValueDynamic="false" SourceTextureID="00000000-0000-0000-0000-000000000000" SourceTextureUVIndex="-1" SourceTextureSamplerType="0"/>
-        <a8 Name="EmissiveMul" Type="2" Value="1" ValueDefault="1" ValueMin="0" ValueMax="1000000" IsValueDynamic="false" SourceTextureID="00000000-0000-0000-0000-000000000000" SourceTextureUVIndex="-1" SourceTextureSamplerType="0"/>
-        <a9 Name="BumpScaling" Type="2" Value="1" ValueDefault="1" ValueMin="0" ValueMax="3.4028234663852886e+38" IsValueDynamic="false" SourceTextureID="00000000-0000-0000-0000-000000000000" SourceTextureUVIndex="-1" SourceTextureSamplerType="0"/>
-        <a10 Name="DisplacementScaling" Type="2" Value="1" ValueDefault="1" ValueMin="0" ValueMax="3.4028234663852886e+38" IsValueDynamic="false" SourceTextureID="00000000-0000-0000-0000-000000000000" SourceTextureUVIndex="-1" SourceTextureSamplerType="0"/>
-        <a11 Name="RefractionIndex" Type="2" Value="0.5" ValueDefault="0.20000000298023224" ValueMin="0" ValueMax="2" IsValueDynamic="false" SourceTextureID="00000000-0000-0000-0000-000000000000" SourceTextureUVIndex="-1" SourceTextureSamplerType="0"/>
-        <a12 Name="EnvironmentMapMul" Type="2" Value="1" ValueDefault="1" ValueMin="0" ValueMax="3.4028234663852886e+38" IsValueDynamic="false" SourceTextureID="00000000-0000-0000-0000-000000000000" SourceTextureUVIndex="-1" SourceTextureSamplerType="0"/>
+<vaXMLSerializer>1</vaXMLSerializer>
+<Asset_material>
+    <FileVersion>2</FileVersion>
+    <FaceCull>2</FaceCull>
+    <AlphaTest>false</AlphaTest>
+    <AlphaTestThreshold>0.5</AlphaTestThreshold>
+    <ReceiveShadows>true</ReceiveShadows>
+    <Wireframe>false</Wireframe>
+    <Transparent>false</Transparent>
+    <AdvancedSpecularShader>true</AdvancedSpecularShader>
+    <SpecialEmissiveLight>false</SpecialEmissiveLight>
+    <ShaderFileNameVS_Standard>vaMaterialBasic.hlsl</ShaderFileNameVS_Standard>
+    <ShaderFileNamePS_DepthOnly>vaMaterialBasic.hlsl</ShaderFileNamePS_DepthOnly>
+    <ShaderFileNamePS_Forward>vaMaterialBasic.hlsl</ShaderFileNamePS_Forward>
+    <ShaderFileNamePS_Deferred>vaMaterialBasic.hlsl</ShaderFileNamePS_Deferred>
+    <ShaderFileNamePS_CustomShadow>vaMaterialBasic.hlsl</ShaderFileNamePS_CustomShadow>
+    <ShaderEntryVS_Standard>VS_Standard</ShaderEntryVS_Standard>
+    <ShaderEntryPS_DepthOnly>PS_DepthOnly</ShaderEntryPS_DepthOnly>
+    <ShaderEntryPS_Forward>PS_Forward</ShaderEntryPS_Forward>
+    <ShaderEntryPS_Deferred>PS_Deferred</ShaderEntryPS_Deferred>
+    <ShaderEntryPS_CustomShadow>PS_CustomShadow</ShaderEntryPS_CustomShadow>
+    <ShaderBaseMacros array="true"/>
+    <Inputs array="true">
+        <Input>
+            <Name>Albedo</Name>
+            <Type>4</Type>
+            <Value>{1.000000,1.000000,1.000000,1.000000}</Value>
+            <ValueDefault>{1.000000,1.000000,1.000000,1.000000}</ValueDefault>
+            <ValueMin>{0.000000,0.000000,0.000000,0.000000}</ValueMin>
+            <ValueMax>{340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000}</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>2b1117f7-3240-44c7-81d7-72176025f1a5</SourceTextureID>
+            <SourceTextureUVIndex>0</SourceTextureUVIndex>
+            <SourceTextureSamplerType>5</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>Emissive</Name>
+            <Type>4</Type>
+            <Value>{0.000000,0.000000,0.000000,0.000000}</Value>
+            <ValueDefault>{0.000000,0.000000,0.000000,0.000000}</ValueDefault>
+            <ValueMin>{0.000000,0.000000,0.000000,0.000000}</ValueMin>
+            <ValueMax>{340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,1.000000}</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>00000000-0000-0000-0000-000000000000</SourceTextureID>
+            <SourceTextureUVIndex>-1</SourceTextureUVIndex>
+            <SourceTextureSamplerType>0</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>Normalmap</Name>
+            <Type>3</Type>
+            <Value>{0.500000,0.500000,1.000000,0.000000}</Value>
+            <ValueDefault>{0.500000,0.500000,1.000000,0.000000}</ValueDefault>
+            <ValueMin>{0.000000,0.000000,0.000000,0.000000}</ValueMin>
+            <ValueMax>{1.000000,1.000000,1.000000,0.000000}</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>e4e56829-90c8-46ce-8b79-d4defe3353fa</SourceTextureID>
+            <SourceTextureUVIndex>0</SourceTextureUVIndex>
+            <SourceTextureSamplerType>5</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>Specular</Name>
+            <Type>4</Type>
+            <Value>{1.000000,1.000000,1.000000,1.000000}</Value>
+            <ValueDefault>{0.000000,0.000000,0.000000,0.000000}</ValueDefault>
+            <ValueMin>{0.000000,0.000000,0.000000,0.000000}</ValueMin>
+            <ValueMax>{340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000}</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>00000000-0000-0000-0000-000000000000</SourceTextureID>
+            <SourceTextureUVIndex>-1</SourceTextureUVIndex>
+            <SourceTextureSamplerType>0</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>SpecularMul</Name>
+            <Type>2</Type>
+            <Value>1</Value>
+            <ValueDefault>0.5</ValueDefault>
+            <ValueMin>0</ValueMin>
+            <ValueMax>3.4028235e+38</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>00000000-0000-0000-0000-000000000000</SourceTextureID>
+            <SourceTextureUVIndex>-1</SourceTextureUVIndex>
+            <SourceTextureSamplerType>0</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>SpecularPow</Name>
+            <Type>2</Type>
+            <Value>64</Value>
+            <ValueDefault>16</ValueDefault>
+            <ValueMin>0</ValueMin>
+            <ValueMax>3.4028235e+38</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>00000000-0000-0000-0000-000000000000</SourceTextureID>
+            <SourceTextureUVIndex>-1</SourceTextureUVIndex>
+            <SourceTextureSamplerType>0</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>Ambient</Name>
+            <Type>4</Type>
+            <Value>{0.119538,0.119538,0.119538,0.000000}</Value>
+            <ValueDefault>{0.000000,0.000000,0.000000,0.000000}</ValueDefault>
+            <ValueMin>{0.000000,0.000000,0.000000,0.000000}</ValueMin>
+            <ValueMax>{340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,340282346638528859811704183484516925440.000000,1.000000}</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>00000000-0000-0000-0000-000000000000</SourceTextureID>
+            <SourceTextureUVIndex>-1</SourceTextureUVIndex>
+            <SourceTextureSamplerType>0</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>Opacity</Name>
+            <Type>2</Type>
+            <Value>1</Value>
+            <ValueDefault>1</ValueDefault>
+            <ValueMin>0</ValueMin>
+            <ValueMax>3.4028235e+38</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>00000000-0000-0000-0000-000000000000</SourceTextureID>
+            <SourceTextureUVIndex>-1</SourceTextureUVIndex>
+            <SourceTextureSamplerType>0</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>EmissiveMul</Name>
+            <Type>2</Type>
+            <Value>1</Value>
+            <ValueDefault>1</ValueDefault>
+            <ValueMin>0</ValueMin>
+            <ValueMax>1000000</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>00000000-0000-0000-0000-000000000000</SourceTextureID>
+            <SourceTextureUVIndex>-1</SourceTextureUVIndex>
+            <SourceTextureSamplerType>0</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>BumpScaling</Name>
+            <Type>2</Type>
+            <Value>1</Value>
+            <ValueDefault>1</ValueDefault>
+            <ValueMin>0</ValueMin>
+            <ValueMax>3.4028235e+38</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>00000000-0000-0000-0000-000000000000</SourceTextureID>
+            <SourceTextureUVIndex>-1</SourceTextureUVIndex>
+            <SourceTextureSamplerType>0</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>DisplacementScaling</Name>
+            <Type>2</Type>
+            <Value>1</Value>
+            <ValueDefault>1</ValueDefault>
+            <ValueMin>0</ValueMin>
+            <ValueMax>3.4028235e+38</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>00000000-0000-0000-0000-000000000000</SourceTextureID>
+            <SourceTextureUVIndex>-1</SourceTextureUVIndex>
+            <SourceTextureSamplerType>0</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>RefractionIndex</Name>
+            <Type>2</Type>
+            <Value>0.5</Value>
+            <ValueDefault>0.2</ValueDefault>
+            <ValueMin>0</ValueMin>
+            <ValueMax>2</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>00000000-0000-0000-0000-000000000000</SourceTextureID>
+            <SourceTextureUVIndex>-1</SourceTextureUVIndex>
+            <SourceTextureSamplerType>0</SourceTextureSamplerType>
+        </Input>
+        <Input>
+            <Name>EnvironmentMapMul</Name>
+            <Type>2</Type>
+            <Value>1</Value>
+            <ValueDefault>1</ValueDefault>
+            <ValueMin>0</ValueMin>
+            <ValueMax>3.4028235e+38</ValueMax>
+            <IsValueDynamic>false</IsValueDynamic>
+            <SourceTextureID>00000000-0000-0000-0000-000000000000</SourceTextureID>
+            <SourceTextureUVIndex>-1</SourceTextureUVIndex>
+            <SourceTextureSamplerType>0</SourceTextureSamplerType>
+        </Input>
     </Inputs>
 </Asset_material>

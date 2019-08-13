@@ -155,9 +155,9 @@ void vaDebugCanvas2D::CleanQueued( )
     m_drawStringLines.clear( );
 }
 
-void vaDebugCanvas2D::Render( vaRenderDeviceContext & apiContext, int canvasWidth, int canvasHeight, bool bJustClearData )
+void vaDebugCanvas2D::Render( vaRenderDeviceContext & renderContext, int canvasWidth, int canvasHeight, bool bJustClearData )
 {
-    //ID3D11DeviceContext * context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    //ID3D11DeviceContext * context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     // Fill shapes first
     if( !bJustClearData )
@@ -171,7 +171,7 @@ void vaDebugCanvas2D::Render( vaRenderDeviceContext & apiContext, int canvasWidt
             }
 
             vaResourceMapType mapType = ( m_vertexBufferCurrentlyUsed == 0 ) ? ( vaResourceMapType::WriteDiscard ) : ( vaResourceMapType::WriteNoOverwrite );
-            if( m_vertexBuffer.TryMap( apiContext, mapType ) )
+            if( m_vertexBuffer.Map( renderContext, mapType ) )
             {
                 CanvasVertex2D * vertices = m_vertexBuffer.GetMappedData( );
                 int drawFromVertex = m_vertexBufferCurrentlyUsed;
@@ -193,9 +193,9 @@ void vaDebugCanvas2D::Render( vaRenderDeviceContext & apiContext, int canvasWidt
                     rectsDrawn++;
                 }
                 int drawVertexCount = m_vertexBufferCurrentlyUsed - drawFromVertex;
-                m_vertexBuffer.Unmap( apiContext );
+                m_vertexBuffer.Unmap( renderContext );
 
-                vaRenderItem renderItem;
+                vaGraphicsItem renderItem;
 
                 renderItem.CullMode     = vaFaceCull::None;
                 renderItem.BlendMode    = vaBlendMode::AlphaBlend;
@@ -205,7 +205,7 @@ void vaDebugCanvas2D::Render( vaRenderDeviceContext & apiContext, int canvasWidt
                 renderItem.PixelShader  = m_pixelShader;
                 renderItem.SetDrawSimple( drawVertexCount, drawFromVertex );
 
-                apiContext.ExecuteSingleItem( renderItem );
+                renderContext.ExecuteSingleItem( renderItem );
             }
             else
             {
@@ -226,7 +226,7 @@ void vaDebugCanvas2D::Render( vaRenderDeviceContext & apiContext, int canvasWidt
             }
 
             vaResourceMapType mapType = ( m_vertexBufferCurrentlyUsed == 0 ) ? ( vaResourceMapType::WriteDiscard ) : ( vaResourceMapType::WriteNoOverwrite );
-            if( m_vertexBuffer.TryMap( apiContext, mapType ) )
+            if( m_vertexBuffer.Map( renderContext, mapType ) )
             {
                 CanvasVertex2D * vertices = m_vertexBuffer.GetMappedData( );
                 int drawFromVertex = m_vertexBufferCurrentlyUsed;
@@ -242,9 +242,9 @@ void vaDebugCanvas2D::Render( vaRenderDeviceContext & apiContext, int canvasWidt
                     linesDrawn++;
                 }
                 int drawVertexCount = m_vertexBufferCurrentlyUsed - drawFromVertex;
-                m_vertexBuffer.Unmap( apiContext );
+                m_vertexBuffer.Unmap( renderContext );
 
-                vaRenderItem renderItem;
+                vaGraphicsItem renderItem;
 
                 renderItem.CullMode     = vaFaceCull::None;
                 renderItem.BlendMode    = vaBlendMode::AlphaBlend;
@@ -254,7 +254,7 @@ void vaDebugCanvas2D::Render( vaRenderDeviceContext & apiContext, int canvasWidt
                 renderItem.PixelShader  = m_pixelShader;
                 renderItem.SetDrawSimple( drawVertexCount, drawFromVertex );
 
-                apiContext.ExecuteSingleItem( renderItem );
+                renderContext.ExecuteSingleItem( renderItem );
             }
             else
             {
@@ -595,8 +595,8 @@ vaDebugCanvas3D::vaDebugCanvas3D( const vaRenderingModuleParams & params )
     inputElements.push_back( { "SV_Position", 0,    vaResourceFormat::R32G32B32A32_FLOAT,    0, vaVertexInputElementDesc::AppendAlignedElement, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } );
     inputElements.push_back( { "COLOR",        0,   vaResourceFormat::B8G8R8A8_UNORM,        0, vaVertexInputElementDesc::AppendAlignedElement, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } );
 
-    m_vertexShader->CreateShaderAndILFromFile( L"vaCanvas.hlsl", "vs_5_0", "VS_Canvas3D", inputElements );
-    m_pixelShader->CreateShaderFromFile( L"vaCanvas.hlsl", "ps_5_0", "PS_Canvas3D" );
+    m_vertexShader->CreateShaderAndILFromFile( L"vaCanvas.hlsl", "vs_5_0", "VS_Canvas3D", inputElements, vaShaderMacroContaner{}, false );
+    m_pixelShader->CreateShaderFromFile( L"vaCanvas.hlsl", "ps_5_0", "PS_Canvas3D", vaShaderMacroContaner{}, false );
 
     m_triVertexBufferCurrentlyUsed = 0;
     m_triVertexBufferStart = 0;
@@ -644,12 +644,12 @@ void vaDebugCanvas3D::RenderLine( vaSceneDrawContext & drawContext, const Canvas
     }
 
     vaResourceMapType mapType = ( m_lineVertexBufferCurrentlyUsed == 0 ) ? ( vaResourceMapType::WriteDiscard ) : ( vaResourceMapType::WriteNoOverwrite );
-    if( m_lineVertexBuffer.TryMap( drawContext.APIContext, mapType ) )
+    if( m_lineVertexBuffer.Map( drawContext.RenderDeviceContext, mapType ) )
     {
         CanvasVertex3D * vertices = m_lineVertexBuffer.GetMappedData( );
         vertices[m_lineVertexBufferCurrentlyUsed++] = a;
         vertices[m_lineVertexBufferCurrentlyUsed++] = b;
-        m_lineVertexBuffer.Unmap( drawContext.APIContext );
+        m_lineVertexBuffer.Unmap( drawContext.RenderDeviceContext );
     }
 }
 
@@ -663,7 +663,7 @@ void vaDebugCanvas3D::RenderLineBatch( vaSceneDrawContext & drawContext, DrawLin
     }
 
     vaResourceMapType mapType = ( m_lineVertexBufferCurrentlyUsed == 0 ) ? ( vaResourceMapType::WriteDiscard ) : ( vaResourceMapType::WriteNoOverwrite );
-    if( m_lineVertexBuffer.TryMap( drawContext.APIContext, mapType ) )
+    if( m_lineVertexBuffer.Map( drawContext.RenderDeviceContext, mapType ) )
     {
         CanvasVertex3D * vertices = m_lineVertexBuffer.GetMappedData( );
         for( size_t i = 0; i < count; i++ )
@@ -673,7 +673,7 @@ void vaDebugCanvas3D::RenderLineBatch( vaSceneDrawContext & drawContext, DrawLin
             vertices[m_lineVertexBufferCurrentlyUsed++] = line.v0;
             vertices[m_lineVertexBufferCurrentlyUsed++] = line.v1;
         }
-        m_lineVertexBuffer.Unmap( drawContext.APIContext );
+        m_lineVertexBuffer.Unmap( drawContext.RenderDeviceContext );
     }
 }
 
@@ -683,7 +683,7 @@ void vaDebugCanvas3D::FlushLines( vaSceneDrawContext & drawContext )
 
     if( verticesToRender > 0 )
     {
-        vaRenderItem renderItem;
+        vaGraphicsItem renderItem;
 
         renderItem.DepthEnable      = true;
         renderItem.DepthWriteEnable = false;
@@ -696,7 +696,7 @@ void vaDebugCanvas3D::FlushLines( vaSceneDrawContext & drawContext )
         renderItem.PixelShader      = m_pixelShader;
         renderItem.SetDrawSimple( verticesToRender, m_lineVertexBufferStart );
 
-        drawContext.APIContext.ExecuteSingleItem( renderItem );
+        drawContext.RenderDeviceContext.ExecuteSingleItem( renderItem );
     }
     m_lineVertexBufferStart = m_lineVertexBufferCurrentlyUsed;
 }
@@ -711,13 +711,13 @@ void vaDebugCanvas3D::RenderTriangle( vaSceneDrawContext & drawContext, const Ca
     }
 
     vaResourceMapType mapType = ( m_triVertexBufferCurrentlyUsed == 0 ) ? ( vaResourceMapType::WriteDiscard ) : ( vaResourceMapType::WriteNoOverwrite );
-    if( m_triVertexBuffer.TryMap( drawContext.APIContext, mapType ) )
+    if( m_triVertexBuffer.Map( drawContext.RenderDeviceContext, mapType ) )
     {
         CanvasVertex3D * vertices = m_triVertexBuffer.GetMappedData( );
         vertices[m_triVertexBufferCurrentlyUsed++] = a;
         vertices[m_triVertexBufferCurrentlyUsed++] = b;
         vertices[m_triVertexBufferCurrentlyUsed++] = c;
-        m_triVertexBuffer.Unmap( drawContext.APIContext );
+        m_triVertexBuffer.Unmap( drawContext.RenderDeviceContext );
     }
 }
 
@@ -731,7 +731,7 @@ void vaDebugCanvas3D::RenderTrianglesBatch( vaSceneDrawContext & drawContext, Dr
     }
 
     vaResourceMapType mapType = ( m_triVertexBufferCurrentlyUsed == 0 ) ? ( vaResourceMapType::WriteDiscard ) : ( vaResourceMapType::WriteNoOverwrite );
-    if( m_triVertexBuffer.TryMap( drawContext.APIContext, mapType ) )
+    if( m_triVertexBuffer.Map( drawContext.RenderDeviceContext, mapType ) )
     {
         CanvasVertex3D * vertices = m_triVertexBuffer.GetMappedData( );
         for( size_t i = 0; i < count; i++ )
@@ -742,7 +742,7 @@ void vaDebugCanvas3D::RenderTrianglesBatch( vaSceneDrawContext & drawContext, Dr
             vertices[m_triVertexBufferCurrentlyUsed++] = triangle.v1;
             vertices[m_triVertexBufferCurrentlyUsed++] = triangle.v2;
         }
-        m_triVertexBuffer.Unmap( drawContext.APIContext );
+        m_triVertexBuffer.Unmap( drawContext.RenderDeviceContext );
     }
 }
 
@@ -752,7 +752,7 @@ void vaDebugCanvas3D::FlushTriangles( vaSceneDrawContext & drawContext )
 
     if( verticesToRender > 0 )
     {
-        vaRenderItem renderItem;
+        vaGraphicsItem renderItem;
 
         renderItem.DepthEnable      = true;
         renderItem.DepthWriteEnable = false;
@@ -765,7 +765,7 @@ void vaDebugCanvas3D::FlushTriangles( vaSceneDrawContext & drawContext )
         renderItem.PixelShader      = m_pixelShader;
         renderItem.SetDrawSimple( verticesToRender, m_triVertexBufferStart );
 
-        drawContext.APIContext.ExecuteSingleItem( renderItem );
+        drawContext.RenderDeviceContext.ExecuteSingleItem( renderItem );
     }
     m_triVertexBufferStart = m_triVertexBufferCurrentlyUsed;
 }

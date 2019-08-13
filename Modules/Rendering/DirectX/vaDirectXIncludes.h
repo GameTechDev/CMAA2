@@ -25,12 +25,19 @@
 #error "DXUT requires a Unicode build."
 #endif
 
-#include <d3d11.h>
-#include <d3d11_1.h>
-#include <d3d11_2.h>
+#include <dxgi1_6.h>
+#include <d3d11_4.h>
+#include <d3d12.h>
+#include "d3dx12.h"
 
-#pragma comment(lib, "d3d11.lib")
+//#include <WindowsX.h>
+
+
 #pragma comment( lib, "d3dcompiler.lib" )
+#pragma comment( lib, "d3d11.lib" )
+#pragma comment( lib, "d3d12.lib" )
+#pragma comment( lib, "dxgi.lib" )
+
 
 //#define DXUT_AUTOLIB
 //

@@ -25,8 +25,6 @@
 #include "Rendering/vaLighting.h"
 #include "Rendering/vaRenderMesh.h"
 
-#include "IntegratedExternals/vaImguiIntegration.h"
-
 namespace VertexAsylum
 {
     class vaScene;
@@ -34,7 +32,7 @@ namespace VertexAsylum
     class vaDebugCanvas2D;
     class vaDebugCanvas3D;
 
-    class vaSceneObject : public std::enable_shared_from_this<vaSceneObject>, public vaXMLSerializable, public vaImguiHierarchyObject //, public vaUIDObject
+    class vaSceneObject : public std::enable_shared_from_this<vaSceneObject>, public vaXMLSerializable, public vaUIPropertiesItem//, public vaUIDObject
     {
     protected:
         string                                      m_name                                  = "Unnamed";
@@ -128,12 +126,12 @@ namespace VertexAsylum
         void                                        UpdateLocalBoundingBox( );
 
     protected:
-        virtual string                              IHO_GetInstanceName( ) const override                       { return m_name; }
-        virtual void                                IHO_Draw( ) override;
+        virtual string                              UIPropertiesItemGetDisplayName( ) const override                       { return m_name; }
+        virtual void                                UIPropertiesItemDraw( ) override;
 
     };
 
-    class vaScene : public vaImguiHierarchyObject, public std::enable_shared_from_this<vaScene>//, public vaXMLSerializable
+    class vaScene : public vaUIPanel, public std::enable_shared_from_this<vaScene>//, public vaXMLSerializable
     {
         // to support creation/destruction of objects from Tick!
         struct DeferredObjectAction
@@ -249,6 +247,8 @@ namespace VertexAsylum
 
         vaDrawResultFlags                           SelectForRendering( vaRenderSelection & renderSelection );
 
+        vector<shared_ptr<vaSceneObject>>           FindObjects( std::function<bool(vaSceneObject&obj)> searchCriteria );
+
         // debug UI stuff
         void                                        DrawUI( vaCameraBase & camera, vaDebugCanvas2D & canvas2D, vaDebugCanvas3D & canvas3D );
         void                                        OnMouseClick( const vaVector3 & worldClickLocation );
@@ -258,8 +258,8 @@ namespace VertexAsylum
 
     protected:
         // vaImguiHierarchyObject
-        virtual string                              IHO_GetInstanceName( ) const override { return "Scene: '" + m_name + "'"; }
-        virtual void                                IHO_Draw( ) override;
+        virtual string                              UIPanelGetDisplayName( ) const override     { return m_name; }
+        virtual void                                UIPanelDraw( ) override;
 
     private:
         friend class vaSceneObject;

@@ -54,8 +54,8 @@ m_constantsBuffer( params.RenderDevice )
     std::vector<vaVertexInputElementDesc> inputElements;
     inputElements.push_back( { "SV_Position", 0, vaResourceFormat::R32G32B32_FLOAT, 0, vaVertexInputElementDesc::AppendAlignedElement, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } );
 
-    m_vertexShader->CreateShaderAndILFromFile( L"vaSky.hlsl", "vs_5_0", "SimpleSkyboxVS", inputElements );
-    m_pixelShader->CreateShaderFromFile( L"vaSky.hlsl", "ps_5_0", "SimpleSkyboxPS" );
+    m_vertexShader->CreateShaderAndILFromFile( L"vaSky.hlsl", "vs_5_0", "SimpleSkyboxVS", inputElements, vaShaderMacroContaner{}, false );
+    m_pixelShader->CreateShaderFromFile( L"vaSky.hlsl", "ps_5_0", "SimpleSkyboxPS", vaShaderMacroContaner{}, false );
 
     // Create screen triangle vertex buffer
     {

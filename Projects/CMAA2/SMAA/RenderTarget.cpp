@@ -27,6 +27,7 @@
 #include "RenderTarget.h"
 using namespace std;
 
+using namespace VertexAsylum;
 
 #pragma region Useful Macros from DXUT (copy-pasted here as we prefer this to be as self-contained as possible)
 #if defined(DEBUG) || defined(_DEBUG)

@@ -19,8 +19,8 @@
 
 #pragma once
 
-// WARNING: the CPU side of this profiler is not really useful at all - better to be replaced with Remotery or another
-// freely available instrumentation library.
+// WARNING: the CPU side of this profiler is not really useful at all - it only makes sense for measuring CPU side of
+// draw calls. For anything else better to use Remotery or another freely available instrumentation lib.
 
 #include "Core/vaCoreIncludes.h"
 
@@ -63,7 +63,7 @@ namespace VertexAsylum
         double                          m_totalTimeCPU;
         double                          m_exclusiveTimeCPU;
 
-        unique_ptr<vaGPUTimer>          m_GPUProfiler;
+        shared_ptr<vaGPUTimer>          m_GPUProfiler;
         double                          m_totalTimeGPU;
         double                          m_exclusiveTimeGPU;
 
@@ -99,13 +99,13 @@ namespace VertexAsylum
         ~vaNestedProfilerNode( );
 
     protected:
-        vaNestedProfilerNode *          StartScope( const string & name, vaRenderDeviceContext * renderDeviceContext, double currentTime, int64 profilerFrameIndex, bool newNodeSelectedDefault );
-        void                            StopScope( double currentTime );
+        vaNestedProfilerNode *          StartScope( const string & name, double currentTime, int64 profilerFrameIndex, bool newNodeSelectedDefault, vaRenderDeviceContext * renderDeviceContext );
+        void                            StopScope( double currentTime, vaRenderDeviceContext * renderDeviceContext );
         //
     protected:
         void                            RemoveOrphans( );
         void                            Proccess( );
-        void                            Display( const string & namePath, int depth, bool cpu, vaProfilerTimingsDisplayType displayType );
+        void                            Display( const string & namePath, int depth, bool cpu, bool skipInitialNonGPUNodes, vaProfilerTimingsDisplayType displayType );
         //
     public:
         // Warning: node returned here is only guaranteed to remain valud until next vaProfiler::NewFrame( ) gets called
@@ -156,13 +156,13 @@ namespace VertexAsylum
         int64                           m_profilerFrameIndex;
     
     protected:
-        friend class vaCore;
+        friend class vaRenderDevice;
         vaProfiler( );
         ~vaProfiler( );
 
     public:
-        vaNestedProfilerNode *          StartScope( const string & name, vaRenderDeviceContext * renderDeviceContext, bool newNodeSelectedDefault );
-        void                            StopScope( vaNestedProfilerNode * node );
+        vaNestedProfilerNode *          StartScope( const string & name, bool newNodeSelectedDefault, vaRenderDeviceContext * renderDeviceContext );
+        void                            StopScope( vaNestedProfilerNode * node, vaRenderDeviceContext * renderDeviceContext );
 
     public:
         void                            NewFrame( );
@@ -181,6 +181,7 @@ namespace VertexAsylum
     class vaScopeTimer
     {
         vaNestedProfilerNode * const    m_node;
+        vaRenderDeviceContext * const   m_renderDeviceContext;
 
         static bool                     s_disableScopeTimer;
 
@@ -203,9 +204,9 @@ namespace VertexAsylum
         // #define VA_SCOPE_CPU_TIMER( name )                                          vaScopeTimer scope_##name( #name );                 rmt_ScopedCPUSample( name, 0 )
         // #define VA_SCOPE_CPU_TIMER_CUSTOMNAME( nameVar, customName )                vaScopeTimer scope_##name( customName );            rmt_ScopedCPUSampleDynamic( name, 0 )
         // #define VA_SCOPE_CPU_TIMER_AGGREGATE( name )                                vaScopeTimer scope_##name( #name, nullptr, true );  rmt_ScopedCPUSample( name, RMTSF_Aggregate )
-         #define VA_SCOPE_CPU_TIMER( name )                                          rmt_ScopedCPUSample( name, 0 )
-         #define VA_SCOPE_CPU_TIMER_CUSTOMNAME( nameVar, customName )                rmt_ScopedCPUSampleDynamic( name, 0 )
-         #define VA_SCOPE_CPU_TIMER_AGGREGATE( name )                                rmt_ScopedCPUSample( name, RMTSF_Aggregate )
+        #define VA_SCOPE_CPU_TIMER( name )                                          rmt_ScopedCPUSample( name, 0 )
+        #define VA_SCOPE_CPU_TIMER_CUSTOMNAME( nameVar, customName )                rmt_ScopedCPUSampleDynamic( name, 0 )
+        #define VA_SCOPE_CPU_TIMER_AGGREGATE( name )                                rmt_ScopedCPUSample( name, RMTSF_Aggregate )
 
         #define VA_NAME_THREAD( name )                                              rmt_SetCurrentThreadName( name )
 

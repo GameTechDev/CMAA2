@@ -46,9 +46,6 @@
     <Filter Include="Rendering\Media\Shaders">
       <UniqueIdentifier>{9ada47b9-7d8c-44cf-bff8-25a58335a4ac}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Rendering\DirectX\imgui">
-      <UniqueIdentifier>{15837465-3fe8-405d-bbe6-03fc4a180102}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Rendering\Shaders">
       <UniqueIdentifier>{b60cedb2-8b7f-499e-9b01-3f3145b313f4}</UniqueIdentifier>
     </Filter>
@@ -71,9 +68,6 @@
     </ClCompile>
     <ClCompile Include="..\..\Modules\Core\vaStringTools.cpp">
       <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Modules\Core\Misc\vaCRC64.cpp">
-      <Filter>Core\Misc</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Modules\Core\Platform\WindowsPC\vaPlatformBase.cpp">
       <Filter>Core\Platform\WindowsPC</Filter>
@@ -120,9 +114,6 @@
     <ClCompile Include="..\..\Modules\Rendering\DirectX\vaTextureDX11.cpp">
       <Filter>Rendering\DirectX</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderingToolsDX11.cpp">
-      <Filter>Rendering\DirectX</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Modules\Rendering\vaStandardShapes.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
@@ -144,12 +135,6 @@
     <ClCompile Include="..\..\Modules\Rendering\DirectX\Effects\vaSimpleShadowMapDX11.cpp">
       <Filter>Rendering\DirectX\Effects</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\vaRenderingGlobals.cpp">
-      <Filter>Rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderingGlobalsDX11.cpp">
-      <Filter>Rendering\DirectX</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Modules\Rendering\DirectX\vaGPUTimerDX11.cpp">
       <Filter>Rendering\DirectX</Filter>
     </ClCompile>
@@ -158,9 +143,6 @@
     </ClCompile>
     <ClCompile Include="..\..\Modules\Core\Misc\vaBenchmarkTool.cpp">
       <Filter>Core\Misc</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Modules\IntegratedExternals\imgui\DirectX11\imgui_impl_dx11.cpp">
-      <Filter>Rendering\DirectX\imgui</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Modules\Scene\vaScene.cpp">
       <Filter>Scene</Filter>
@@ -174,17 +156,11 @@
     <ClCompile Include="..\..\Modules\Rendering\vaGBuffer.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaGBufferDX11.cpp">
-      <Filter>Rendering\DirectX</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderDeviceContextDX11.cpp">
       <Filter>Rendering\DirectX</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Modules\Rendering\vaRenderDeviceContext.cpp">
       <Filter>Rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\DirectX\Effects\vaPostProcessDX11.cpp">
-      <Filter>Rendering\DirectX\Effects</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Modules\Rendering\vaLighting.cpp">
       <Filter>Rendering</Filter>
@@ -210,12 +186,6 @@
     <ClCompile Include="..\..\Modules\Core\vaUIDObject.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\Effects\vaASSAO.cpp">
-      <Filter>Rendering\Effects</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\DirectX\Effects\vaASSAODX11.cpp">
-      <Filter>Rendering\DirectX\Effects</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderMaterialDX11.cpp">
       <Filter>Rendering\DirectX</Filter>
     </ClCompile>
@@ -224,9 +194,6 @@
     </ClCompile>
     <ClCompile Include="..\..\Modules\Scene\vaAssetImporter_Assimp.cpp">
       <Filter>Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaDirectXFont.cpp">
-      <Filter>Rendering\DirectX</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Modules\Rendering\DirectX\vaDirectXRecOMatic.cpp">
       <Filter>Rendering\DirectX</Filter>
@@ -252,20 +219,11 @@
     <ClCompile Include="..\..\Modules\Rendering\Effects\vaPostProcessBlur.cpp">
       <Filter>Rendering\Effects</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\DirectX\Effects\vaPostProcessBlurDX11.cpp">
-      <Filter>Rendering\DirectX\Effects</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\DirectX\Effects\vaPostProcessTonemapDX11.cpp">
-      <Filter>Rendering\DirectX\Effects</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Modules\Core\Misc\vaPoissonDiskGenerator.cpp">
       <Filter>Core\Misc</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Modules\Rendering\Effects\vaSkybox.cpp">
       <Filter>Rendering\Effects</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\DirectX\Effects\vaSkyboxDX11.cpp">
-      <Filter>Rendering\DirectX\Effects</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Modules\Core\Misc\vaLargeBitmapFile.cpp">
       <Filter>Core\Misc</Filter>
@@ -285,17 +243,11 @@
     <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderBuffersDX11.cpp">
       <Filter>Rendering\DirectX</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\Misc\vaZoomToolDX11.cpp">
-      <Filter>Rendering\Misc</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Modules\Rendering\Misc\vaZoomTool.cpp">
       <Filter>Rendering\Misc</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Modules\Rendering\vaPrimitiveShapeRenderer.cpp">
       <Filter>Rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaPrimitiveShapeRendererDX11.cpp">
-      <Filter>Rendering\DirectX</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Modules\Rendering\vaShader.cpp">
       <Filter>Rendering</Filter>
@@ -318,6 +270,9 @@
     <ClCompile Include="..\..\Modules\Core\Platform\WindowsPC\vaApplicationWin.cpp">
       <Filter>Core\Platform\WindowsPC</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderDeviceDX12.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Modules\Core\Misc\vaResourceFormats.cpp">
       <Filter>Core\Misc</Filter>
     </ClCompile>
@@ -329,6 +284,69 @@
     </ClCompile>
     <ClCompile Include="..\..\Modules\Core\Platform\WindowsPC\System\vaPlatformThreading.cpp">
       <Filter>Core\Platform\WindowsPC\System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderDeviceContextDX12.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaShaderDX12.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderBuffersDX12.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaTextureDX12.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderGlobalsDX11.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderGlobalsDX12.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\vaRenderGlobals.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaLightingDX12.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\Effects\vaSkyboxDX.cpp">
+      <Filter>Rendering\DirectX\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderMeshDX12.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaRenderMaterialDX12.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaPrimitiveShapeRendererDX.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaGBufferDX.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\Effects\vaPostProcessDX.cpp">
+      <Filter>Rendering\DirectX\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\Effects\vaPostProcessBlurDX.cpp">
+      <Filter>Rendering\DirectX\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\Effects\vaPostProcessTonemapDX.cpp">
+      <Filter>Rendering\DirectX\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\DirectX\vaGPUTimerDX12.cpp">
+      <Filter>Rendering\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Core\vaUI.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Core\Misc\xxhash.c">
+      <Filter>Core\Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Core\Misc\vaXXHash.cpp">
+      <Filter>Core\Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Modules\Rendering\Effects\vaASSAOLite.cpp">
+      <Filter>Rendering\Effects</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -367,9 +385,6 @@
     </ClInclude>
     <ClInclude Include="..\..\Modules\Core\Containers\vaSparseArray.h">
       <Filter>Core\Containers</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Modules\Core\Misc\vaCRC64.h">
-      <Filter>Core\Misc</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\Core\Platform\WindowsPC\vaPlatformBase.h">
       <Filter>Core\Platform\WindowsPC</Filter>
@@ -434,9 +449,6 @@
     <ClInclude Include="..\..\Modules\Rendering\vaRenderingTools.h">
       <Filter>Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaRenderingToolsDX11.h">
-      <Filter>Rendering\DirectX</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Modules\Scene\vaSceneTools.h">
       <Filter>Scene</Filter>
     </ClInclude>
@@ -470,12 +482,6 @@
     <ClInclude Include="..\..\Modules\Rendering\DirectX\Effects\vaSimpleShadowMapDX11.h">
       <Filter>Rendering\DirectX\Effects</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Modules\Rendering\vaRenderingGlobals.h">
-      <Filter>Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaRenderingGlobalsDX11.h">
-      <Filter>Rendering\DirectX</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Modules\Rendering\DirectX\vaGPUTimerDX11.h">
       <Filter>Rendering\DirectX</Filter>
     </ClInclude>
@@ -484,9 +490,6 @@
     </ClInclude>
     <ClInclude Include="..\..\Modules\Core\Misc\vaBenchmarkTool.h">
       <Filter>Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Modules\IntegratedExternals\imgui\DirectX11\imgui_impl_dx11.h">
-      <Filter>Rendering\DirectX\imgui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\Core\Containers\vaTrackerTrackee.h">
       <Filter>Core\Containers</Filter>
@@ -521,17 +524,11 @@
     <ClInclude Include="..\..\Modules\Core\vaUIDObject.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Modules\Rendering\Effects\vaASSAO.h">
-      <Filter>Rendering\Effects</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Modules\Rendering\DirectX\vaRenderMaterialDX11.h">
       <Filter>Rendering\DirectX</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\Rendering\vaRenderMaterial.h">
       <Filter>Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaDirectXFont.h">
-      <Filter>Rendering\DirectX</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\Rendering\DirectX\vaDirectXIncludes.h">
       <Filter>Rendering\DirectX</Filter>
@@ -564,9 +561,6 @@
     <ClInclude Include="..\..\Modules\Core\Misc\vaPoissonDiskGenerator.h">
       <Filter>Core\Misc</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Modules\Core\Platform\WindowsPC\vaApplication.h">
-      <Filter>Core</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Modules\Rendering\Effects\vaSkybox.h">
       <Filter>Rendering\Effects</Filter>
     </ClInclude>
@@ -584,12 +578,6 @@
     </ClInclude>
     <ClInclude Include="..\..\Modules\Rendering\vaTextureHelpers.h">
       <Filter>Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Modules\Rendering\Shaders\vaASSAO_main_disk.h">
-      <Filter>Rendering\Shaders</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Modules\Rendering\Shaders\vaASSAO_types.h">
-      <Filter>Rendering\Shaders</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\Rendering\Shaders\vaShaderCore.h">
       <Filter>Rendering\Shaders</Filter>
@@ -651,11 +639,11 @@
     <ClInclude Include="..\..\Modules\Core\Platform\WindowsPC\vaApplicationWin.h">
       <Filter>Core\Platform\WindowsPC</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaRenderDeviceDX12.h">
+      <Filter>Rendering\DirectX</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Modules\Core\Misc\vaResourceFormats.h">
       <Filter>Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaResourceFormatsDX11.h">
-      <Filter>Rendering\DirectX</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\Rendering\DirectX\vaLightingDX11.h">
       <Filter>Rendering\DirectX</Filter>
@@ -664,9 +652,6 @@
       <Filter>Core\System</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\Rendering\Shaders\vaSkybox.hlsl">
-      <Filter>Rendering\Shaders</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Modules\Rendering\Shaders\vaASSAO.hlsl">
       <Filter>Rendering\Shaders</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Modules\Rendering\Shaders\vaCanvas.hlsl">
@@ -717,6 +702,52 @@
     <ClInclude Include="..\..\Modules\Rendering\Shaders\vaSky.hlsl">
       <Filter>Rendering\Shaders</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\DirectX\d3dx12.h">
+      <Filter>Rendering\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaRenderDeviceContextDX12.h">
+      <Filter>Rendering\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaShaderDX12.h">
+      <Filter>Rendering\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaRenderBuffersDX12.h">
+      <Filter>Rendering\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaTextureDX12.h">
+      <Filter>Rendering\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaRenderGlobalsDX11.h">
+      <Filter>Rendering\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaRenderGlobalsDX12.h">
+      <Filter>Rendering\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\vaRenderGlobals.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\DirectX\vaGPUTimerDX12.h">
+      <Filter>Rendering\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\Shaders\vaStandardSamplers.hlsl" />
+    <ClInclude Include="..\..\Modules\Core\vaUI.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Core\Misc\vaXXHash.h">
+      <Filter>Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Core\Misc\xxhash.h">
+      <Filter>Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\Shaders\vaASSAOLite_types.h">
+      <Filter>Rendering\Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\Effects\vaASSAOLite.h">
+      <Filter>Rendering\Effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Modules\Rendering\Shaders\vaASSAOLite.hlsl">
+      <Filter>Rendering\Shaders</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Modules\Core\vaGeometry.inl">
@@ -728,5 +759,9 @@
     <None Include="..\..\Modules\Rendering\EmbedRenderingMedia.bat">
       <Filter>Rendering</Filter>
     </None>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\Modules\vaTODO.txt" />
   </ItemGroup>
 </Project>

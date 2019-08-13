@@ -18,8 +18,8 @@ vaSkybox::vaSkybox( const vaRenderingModuleParams & params ) : vaRenderingModule
     std::vector<vaVertexInputElementDesc> inputElements;
     inputElements.push_back( { "SV_Position", 0, vaResourceFormat::R32G32B32_FLOAT, 0, vaVertexInputElementDesc::AppendAlignedElement, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } );
 
-    m_vertexShader->CreateShaderAndILFromFile( L"vaSkybox.hlsl", "vs_5_0", "SkyboxVS", inputElements );
-    m_pixelShader->CreateShaderFromFile( L"vaSkybox.hlsl", "ps_5_0", "SkyboxPS" );
+    m_vertexShader->CreateShaderAndILFromFile( L"vaSkybox.hlsl", "vs_5_0", "SkyboxVS", inputElements, vaShaderMacroContaner{}, false );
+    m_pixelShader->CreateShaderFromFile( L"vaSkybox.hlsl", "ps_5_0", "SkyboxPS", vaShaderMacroContaner{}, false );
 
     // Create screen triangle vertex buffer
     {
@@ -68,7 +68,7 @@ void vaSkybox::UpdateConstants( vaSceneDrawContext & drawContext )
 
         consts.ColorMul = vaVector4( m_settings.ColorMultiplier, m_settings.ColorMultiplier, m_settings.ColorMultiplier, 1.0f );
 
-        m_constantsBuffer.Update( drawContext.APIContext, consts );
+        m_constantsBuffer.Update( drawContext.RenderDeviceContext, consts );
     }
 }
 
@@ -79,10 +79,10 @@ vaDrawResultFlags vaSkybox::Draw( vaSceneDrawContext & drawContext )
 
     UpdateConstants( drawContext );
 
-    vaRenderItem renderItem;
-    drawContext.APIContext.FillFullscreenPassRenderItem( renderItem, drawContext.Camera.GetUseReversedZ( ) );
+    vaGraphicsItem renderItem;
+    drawContext.RenderDeviceContext.FillFullscreenPassRenderItem( renderItem, drawContext.Camera.GetUseReversedZ( ) );
 
-    renderItem.ConstantBuffers[ SKYBOX_CONSTANTS_BUFFERSLOT ]   = m_constantsBuffer.GetBuffer();
+    renderItem.ConstantBuffers[ SKYBOX_CONSTANTSBUFFERSLOT ]   = m_constantsBuffer.GetBuffer();
     renderItem.ShaderResourceViews[ SKYBOX_TEXTURE_SLOT0 ]      = m_cubemap;
 
     renderItem.VertexShader         = m_vertexShader.get();
@@ -91,5 +91,5 @@ vaDrawResultFlags vaSkybox::Draw( vaSceneDrawContext & drawContext )
     renderItem.DepthWriteEnable     = false;
     renderItem.DepthFunc            = ( drawContext.Camera.GetUseReversedZ() )?( vaComparisonFunc::GreaterEqual ):( vaComparisonFunc::LessEqual );
 
-    return drawContext.APIContext.ExecuteSingleItem( renderItem );
+    return drawContext.RenderDeviceContext.ExecuteSingleItem( renderItem );
 }

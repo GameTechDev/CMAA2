@@ -20,18 +20,10 @@
 #include "vaRenderDeviceContextDX11.h"
 #include "vaTextureDX11.h"
 
-#include "vaRenderingToolsDX11.h"
-
 #include "vaRenderBuffersDX11.h"
 
-#include "Rendering/DirectX/vaRenderingGlobalsDX11.h"
+#include "Rendering/DirectX/vaRenderGlobalsDX11.h"
 #include "Rendering/DirectX/vaLightingDX11.h"
-
-#include "vaResourceFormatsDX11.h"
-
-#ifdef VA_IMGUI_INTEGRATION_ENABLED
-#include "IntegratedExternals/imgui/DirectX11/imgui_impl_dx11.h"
-#endif
 
 using namespace VertexAsylum;
 
@@ -51,9 +43,8 @@ namespace
 // static const float  c_minorUVOffset = 0.00006f;  // less than 0.5/8192
 
 vaRenderDeviceContextDX11::vaRenderDeviceContextDX11( const vaRenderingModuleParams & params )
-    : vaRenderDeviceContext( params ), 
+    : vaRenderDeviceContext( params )
     //m_fullscreenVS( params ), 
-    m_copyResourcePS( params )
 { 
     //m_fullscreenVB              = nullptr;
     //m_fullscreenVBDynamic       = nullptr;
@@ -66,7 +57,6 @@ vaRenderDeviceContextDX11::~vaRenderDeviceContextDX11( )
     //SAFE_RELEASE( m_fullscreenVB );
     //SAFE_RELEASE( m_fullscreenVBDynamic );
 
-    SAFE_RELEASE( m_shadowCmpSamplerState );
     SAFE_RELEASE( m_deviceContext );
     SAFE_RELEASE( m_device );
 
@@ -84,9 +74,10 @@ void vaRenderDeviceContextDX11::Initialize( ID3D11DeviceContext * deviceContext 
 
     ID3D11Device * device = GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice();
     assert( m_device == device );
+    device;
 
-    HRESULT hr;
-
+    // HRESULT hr;
+    // 
     // // Fullscreen pass
     // {
     //     CD3D11_BUFFER_DESC desc( 3 * sizeof( CommonSimpleVertex ), D3D11_BIND_VERTEX_BUFFER );
@@ -116,29 +107,6 @@ void vaRenderDeviceContextDX11::Initialize( ID3D11DeviceContext * deviceContext 
     // 
     //     m_fullscreenVS->CreateShaderAndILFromBuffer( pVSString, "vs_5_0", "main", inputElements, vaShaderMacroContaner(), true );
     // }
-
-    // copy resource shader
-    {
-        string shaderCode = 
-            "Texture2D g_source           : register( t0 );                 \n"
-            "float4 main( in const float4 xPos : SV_Position ) : SV_Target  \n"
-            "{                                                              \n"
-            "   return g_source.Load( int3( xPos.xy, 0 ) );                 \n"
-            "}                                                              \n";
-
-        m_copyResourcePS->CreateShaderFromBuffer( shaderCode, "ps_5_0", "main", vaShaderMacroContaner(), true );
-    }
-
-    // samplers
-    {
-        CD3D11_SAMPLER_DESC desc = CD3D11_SAMPLER_DESC( CD3D11_DEFAULT( ) );
-
-        desc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;   // D3D11_FILTER_COMPARISON_ANISOTROPIC
-        desc.AddressU = desc.AddressV = desc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-        desc.ComparisonFunc = D3D11_COMPARISON_LESS_EQUAL;
-
-        V( device->CreateSamplerState( &desc, &m_shadowCmpSamplerState ) );
-    }
 }
 
 void vaRenderDeviceContextDX11::Destroy( )
@@ -217,50 +185,45 @@ void vaRenderDeviceContextDX11::SetStandardSamplers( )
 {
     ID3D11DeviceContext * dx11Context = GetDXContext( );
 
-    ID3D11SamplerState * nullSamplers[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
-    ID3D11SamplerState * samplers[6] =
+    ID3D11SamplerState * nullSamplers[7] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+    ID3D11SamplerState * samplers[7] =
     {
-        vaDirectXTools::GetSamplerStatePointClamp( ),
-        vaDirectXTools::GetSamplerStatePointWrap( ),
-        vaDirectXTools::GetSamplerStateLinearClamp( ),
-        vaDirectXTools::GetSamplerStateLinearWrap( ),
-        vaDirectXTools::GetSamplerStateAnisotropicClamp( ),
-        vaDirectXTools::GetSamplerStateAnisotropicWrap( ),
+        vaDirectXTools11::GetSamplerStateShadowCmp(),
+        vaDirectXTools11::GetSamplerStatePointClamp( ),
+        vaDirectXTools11::GetSamplerStatePointWrap( ),
+        vaDirectXTools11::GetSamplerStateLinearClamp( ),
+        vaDirectXTools11::GetSamplerStateLinearWrap( ),
+        vaDirectXTools11::GetSamplerStateAnisotropicClamp( ),
+        vaDirectXTools11::GetSamplerStateAnisotropicWrap( ),
     };
-//    // Make sure we're not overwriting someone's old stuff. If this fires, make sure you haven't changed sampler slots without resetting to 0, 
-//    // and make sure there no SetAPIGlobals getting called twice in a row, which can happen if you create a second vaSceneDrawContext on the same 
-//    // vaRenderDeviceContext API context without deleting the first (manually or simply by nesting/creating two vaSceneDrawContext-es in a scope)
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, nullSamplers, SHADERGLOBAL_POINTCLAMP_SAMPLERSLOT, _countof( samplers ) );
+    // Make sure we're not overwriting someone's old stuff. If this fires, make sure you haven't changed sampler slots without resetting to 0
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, nullSamplers, SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT, _countof( samplers ) );
 
     // Set default samplers
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, samplers, SHADERGLOBAL_POINTCLAMP_SAMPLERSLOT, _countof( samplers ) );
-    // this fills SHADERGLOBAL_POINTCLAMP_SAMPLERSLOT, SHADERGLOBAL_POINTWRAP_SAMPLERSLOT, SHADERGLOBAL_LINEARCLAMP_SAMPLERSLOT, SHADERGLOBAL_LINEARWRAP_SAMPLERSLOT, SHADERGLOBAL_ANISOTROPICCLAMP_SAMPLERSLOT, SHADERGLOBAL_ANISOTROPICWRAP_SAMPLERSLOT
-
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, (ID3D11SamplerState*)NULL, SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT );
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, m_shadowCmpSamplerState, SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, samplers, SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT, _countof( samplers ) );
+    // this fills SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT, SHADERGLOBAL_POINTCLAMP_SAMPLERSLOT, SHADERGLOBAL_POINTWRAP_SAMPLERSLOT, SHADERGLOBAL_LINEARCLAMP_SAMPLERSLOT, SHADERGLOBAL_LINEARWRAP_SAMPLERSLOT, SHADERGLOBAL_ANISOTROPICCLAMP_SAMPLERSLOT, SHADERGLOBAL_ANISOTROPICWRAP_SAMPLERSLOT
 }
 
 void vaRenderDeviceContextDX11::UnsetStandardSamplers( )
 {
     ID3D11DeviceContext * dx11Context = GetDXContext( );
 
-    ID3D11SamplerState * nullSamplers[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
-    ID3D11SamplerState * samplers[6] =
+    ID3D11SamplerState * nullSamplers[7] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+    ID3D11SamplerState * samplers[7] =
     {
-        vaDirectXTools::GetSamplerStatePointClamp( ),
-        vaDirectXTools::GetSamplerStatePointWrap( ),
-        vaDirectXTools::GetSamplerStateLinearClamp( ),
-        vaDirectXTools::GetSamplerStateLinearWrap( ),
-        vaDirectXTools::GetSamplerStateAnisotropicClamp( ),
-        vaDirectXTools::GetSamplerStateAnisotropicWrap( ),
+        vaDirectXTools11::GetSamplerStateShadowCmp(),
+        vaDirectXTools11::GetSamplerStatePointClamp( ),
+        vaDirectXTools11::GetSamplerStatePointWrap( ),
+        vaDirectXTools11::GetSamplerStateLinearClamp( ),
+        vaDirectXTools11::GetSamplerStateLinearWrap( ),
+        vaDirectXTools11::GetSamplerStateAnisotropicClamp( ),
+        vaDirectXTools11::GetSamplerStateAnisotropicWrap( ),
     };
     // Did anyone mess with samplers?
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, samplers, SHADERGLOBAL_POINTCLAMP_SAMPLERSLOT, _countof( samplers ) );
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, m_shadowCmpSamplerState, SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT );
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, samplers, SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT, _countof( samplers ) );
 
     // Unset default samplers
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, nullSamplers, SHADERGLOBAL_POINTCLAMP_SAMPLERSLOT, _countof( samplers ) );
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11SamplerState*)NULL, SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, nullSamplers, SHADERGLOBAL_SHADOWCMP_SAMPLERSLOT, _countof( samplers ) );
 }
 /*
 void vaRenderDeviceContextDX11::FullscreenPassDraw( ID3D11PixelShader * pixelShader, ID3D11BlendState * blendState, ID3D11DepthStencilState * depthStencilState, UINT stencilRef, float ZDistance )
@@ -311,7 +274,7 @@ void vaRenderDeviceContextDX11::FullscreenPassDraw( ID3D11PixelShader * pixelSha
 
     context->OMSetDepthStencilState( depthStencilState, stencilRef );
 
-    context->RSSetState( vaDirectXTools::GetRS_CullNone_Fill() );
+    context->RSSetState( vaDirectXTools11::GetRS_CullNone_Fill() );
 
     context->Draw( 3, 0 );
 
@@ -328,56 +291,11 @@ void vaRenderDeviceContextDX11::FullscreenPassDraw( vaPixelShader & pixelShader,
 }
 */
 
-// useful for copying individual MIPs, in which case use Views created with vaTexture::CreateView
-void vaRenderDeviceContextDX11::CopySRVToRTV( shared_ptr<vaTexture> destination, shared_ptr<vaTexture> source )
+void vaRenderDeviceContextDX11::BeginItems( vaRenderTypeFlags typeFlags )
 {
-    // this could probably be done in platform-independent way in vaRenderDeviceContext
-
-    if( destination->GetType( ) != source->GetType( )
-        || destination->GetViewedSliceSizeX( ) != source->GetViewedSliceSizeX( )
-        || destination->GetViewedSliceSizeY( ) != source->GetViewedSliceSizeY( )
-        || destination->GetViewedSliceSizeZ( ) != source->GetViewedSliceSizeZ( )
-        || destination->GetSampleCount( ) != source->GetSampleCount( )
-        )
-    {
-        assert( false );
-        VA_ERROR( "vaRenderDeviceContext::CopySRVToRTV - not supported or incorrect parameters" );
-        return;
-    }
-
-    RenderOutputsState backupOutputs = GetOutputs( );
-
-//    ID3D11RenderTargetView * destRTV = destination.SafeCast<vaTextureDX11*>( )->GetRTV();
-//    //ID3D11ShaderResourceView * srcSRV = source.SafeCast<vaTextureDX11*>( )->GetSRV();
-//
-//    source.SafeCast<vaTextureDX11*>()->SetToAPISlotSRV( *this, 0 );
-//
-//    m_deviceContext->OMSetRenderTargets( 1, &destRTV, nullptr );
-//    SetViewport( vaViewport( destination.GetSizeX(), destination.GetSizeY() ) );
-//
-//    FullscreenPassDraw( *m_copyResourcePS );
-//
-//    source.SafeCast<vaTextureDX11*>()->UnsetFromAPISlotSRV( *this, 0 );
-
-    // this updated codepath was never tested - please step through and validate it's ok
-    assert( false );
-
-    vaRenderItem renderItem;
-    FillFullscreenPassRenderItem( renderItem );
-    renderItem.ShaderResourceViews[0]   = source;
-    renderItem.PixelShader = m_copyResourcePS;
-    //renderItem.PixelShader->WaitFinishIfBackgroundCreateActive();
-    SetRenderTarget( destination, nullptr, true );
-    ExecuteSingleItem( renderItem );
-
-    SetOutputs( backupOutputs );
-}
-
-void vaRenderDeviceContextDX11::BeginItems( )
-{
-    assert( !m_itemsStarted );
+    assert( m_itemsStarted == vaRenderTypeFlags::None );
     assert( m_lastSceneDrawContext == nullptr );
-    m_itemsStarted = true;
+    m_itemsStarted = typeFlags;
     SetStandardSamplers();
 }
 
@@ -389,7 +307,7 @@ static void SetSceneGlobals( vaSceneDrawContext * sceneDrawContext )
         if( sceneDrawContext->Lighting != nullptr )
             sceneDrawContext->Lighting->SafeCast<vaLightingDX11*>()->SetAPIGlobals( *sceneDrawContext);
 
-        sceneDrawContext->Globals.SafeCast<vaRenderingGlobalsDX11*>()->SetAPISceneGlobals( *sceneDrawContext );
+        sceneDrawContext->RenderDeviceContext.GetRenderDevice().GetRenderGlobals().SafeCast<vaRenderGlobalsDX11*>()->SetAPISceneGlobals( *sceneDrawContext );
         sceneDrawContext = nullptr;
     }
 }
@@ -402,25 +320,25 @@ static void UnsetSceneGlobals( vaSceneDrawContext * sceneDrawContext )
         if( sceneDrawContext->Lighting != nullptr )
             sceneDrawContext->Lighting->SafeCast<vaLightingDX11*>()->UnsetAPIGlobals( *sceneDrawContext);
 
-        sceneDrawContext->Globals.SafeCast<vaRenderingGlobalsDX11*>()->UnsetAPISceneGlobals( *sceneDrawContext );
+        sceneDrawContext->RenderDeviceContext.GetRenderDevice().GetRenderGlobals().SafeCast<vaRenderGlobalsDX11*>()->UnsetAPISceneGlobals( *sceneDrawContext );
         sceneDrawContext = nullptr;
     }
 }
 
 void vaRenderDeviceContextDX11::EndItems( )
 {
-    assert( m_itemsStarted );
-    m_itemsStarted = false;
+    assert( m_itemsStarted != vaRenderTypeFlags::None );
+    m_itemsStarted = vaRenderTypeFlags::None;
 
     UnsetStandardSamplers();
 
-    // m_lastRenderItem = vaRenderItem( );
+    // m_lastRenderItem = vaGraphicsItem( );
 
     //////////////////////////////////////////////////////////////////////////
     // Maybe just do ClearState instead, this is ugly.. or dirty-based clearing.
     //
-    ID3D11Buffer * constantBuffers[ _countof(vaRenderItem::ConstantBuffers) ];
-    for( int i = 0; i < _countof(vaRenderItem::ConstantBuffers); i++ )
+    ID3D11Buffer * constantBuffers[ _countof(vaGraphicsItem::ConstantBuffers) ];
+    for( int i = 0; i < _countof(vaGraphicsItem::ConstantBuffers); i++ )
         constantBuffers[i] = nullptr;
     m_deviceContext->VSSetConstantBuffers( 0, _countof(constantBuffers), constantBuffers );
     m_deviceContext->GSSetConstantBuffers( 0, _countof(constantBuffers), constantBuffers );
@@ -429,8 +347,8 @@ void vaRenderDeviceContextDX11::EndItems( )
     m_deviceContext->PSSetConstantBuffers( 0, _countof(constantBuffers), constantBuffers );
     m_deviceContext->CSSetConstantBuffers( 0, _countof(constantBuffers), constantBuffers );
     
-    ID3D11ShaderResourceView * SRVs[ _countof(vaRenderItem::ShaderResourceViews) ];
-    for( int i = 0; i < _countof(vaRenderItem::ShaderResourceViews); i++ )
+    ID3D11ShaderResourceView * SRVs[ _countof(vaGraphicsItem::ShaderResourceViews) ];
+    for( int i = 0; i < _countof(vaGraphicsItem::ShaderResourceViews); i++ )
         SRVs[i] = nullptr;
     m_deviceContext->VSSetShaderResources( 0, _countof(SRVs), SRVs );
     m_deviceContext->GSSetShaderResources( 0, _countof(SRVs), SRVs );
@@ -467,10 +385,12 @@ void vaRenderDeviceContextDX11::UpdateSceneDrawContext( vaSceneDrawContext * sce
     }
 }
 
-vaDrawResultFlags vaRenderDeviceContextDX11::ExecuteItem( const vaRenderItem & renderItem )
+vaDrawResultFlags vaRenderDeviceContextDX11::ExecuteItem( const vaGraphicsItem & renderItem )
 {
     // ExecuteTask can only be called in between BeginTasks and EndTasks - call ExecuteSingleItem 
-    assert( m_itemsStarted );
+    assert( (m_itemsStarted & vaRenderTypeFlags::Graphics) != 0 );
+    if( (m_itemsStarted & vaRenderTypeFlags::Graphics) == 0 )
+        return vaDrawResultFlags::UnspecifiedError;
 
     assert( renderItem.VertexShader != nullptr );
 
@@ -485,17 +405,17 @@ vaDrawResultFlags vaRenderDeviceContextDX11::ExecuteItem( const vaRenderItem & r
     ID3D11PixelShader *     pixelShader         = ( renderItem.PixelShader      == nullptr )?( nullptr ):(renderItem.PixelShader->SafeCast<vaPixelShaderDX11*>()->GetShader());
     
     if( vertexShader   == nullptr       && renderItem.VertexShader  != nullptr && !renderItem.VertexShader->IsEmpty() )  
-    { /*VA_WARN( "ExecuteItem() : vaRenderItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
+    { /*VA_WARN( "ExecuteItem() : vaGraphicsItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
     if( inputLayoutShader == nullptr    && renderItem.VertexShader  != nullptr && !renderItem.VertexShader->IsEmpty() )  
-    { /*VA_WARN( "ExecuteItem() : vaRenderItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
+    { /*VA_WARN( "ExecuteItem() : vaGraphicsItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
     if( geometryShader == nullptr       && renderItem.GeometryShader!= nullptr && !renderItem.GeometryShader->IsEmpty() )  
-    { /*VA_WARN( "ExecuteItem() : vaRenderItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
+    { /*VA_WARN( "ExecuteItem() : vaGraphicsItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
     if( hullShader     == nullptr       && renderItem.HullShader   != nullptr && !renderItem.HullShader->IsEmpty() )  
-    { /*VA_WARN( "ExecuteItem() : vaRenderItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
+    { /*VA_WARN( "ExecuteItem() : vaGraphicsItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
     if( domainShader   == nullptr       && renderItem.DomainShader != nullptr && !renderItem.DomainShader->IsEmpty()  )  
-    { /*VA_WARN( "ExecuteItem() : vaRenderItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
+    { /*VA_WARN( "ExecuteItem() : vaGraphicsItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
     if( pixelShader    == nullptr       && renderItem.PixelShader  != nullptr && !renderItem.PixelShader->IsEmpty()   )  
-    { /*VA_WARN( "ExecuteItem() : vaRenderItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
+    { /*VA_WARN( "ExecuteItem() : vaGraphicsItem shader exists but not compiled (either compile error or still compiling)" );*/  return vaDrawResultFlags::ShadersStillCompiling; }
     m_deviceContext->VSSetShader( vertexShader,     nullptr, 0 );
     m_deviceContext->IASetInputLayout( inputLayoutShader );
     m_deviceContext->GSSetShader( geometryShader,   nullptr, 0 );
@@ -524,7 +444,7 @@ vaDrawResultFlags vaRenderDeviceContextDX11::ExecuteItem( const vaRenderItem & r
     dsdesc.DepthEnable      = renderItem.DepthEnable;
     dsdesc.DepthWriteMask   = (renderItem.DepthWriteEnable)?(D3D11_DEPTH_WRITE_MASK_ALL):(D3D11_DEPTH_WRITE_MASK_ZERO);
     dsdesc.DepthFunc        = (D3D11_COMPARISON_FUNC)renderItem.DepthFunc;
-    m_deviceContext->OMSetDepthStencilState( vaDirectXTools::FindOrCreateDepthStencilState( m_device, dsdesc ), 0 );
+    m_deviceContext->OMSetDepthStencilState( vaDirectXTools11::FindOrCreateDepthStencilState( m_device, dsdesc ), 0 );
     
     // FILLMODE, CULLMODE, MISC RASTERIZER
     CD3D11_RASTERIZER_DESC rastdesc = CD3D11_RASTERIZER_DESC( CD3D11_DEFAULT() );
@@ -535,23 +455,23 @@ vaDrawResultFlags vaRenderDeviceContextDX11::ExecuteItem( const vaRenderItem & r
     rastdesc.ScissorEnable          = true;
     if( m_outputsState.RenderTargets[0] != nullptr )
         rastdesc.MultisampleEnable = m_outputsState.RenderTargets[0]->GetSampleCount() > 1;
-    m_deviceContext->RSSetState( vaDirectXTools::FindOrCreateRasterizerState( m_device, rastdesc ) );
+    m_deviceContext->RSSetState( vaDirectXTools11::FindOrCreateRasterizerState( m_device, rastdesc ) );
 
     // SAMPLERS
     // set in BeginTasks for now
 
     // CONSTANT BUFFERS, SRVs
-    ID3D11Buffer * constantBuffers[ _countof(vaRenderItem::ConstantBuffers) ];
-    for( int i = 0; i < _countof(vaRenderItem::ConstantBuffers); i++ )
+    ID3D11Buffer * constantBuffers[ _countof(vaGraphicsItem::ConstantBuffers) ];
+    for( int i = 0; i < _countof(vaGraphicsItem::ConstantBuffers); i++ )
         constantBuffers[i] = (renderItem.ConstantBuffers[i]==nullptr)?(nullptr):(renderItem.ConstantBuffers[i]->SafeCast<vaConstantBufferDX11*>()->GetBuffer());
     if( vertexShader    != nullptr )   m_deviceContext->VSSetConstantBuffers( 0, _countof(constantBuffers), constantBuffers );
     if( geometryShader  != nullptr )   m_deviceContext->GSSetConstantBuffers( 0, _countof(constantBuffers), constantBuffers );
     if( hullShader      != nullptr )   m_deviceContext->HSSetConstantBuffers( 0, _countof(constantBuffers), constantBuffers );
     if( domainShader    != nullptr )   m_deviceContext->DSSetConstantBuffers( 0, _countof(constantBuffers), constantBuffers );
     if( pixelShader     != nullptr )   m_deviceContext->PSSetConstantBuffers( 0, _countof(constantBuffers), constantBuffers );
-    ID3D11ShaderResourceView * SRVs[ _countof(vaRenderItem::ShaderResourceViews) ];
-    for( int i = 0; i < _countof(vaRenderItem::ShaderResourceViews); i++ )
-        SRVs[i] = (renderItem.ShaderResourceViews[i]==nullptr)?(nullptr):(renderItem.ShaderResourceViews[i]->SafeCast<vaShaderResourceSRVDX11*>()->GetSRV());
+    ID3D11ShaderResourceView * SRVs[ _countof(vaGraphicsItem::ShaderResourceViews) ];
+    for( int i = 0; i < _countof(vaGraphicsItem::ShaderResourceViews); i++ )
+        SRVs[i] = (renderItem.ShaderResourceViews[i]==nullptr)?(nullptr):(renderItem.ShaderResourceViews[i]->SafeCast<vaShaderResourceDX11*>()->GetSRV());
     if( vertexShader    != nullptr )   m_deviceContext->VSSetShaderResources( 0, _countof(SRVs), SRVs );
     if( geometryShader  != nullptr )   m_deviceContext->GSSetShaderResources( 0, _countof(SRVs), SRVs );
     if( hullShader      != nullptr )   m_deviceContext->HSSetShaderResources( 0, _countof(SRVs), SRVs );
@@ -582,10 +502,10 @@ vaDrawResultFlags vaRenderDeviceContextDX11::ExecuteItem( const vaRenderItem & r
     {
         switch( renderItem.DrawType )
         {
-        case( vaRenderItem::DrawSimple ): 
+        case( vaGraphicsItem::DrawType::DrawSimple ): 
             m_deviceContext->Draw( renderItem.DrawSimpleParams.VertexCount, renderItem.DrawSimpleParams.StartVertexLocation );
             break;
-        case( vaRenderItem::DrawIndexed ): 
+        case( vaGraphicsItem::DrawType::DrawIndexed ): 
             m_deviceContext->DrawIndexed( renderItem.DrawIndexedParams.IndexCount, renderItem.DrawIndexedParams.StartIndexLocation, renderItem.DrawIndexedParams.BaseVertexLocation );
             break;
         default:
@@ -605,7 +525,9 @@ vaDrawResultFlags vaRenderDeviceContextDX11::ExecuteItem( const vaRenderItem & r
 vaDrawResultFlags vaRenderDeviceContextDX11::ExecuteItem( const vaComputeItem & computeItem )
 {
     // ExecuteTask can only be called in between BeginTasks and EndTasks - call ExecuteSingleItem 
-    assert( m_itemsStarted );
+    assert( (m_itemsStarted & vaRenderTypeFlags::Compute) != 0 );
+    if( (m_itemsStarted & vaRenderTypeFlags::Compute) == 0 )
+        return vaDrawResultFlags::UnspecifiedError;
 
     assert( computeItem.ComputeShader != nullptr );
 
@@ -625,19 +547,19 @@ vaDrawResultFlags vaRenderDeviceContextDX11::ExecuteItem( const vaComputeItem & 
     // set in BeginTasks for now
 
     // CONSTANT BUFFERS, SRVs, UAVs
-    ID3D11Buffer * constantBuffers[ _countof(vaRenderItem::ConstantBuffers) ];
-    for( int i = 0; i < _countof(vaRenderItem::ConstantBuffers); i++ )
+    ID3D11Buffer * constantBuffers[ _countof(vaGraphicsItem::ConstantBuffers) ];
+    for( int i = 0; i < _countof(vaGraphicsItem::ConstantBuffers); i++ )
         constantBuffers[i] = (computeItem.ConstantBuffers[i]==nullptr)?(nullptr):(computeItem.ConstantBuffers[i]->SafeCast<vaConstantBufferDX11*>()->GetBuffer());
     m_deviceContext->CSSetConstantBuffers( 0, _countof(constantBuffers), constantBuffers );
     //
     ID3D11UnorderedAccessView * UAVs[ _countof(vaComputeItem::UnorderedAccessViews) ];
     for( int i = 0; i < _countof(vaComputeItem::UnorderedAccessViews); i++ )
-        UAVs[i] = (computeItem.UnorderedAccessViews[i]==nullptr)?(nullptr):(computeItem.UnorderedAccessViews[i]->SafeCast<vaShaderResourceSRVDX11*>()->GetUAV());
+        UAVs[i] = (computeItem.UnorderedAccessViews[i]==nullptr)?(nullptr):(computeItem.UnorderedAccessViews[i]->SafeCast<vaShaderResourceDX11*>()->GetUAV());
     m_deviceContext->CSSetUnorderedAccessViews( 0, _countof(UAVs), UAVs, nullptr );
     //
-    ID3D11ShaderResourceView * SRVs[ _countof(vaRenderItem::ShaderResourceViews) ];
-    for( int i = 0; i < _countof(vaRenderItem::ShaderResourceViews); i++ )
-        SRVs[i] = (computeItem.ShaderResourceViews[i]==nullptr)?(nullptr):(computeItem.ShaderResourceViews[i]->SafeCast<vaShaderResourceSRVDX11*>()->GetSRV());
+    ID3D11ShaderResourceView * SRVs[ _countof(vaGraphicsItem::ShaderResourceViews) ];
+    for( int i = 0; i < _countof(vaGraphicsItem::ShaderResourceViews); i++ )
+        SRVs[i] = (computeItem.ShaderResourceViews[i]==nullptr)?(nullptr):(computeItem.ShaderResourceViews[i]->SafeCast<vaShaderResourceDX11*>()->GetSRV());
     m_deviceContext->CSSetShaderResources( 0, _countof(SRVs), SRVs );
 
     bool continueWithDraw = true;
@@ -656,7 +578,7 @@ vaDrawResultFlags vaRenderDeviceContextDX11::ExecuteItem( const vaComputeItem & 
             break;
         case( vaComputeItem::DispatchIndirect ): 
             assert( computeItem.DispatchIndirectParams.BufferForArgs != nullptr );
-            m_deviceContext->DispatchIndirect( computeItem.DispatchIndirectParams.BufferForArgs->SafeCast<vaShaderResourceSRVDX11*>()->GetBuffer(), computeItem.DispatchIndirectParams.AlignedOffsetForArgs );
+            m_deviceContext->DispatchIndirect( computeItem.DispatchIndirectParams.BufferForArgs->SafeCast<vaShaderResourceDX11*>()->GetBuffer(), computeItem.DispatchIndirectParams.AlignedOffsetForArgs );
             break;
         default:
             assert( false );
@@ -673,66 +595,17 @@ vaDrawResultFlags vaRenderDeviceContextDX11::ExecuteItem( const vaComputeItem & 
     return vaDrawResultFlags::None;
 }
 
-void vaRenderDeviceContextDX11::ImGuiCreate( )
-{
-    vaRenderDeviceContext::ImGuiCreate();
-
-#ifdef VA_IMGUI_INTEGRATION_ENABLED
-    ID3D11Device * device = nullptr;
-    m_deviceContext->GetDevice(&device);
-    ImGui_ImplDX11_Init( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>()->GetHWND( ), device, m_deviceContext );
-    SAFE_RELEASE( device );
-   ImGui_ImplDX11_CreateDeviceObjects();
-#endif
-}
-void vaRenderDeviceContextDX11::ImGuiDestroy( )
-{
-#ifdef VA_IMGUI_INTEGRATION_ENABLED
-    ImGui_ImplDX11_InvalidateDeviceObjects();
-    ImGui_ImplDX11_Shutdown( );
-#endif
-    vaRenderDeviceContext::ImGuiDestroy();
-}
-
-void vaRenderDeviceContextDX11::ImGuiNewFrame( )
-{
-    assert( !m_imguiFrameStarted ); // forgot to call ImGuiDraw? you must not do that!
-    m_imguiFrameStarted = true;
-
-//            // hacky mouse handling, but good for now
-//            bool dontTouchMyCursor = vaInputMouseBase::GetCurrent( )->IsCaptured( );
-
-    ImGui_ImplDX11_NewFrame( ); //dontTouchMyCursor );
-}
-
-void vaRenderDeviceContextDX11::ImGuiDraw( )
-{
-    assert( m_imguiFrameStarted ); // forgot to call ImGuiNewFrame? you must not do that!
-
-    assert( GetRenderDevice().ImGuiIsVisible( ) );
-
-    ImGui::Render();
-    IMGUI_API void        ImGui_ImplDX11_RenderDrawData(ImDrawData* draw_data);
-    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
-    {
-        VA_SCOPE_CPUGPU_TIMER( UITextures, *this );
-        GetRenderDevice().GetTextureTools().UIDrawImages( *this );
-    }
-    m_imguiFrameStarted = false;
-}
-
 void vaRenderDeviceContextDX11::CheckNoStatesSet( )
 {
     // stuff like 
-    //vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT0 );
-    //vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT1 );
-    //vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT2 );
-    //vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT3 );
-    //vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT4 );
-    //vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT5 );
-    //vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* ) nullptr, RENDERMESH_CONSTANTS_BUFFERSLOT );
-    //vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* ) nullptr, RENDERMESHMATERIAL_CONSTANTS_BUFFERSLOT );
+    //vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT0 );
+    //vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT1 );
+    //vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT2 );
+    //vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT3 );
+    //vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT4 );
+    //vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, RENDERMESH_TEXTURE_SLOT5 );
+    //vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* ) nullptr, RENDERMESH_CONSTANTSBUFFERSLOT );
+    //vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11Buffer* ) nullptr, RENDERMESHMATERIAL_CONSTANTSBUFFERSLOT );
 
 }
 

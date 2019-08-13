@@ -39,6 +39,8 @@
 #include "SMAA.h"
 using namespace std;
 
+using namespace VertexAsylum;
+
 
 // This define is for using the precomputed textures DDS files instead of the
 // headers:
@@ -122,7 +124,7 @@ SMAA::SMAA(ID3D11Device *device, SMAAShaderConstantsInterface * shaderConstantsI
     // }
 
     // Setup the defines for compiling the effect:
-    vector<D3D_SHADER_MACRO> defines;
+    std::vector<D3D_SHADER_MACRO> defines;
     stringstream s;
     
     // Setup pixel size macro:
@@ -683,7 +685,7 @@ void SMAA::detectMSAAOrder( ID3D11DeviceContext * context ) {
     //            "SetBlendState(NoBlending, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);"
     //            "}}";
 
-    vector<D3D_SHADER_MACRO> defines;    defines.push_back( { nullptr, nullptr } );
+    std::vector<D3D_SHADER_MACRO> defines;    defines.push_back( { nullptr, nullptr } );
 
     // Create the buffers:
     DXGI_SAMPLE_DESC sampleDesc = { 2, 0 };

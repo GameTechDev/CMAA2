@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Core/vaCoreIncludes.h"
+#include "Core/vaUI.h"
 #include "Core/Containers/vaTrackerTrackee.h"
 
 #include "vaRendering.h"
@@ -29,9 +30,9 @@
 
 #include "Rendering/Shaders/vaSharedTypes.h"
 
-#include "IntegratedExternals/vaImguiIntegration.h"
-
 #include "Rendering/vaTextureHelpers.h"
+
+#include "Core/vaXMLSerialization.h"
 
 
 // for PBR, reading material:
@@ -62,38 +63,8 @@ namespace VertexAsylum
         CustomShadow    = 3,
     };
 
-    struct vaRenderMaterialCachedShaders
-    {
-        struct Key
-        {
-            //wstring                     WStringPart;
-            string                      AStringPart;
-
-            bool                        operator == ( const Key & cmp ) const { return this->AStringPart == cmp.AStringPart; }
-            bool                        operator >( const Key & cmp ) const { return this->AStringPart > cmp.AStringPart; }
-            bool                        operator < ( const Key & cmp ) const { return this->AStringPart < cmp.AStringPart; }
-
-            // alphatest is part of the key because it determines whether PS_DepthOnly is needed at all; all other shader parameters are contained in shaderMacros
-            Key( const string & fileName, bool alphaTest, const string & entryPS_DepthOnly, const string & entryVS_Standard, string & entryPS_Forward, const string & entryPS_Deferred, const string & entryPS_CustomShadow, const vector< pair< string, string > > & shaderMacros )
-            {
-                //WStringPart = fileName;
-                AStringPart = fileName;
-                AStringPart += ((alphaTest)?("a&"):("b&")) + entryPS_DepthOnly + "&" + entryVS_Standard + "&" + entryPS_Forward + "&" + entryPS_Deferred + "&" + entryPS_CustomShadow;
-                for( int i = 0; i < shaderMacros.size(); i++ )
-                    AStringPart += shaderMacros[i].first + "&" + shaderMacros[i].second;
-            }
-        };
-
-        vaRenderMaterialCachedShaders( vaRenderDevice & device ) : VS_Standard( device ), PS_DepthOnly( device ), PS_Forward( device ), PS_Deferred( device ), PS_CustomShadow( device ) { }
-
-        vaAutoRMI<vaVertexShader>          VS_Standard;
-
-        vaAutoRMI<vaPixelShader>           PS_DepthOnly;
-        vaAutoRMI<vaPixelShader>           PS_Forward;
-        vaAutoRMI<vaPixelShader>           PS_Deferred;
-        vaAutoRMI<vaPixelShader>           PS_CustomShadow;
-    };
-
+    struct vaRenderMaterialCachedShaders;
+    
     class vaRenderMaterial : public vaAssetResource, public vaRenderingModule
     {
     public:
@@ -104,7 +75,7 @@ namespace VertexAsylum
         };
 
         // At some point remove texture from MaterialInput and add MaterialInputTextureSampler & MaterialInputModifierFunction or something similar, but for now this will have to do it
-        struct MaterialInput
+        struct MaterialInput : public vaXMLSerializable
         {
             enum class InputType : int32
             {
@@ -251,7 +222,7 @@ namespace VertexAsylum
 
             // bool                    SaveAPACK( vaStream & outStream );
             // bool                    LoadAPACK( vaStream & inStream );
-            bool                    Serialize( vaXMLSerializer & serializer );
+            virtual bool            Serialize( vaXMLSerializer & serializer ) override;
 
             bool                    IsValid( ) const        { return Name.size() > 0; }
 
@@ -301,13 +272,23 @@ namespace VertexAsylum
 
         struct ShaderSettings
         {
+#if 1
+            // for the future:
+            // filename/entrypoint pairs for shaders
+            pair< string, string >              VS_Standard;
+            pair< string, string >              PS_DepthOnly;
+            pair< string, string >              PS_Forward;
+            pair< string, string >              PS_Deferred;
+            pair< string, string >              PS_CustomShadow;
+#else
             string                              FileName;
-            //string                              EntryVS_PosOnly;
             string                              EntryVS_Standard;
             string                              EntryPS_DepthOnly;
             string                              EntryPS_Forward;
             string                              EntryPS_Deferred;
             string                              EntryPS_CustomShadow;
+#endif
+
             vector< pair< string, string > >    BaseMacros;
         };
 
@@ -319,7 +300,7 @@ namespace VertexAsylum
         vaRenderMaterialManager &                       m_renderMaterialManager;
 
         // Primary material data
-        MaterialSettings                             m_materialSettings;
+        MaterialSettings                                m_materialSettings;
         ShaderSettings                                  m_shaderSettings;
         std::vector<MaterialInput>                      m_inputs;
 
@@ -340,9 +321,10 @@ namespace VertexAsylum
 
         shared_ptr<vaRenderMaterialCachedShaders>       m_shaders;
 
-        vaTypedConstantBufferWrapper< RenderMeshMaterialConstants >
-                                                        m_constantsBuffer;
+        // vaTypedConstantBufferWrapper< RenderMeshMaterialConstants >
+        //                                                 m_constantsBuffer;
 
+        bool                                            m_immutable = false;            // for default or protected materials used by multiple systems that should not be changed - will assert on any attempt to change
 
     protected:
         friend class vaRenderMeshManager;
@@ -354,10 +336,10 @@ namespace VertexAsylum
         //const wstring &                                 GetName( ) const                                                { return m_name; };
 
         const MaterialSettings &                        GetMaterialSettings( )                                          { return m_materialSettings; }
-        void                                            SetMaterialSettings( const MaterialSettings & settings )        { if( m_materialSettings != settings ) m_shaderMacrosDirty = true; m_materialSettings = settings; }
+        void                                            SetMaterialSettings( const MaterialSettings & settings )        { assert( !m_immutable ); if( m_materialSettings != settings ) m_shaderMacrosDirty = true; m_materialSettings = settings; }
 
         const ShaderSettings &                          GetShaderSettings( )                                            { return m_shaderSettings; }
-        void                                            SetShaderSettings( const ShaderSettings & settings )            { /*if( m_shaderSettings != settings )*/ { m_shaderMacrosDirty = true; } m_shaderSettings = settings; }
+        void                                            SetShaderSettings( const ShaderSettings & settings )            { assert( !m_immutable ); /*if( m_shaderSettings.BaseMacros != settings.BaseMacros )*/ { m_shaderMacrosDirty = true; } m_shaderSettings = settings; }
 
         void                                            SetSettingsDirty( )                                             { m_shaderMacrosDirty = true; }
 
@@ -367,9 +349,12 @@ namespace VertexAsylum
         const std::vector<MaterialInput> &              GetInputs( ) const                                              { return m_inputs; }
         int                                             FindInputByName( const string & name ) const                    { for( int i = 0; i < m_inputs.size(); i++ ) if( vaStringTools::ToLower( m_inputs[i].Name ) == vaStringTools::ToLower( name ) ) return i; return -1; }
 
+        void                                            RemoveAllInputs( );
         bool                                            RemoveInput( int index );
         bool                                            SetInput( int index, const MaterialInput & newValue );
         bool                                            SetInputByName( const MaterialInput & newValue, bool addIfNotFound = false );
+        
+        bool                                            SetDynamicInputValue( int index, float value )                  { index; value; assert( false ); return false; }
 
         bool                                            GetNeedsPSForShadowGenerate( ) const                            { return false; }
 
@@ -389,7 +374,10 @@ namespace VertexAsylum
         
         void                                            InitializeDefaultMaterial( );
 
-        bool                                            SetToRenderItem( vaRenderItem & renderItem, vaRenderMaterialShaderType shaderType );
+        // for default or protected materials used by multiple systems that should not be changed - will assert on any attempt to change
+        void                                            SetImmutable( bool immutable )          { m_immutable = immutable; }
+
+        bool                                            SetToRenderItem( vaGraphicsItem & renderItem, vaRenderMaterialShaderType shaderType );
 
     protected:
         shared_ptr<vaVertexShader>                      GetVS( vaRenderMaterialShaderType shaderType );
@@ -405,7 +393,45 @@ namespace VertexAsylum
         void                                            UpdateInputsDependencies( );
     };
 
-    class vaRenderMaterialManager : public vaRenderingModule, public vaImguiHierarchyObject
+    struct vaRenderMaterialCachedShaders
+    {
+        struct Key
+        {
+            //wstring                     WStringPart;
+            string                      AStringPart;
+
+            bool                        operator == ( const Key & cmp ) const { return this->AStringPart == cmp.AStringPart; }
+            bool                        operator >( const Key & cmp ) const { return this->AStringPart > cmp.AStringPart; }
+            bool                        operator < ( const Key & cmp ) const { return this->AStringPart < cmp.AStringPart; }
+
+            // alphatest is part of the key because it determines whether PS_DepthOnly is needed at all; all other shader parameters are contained in shaderMacros
+            Key( bool alphaTest, const vaRenderMaterial::ShaderSettings & shaderSettings, const vector< pair< string, string > > & shaderMacros )
+            {
+                //WStringPart = fileName;
+                AStringPart = "";
+                AStringPart += "&" + shaderSettings.VS_Standard.first     + "&" + shaderSettings.VS_Standard.second;
+                AStringPart += "&" + shaderSettings.PS_DepthOnly.first    + "&" + shaderSettings.PS_DepthOnly.second;
+                AStringPart += "&" + shaderSettings.PS_Forward.first      + "&" + shaderSettings.PS_Forward.second;
+                AStringPart += "&" + shaderSettings.PS_Deferred.first     + "&" + shaderSettings.PS_Deferred.second;
+                AStringPart += "&" + shaderSettings.PS_CustomShadow.first + "&" + shaderSettings.PS_CustomShadow.second;
+
+                AStringPart += ((alphaTest)?("a&"):("b&"));
+                for( int i = 0; i < shaderMacros.size(); i++ )
+                    AStringPart += shaderMacros[i].first + "&" + shaderMacros[i].second + "&";
+            }
+        };
+
+        vaRenderMaterialCachedShaders( vaRenderDevice & device ) : VS_Standard( device ), PS_DepthOnly( device ), PS_Forward( device ), PS_Deferred( device ), PS_CustomShadow( device ) { }
+
+        vaAutoRMI<vaVertexShader>          VS_Standard;
+
+        vaAutoRMI<vaPixelShader>           PS_DepthOnly;
+        vaAutoRMI<vaPixelShader>           PS_Forward;
+        vaAutoRMI<vaPixelShader>           PS_Deferred;
+        vaAutoRMI<vaPixelShader>           PS_CustomShadow;
+    };
+
+    class vaRenderMaterialManager : public vaRenderingModule, public vaUIPanel
     {
         //VA_RENDERING_MODULE_MAKE_FRIENDS( );
     protected:
@@ -441,12 +467,10 @@ namespace VertexAsylum
         void                                            SetTexturingDisabled( bool texturingDisabled );
 
     public:
-        shared_ptr<vaRenderMaterialCachedShaders>       FindOrCreateShaders( const string & fileName, bool alphaTest, const string & entryPS_DepthOnly, const string & entryVS_Standard, string & entryPS_Forward, const string & entryPS_Deferred, const string & entryPS_CustomShadow, const vector< pair< string, string > > & shaderMacros );
+        shared_ptr<vaRenderMaterialCachedShaders>       FindOrCreateShaders( bool alphaTest, const vaRenderMaterial::ShaderSettings & shaderSettings, const vector< pair< string, string > > & shaderMacros );
 
     protected:
-        virtual string                                  IHO_GetInstanceName( ) const { return vaStringTools::Format( "vaRenderMaterialManager (%d meshes)", m_renderMaterials.size( ) ); }
-        virtual void                                    IHO_Draw( );
+        virtual string                                  UIPanelGetDisplayName( ) const override { return "Materials"; } //vaStringTools::Format( "vaRenderMaterialManager (%d meshes)", m_renderMaterials.size( ) ); }
+        virtual void                                    UIPanelDraw( );
     };
-
-
 }

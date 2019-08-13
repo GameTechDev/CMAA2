@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -29,6 +29,16 @@ namespace VertexAsylum
 {
     class vaRenderDevice;
     
+    enum class vaRenderTypeFlags : uint32
+    {
+        None                        = 0,
+        Graphics                    = ( 1 << 0 ),
+        Compute                     = ( 1 << 1 ),
+        // Copy                     = ( 1 << 2 )
+    };
+
+    BITFLAG_ENUM_CLASS_HELPER( vaRenderTypeFlags );
+
 
     // vaRenderDeviceContext is used to get/set current render targets and access rendering API stuff like contexts, etc.
     class vaRenderDeviceContext : public vaRenderingModule
@@ -59,18 +69,6 @@ namespace VertexAsylum
 
     protected:
         RenderOutputsState                          m_outputsState;
-
-        struct SimpleVertex
-        {
-            float   Position[4];
-            float   UV[2];
-
-            SimpleVertex( ) {};
-            SimpleVertex( float px, float py, float pz, float pw, float uvx, float uvy ) { Position[0] = px; Position[1] = py; Position[2] = pz; Position[3] = pw; UV[0] = uvx; UV[1] = uvy; }
-        };
-        vaAutoRMI< vaVertexShader >                 m_fsVertexShader;
-        vaAutoRMI< vaVertexBuffer >                 m_fsVertexBufferZ0;
-        vaAutoRMI< vaVertexBuffer >                 m_fsVertexBufferZ1;
 
     protected:
 
@@ -110,32 +108,31 @@ namespace VertexAsylum
                                                                                         uint32 UAVStartSlot, uint32 numUAVs, const std::shared_ptr<vaTexture> * UAVs, bool updateViewport, const uint32 * UAVInitialCounts = nullptr );
         
         // useful for copying individual MIPs, in which case use Views created with vaTexture::CreateView
-        virtual void                        CopySRVToRTV( shared_ptr<vaTexture> destination, shared_ptr<vaTexture> source )                 = 0;
+        virtual vaDrawResultFlags           CopySRVToRTV( shared_ptr<vaTexture> destination, shared_ptr<vaTexture> source );
+        virtual vaDrawResultFlags           CopySRVToCurrentOutput( shared_ptr<vaTexture> source );
 
         // platform-independent way of drawing items; it is immediate and begin/end items is there mostly for state caching; changing any 
-        // of the things pointed to by any of the vaRenderItem-s between BeginItems/EndItems can mess up with state caching although 
+        // of the things pointed to by any of the vaGraphicsItem-s between BeginItems/EndItems can mess up with state caching although 
         // updating buffers/textures contents where the updates go through this vaRenderDeviceContext should be totally fine.
-        virtual void                        BeginItems( )                                                                                   = 0;
-        virtual vaDrawResultFlags           ExecuteItem( const vaRenderItem & renderItem )                                                  = 0;
+        virtual void                        BeginItems( vaRenderTypeFlags typeFlags )                                                       = 0;
+        virtual vaDrawResultFlags           ExecuteItem( const vaGraphicsItem & renderItem )                                                  = 0;
         virtual vaDrawResultFlags           ExecuteItem( const vaComputeItem & computeItem )                                                = 0;
         virtual void                        EndItems( )                                                                                     = 0;
-        vaDrawResultFlags                   ExecuteSingleItem( const vaRenderItem & renderItem )                                            { BeginItems(); vaDrawResultFlags drawResults = ExecuteItem( renderItem ); EndItems();  return drawResults; }
-        vaDrawResultFlags                   ExecuteSingleItem( const vaComputeItem & computeItem )                                          { BeginItems(); vaDrawResultFlags drawResults = ExecuteItem( computeItem ); EndItems(); return drawResults; }
+        vaDrawResultFlags                   ExecuteSingleItem( const vaGraphicsItem & renderItem )                                          { BeginItems( vaRenderTypeFlags::Graphics ); vaDrawResultFlags drawResults = ExecuteItem( renderItem ); EndItems();  return drawResults; }
+        vaDrawResultFlags                   ExecuteSingleItem( const vaComputeItem & computeItem )                                          { BeginItems( vaRenderTypeFlags::Compute ); vaDrawResultFlags drawResults = ExecuteItem( computeItem ); EndItems(); return drawResults; }
 
-        // Helper to fill in vaRenderItem with most common elements needed to render a fullscreen quad (or triangle, whatever) - vertex shader, vertex buffer, etc
-        void                                FillFullscreenPassRenderItem( vaRenderItem & renderItem, bool zIs0 = true );
+        virtual vaRenderTypeFlags           GetSupportFlags( ) const                                                                        { return vaRenderTypeFlags::Graphics | vaRenderTypeFlags::Compute; }
+        virtual vaRenderTypeFlags           GetStartedFlags( ) const                                                                        = 0;
+
+        // Helper to fill in vaGraphicsItem with most common elements needed to render a fullscreen quad (or triangle, whatever) - vertex shader, vertex buffer, etc
+        void                                FillFullscreenPassRenderItem( vaGraphicsItem & renderItem, bool zIs0 = true ) const               { GetRenderDevice().FillFullscreenPassRenderItem( renderItem, zIs0 ); }
 
     protected:
         virtual void                        UpdateViewport( ) = 0;
         virtual void                        UpdateRenderTargetsDepthStencilUAVs( ) = 0;
 
     protected:
-        friend class vaRenderDevice;
-        virtual void                        ImGuiCreate( );
-        virtual void                        ImGuiDestroy( );
-    public:
-        virtual void                        ImGuiNewFrame( ) = 0;
-        virtual void                        ImGuiDraw( ) = 0;
+//        friend class vaRenderDevice;
 
     };
 

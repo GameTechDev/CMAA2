@@ -21,6 +21,8 @@
 
 #include "Rendering/DirectX/vaLightingDX11.h"
 
+#include "Rendering/DirectX/vaDirectXIncludes.h"
+
 #include "Rendering/DirectX/vaRenderDeviceContextDX11.h"
 #include "Rendering/DirectX/vaTextureDX11.h"
 #include "Rendering/DirectX/vaRenderBuffersDX11.h"
@@ -39,23 +41,23 @@ vaLightingDX11::~vaLightingDX11( )
 void vaLightingDX11::SetAPIGlobals( vaSceneDrawContext & drawContext )
 {
     if( m_envmapTexture != nullptr )
-        m_envmapTexture->SafeCast<vaTextureDX11*>()->SetToAPISlotSRV( drawContext.APIContext, SHADERGLOBAL_LIGHTING_ENVMAP_TEXTURESLOT );
+        m_envmapTexture->SafeCast<vaTextureDX11*>()->SetToAPISlotSRV( drawContext.RenderDeviceContext, SHADERGLOBAL_LIGHTING_ENVMAP_TEXTURESLOT );
     if( m_shadowmapTexturesCreated && m_shadowCubeArrayTexture != nullptr )
-        m_shadowCubeArrayTexture->SafeCast<vaTextureDX11*>()->SetToAPISlotSRV( drawContext.APIContext, SHADERGLOBAL_LIGHTING_CUBE_SHADOW_TEXTURESLOT );
+        m_shadowCubeArrayTexture->SafeCast<vaTextureDX11*>()->SetToAPISlotSRV( drawContext.RenderDeviceContext, SHADERGLOBAL_LIGHTING_CUBE_SHADOW_TEXTURESLOT );
 
-    UpdateLightingGlobalShaderConstants( drawContext );
+    UpdateShaderConstants( drawContext );
 
-    m_constantsBuffer.GetBuffer()->SafeCast<vaConstantBufferDX11*>()->SetToAPISlot( drawContext.APIContext, LIGHTINGGLOBAL_CONSTANTSBUFFERSLOT );
+    m_constantsBuffer.GetBuffer()->SafeCast<vaConstantBufferDX11*>()->SetToAPISlot( drawContext.RenderDeviceContext, LIGHTINGGLOBAL_CONSTANTSBUFFERSLOT );
 }
 
 void vaLightingDX11::UnsetAPIGlobals( vaSceneDrawContext & drawContext )
 {
     if( m_envmapTexture != nullptr )
-        m_envmapTexture->SafeCast<vaTextureDX11*>()->UnsetFromAPISlotSRV( drawContext.APIContext, SHADERGLOBAL_LIGHTING_ENVMAP_TEXTURESLOT );
+        m_envmapTexture->SafeCast<vaTextureDX11*>()->UnsetFromAPISlotSRV( drawContext.RenderDeviceContext, SHADERGLOBAL_LIGHTING_ENVMAP_TEXTURESLOT );
     if( m_shadowmapTexturesCreated && m_shadowCubeArrayTexture != nullptr )
-        m_shadowCubeArrayTexture->SafeCast<vaTextureDX11*>()->UnsetFromAPISlotSRV( drawContext.APIContext, SHADERGLOBAL_LIGHTING_CUBE_SHADOW_TEXTURESLOT );
+        m_shadowCubeArrayTexture->SafeCast<vaTextureDX11*>()->UnsetFromAPISlotSRV( drawContext.RenderDeviceContext, SHADERGLOBAL_LIGHTING_CUBE_SHADOW_TEXTURESLOT );
 
-    m_constantsBuffer.GetBuffer()->SafeCast<vaConstantBufferDX11*>()->UnsetFromAPISlot( drawContext.APIContext, LIGHTINGGLOBAL_CONSTANTSBUFFERSLOT );
+    m_constantsBuffer.GetBuffer()->SafeCast<vaConstantBufferDX11*>()->UnsetFromAPISlot( drawContext.RenderDeviceContext, LIGHTINGGLOBAL_CONSTANTSBUFFERSLOT );
 }
 
 void vaLightingDX11::UpdateResourcesIfNeeded( vaSceneDrawContext & drawContext )
@@ -63,7 +65,7 @@ void vaLightingDX11::UpdateResourcesIfNeeded( vaSceneDrawContext & drawContext )
     vaLighting::UpdateResourcesIfNeeded( drawContext );
 }
 
-// draws provided depthTexture (can be the one obtained using GetDepthBuffer( )) into currently selected RT; relies on settings set in vaRenderingGlobals and will assert and return without doing anything if those are not present
+// draws provided depthTexture (can be the one obtained using GetDepthBuffer( )) into currently selected RT; relies on settings set in vaRenderGlobals and will assert and return without doing anything if those are not present
 void vaLightingDX11::ApplyDirectionalAmbientLighting( vaSceneDrawContext & drawContext, vaGBuffer & GBuffer )
 {
     assert( false ); // re-implement
@@ -87,28 +89,28 @@ void vaLightingDX11::ApplyDirectionalAmbientLighting( vaSceneDrawContext & drawC
     //     pixelShader = &m_applyDirectionalAmbientShadowedPS;
     // }
 
-    vaRenderDeviceContextDX11 * apiContext = drawContext.APIContext.SafeCast<vaRenderDeviceContextDX11*>( );
+    vaRenderDeviceContextDX11 * apiContext = drawContext.RenderDeviceContext.SafeCast<vaRenderDeviceContextDX11*>( );
     ID3D11DeviceContext * dx11Context = apiContext->GetDXContext( );
 
     // make sure we're not overwriting someone's stuff
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, LIGHTING_SLOT0 );
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, LIGHTING_SLOT1 );
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, LIGHTING_SLOT2 );
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, LIGHTING_SLOT0 );
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, LIGHTING_SLOT1 );
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, LIGHTING_SLOT2 );
 
     // gbuffer stuff
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, GBuffer.GetDepthBufferViewspaceLinear( )->SafeCast<vaTextureDX11*>( )->GetSRV( ),   LIGHTING_SLOT0 );
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, GBuffer.GetAlbedo( )->SafeCast<vaTextureDX11*>( )->GetSRV( ),                       LIGHTING_SLOT1 );
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, GBuffer.GetNormalMap( )->SafeCast<vaTextureDX11*>( )->GetSRV( ),                    LIGHTING_SLOT2 );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, GBuffer.GetDepthBufferViewspaceLinear( )->SafeCast<vaTextureDX11*>( )->GetSRV( ),   LIGHTING_SLOT0 );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, GBuffer.GetAlbedo( )->SafeCast<vaTextureDX11*>( )->GetSRV( ),                       LIGHTING_SLOT1 );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, GBuffer.GetNormalMap( )->SafeCast<vaTextureDX11*>( )->GetSRV( ),                    LIGHTING_SLOT2 );
 
     // draw but only on things that are already in the zbuffer
     // !!!!!!!!!!! this should be ported to be platform independent....!!!!!!!!!!!!
-    apiContext->FullscreenPassDraw( pixelShader->GetShader(), vaDirectXTools::GetBS_Additive(), vaDirectXTools::GetDSS_DepthEnabledG_NoDepthWrite(), 0, 1.0f );
+    apiContext->FullscreenPassDraw( pixelShader->GetShader(), vaDirectXTools11::GetBS_Additive(), vaDirectXTools11::GetDSS_DepthEnabledG_NoDepthWrite(), 0, 1.0f );
     // !!!!!!!!!!! this should be ported to be platform independent....!!!!!!!!!!!!
 
     //    Reset, leave stuff clean
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*) nullptr,  LIGHTING_SLOT0 );
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*) nullptr,  LIGHTING_SLOT1 );
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*) nullptr,  LIGHTING_SLOT2 );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*) nullptr,  LIGHTING_SLOT0 );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*) nullptr,  LIGHTING_SLOT1 );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*) nullptr,  LIGHTING_SLOT2 );
     // !!!!!!!!!!! this should be ported to be platform independent....!!!!!!!!!!!!
     // !!!!!!!!!!! this should be ported to be platform independent....!!!!!!!!!!!!
     // !!!!!!!!!!! this should be ported to be platform independent....!!!!!!!!!!!!
@@ -122,27 +124,6 @@ GBuffer;
 assert( false );
 }
 
-//void vaLightingDX11::ApplyTonemap( vaSceneDrawContext & drawContext, vaGBuffer & GBuffer )
-//{
-//    assert( drawContext.GetRenderingGlobalsUpdated( ) );    if( !drawContext.GetRenderingGlobalsUpdated( ) ) return;
-//    UpdateResourcesIfNeeded( drawContext );
-//    assert( !m_shadersDirty );                              if( m_shadersDirty ) return;
-//
-//    vaRenderDeviceContextDX11 * apiContext = drawContext.APIContext.SafeCast<vaRenderDeviceContextDX11*>( );
-//    ID3D11DeviceContext * dx11Context = apiContext->GetDXContext( );
-//
-//    // make sure we're not overwriting someone's stuff
-//    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, LIGHTING_SLOT0 );
-//
-//    // source is accumulated radiance
-//    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, GBuffer.GetRadiance( )->SafeCast<vaTextureDX11*>( )->GetSRV( ), LIGHTING_SLOT0 );
-//
-//    // draw but only on things that are already in the zbuffer
-//    apiContext->FullscreenPassDraw( dx11Context, m_applyTonemapPS, vaDirectXTools::GetBS_Additive( ), vaDirectXTools::GetDSS_DepthEnabledG_NoDepthWrite( ), 0, nullptr, 1.0f );
-//
-//    //    Reset, leave stuff clean
-//    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* ) nullptr, LIGHTING_SLOT0 );
-//}
 
 void RegisterLightingDX11( )
 {

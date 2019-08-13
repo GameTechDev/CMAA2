@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -21,11 +21,16 @@
 
 #include "Rendering/vaRenderDeviceContext.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
+#define GBUFFER_SLOT0   0
+
 using namespace VertexAsylum;
 
 vaGBuffer::vaGBuffer( const vaRenderingModuleParams & params ) : 
     vaRenderingModule( params ),
-    m_pixelShader( params.RenderDevice ),
+    vaUIPanel( "GBuffer", 0, false, vaUIPanel::DockLocation::DockedLeftBottom ),
+    //m_pixelShader( params.RenderDevice ),
     m_depthToViewspaceLinearPS( params.RenderDevice ),
     m_debugDrawDepthPS( params.RenderDevice ),
     m_debugDrawDepthViewspaceLinearPS( params.RenderDevice ),
@@ -49,7 +54,7 @@ vaGBuffer::~vaGBuffer( )
 
 }
 
-void vaGBuffer::IHO_Draw( )
+void vaGBuffer::UIPanelDraw( )
 {
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
     struct TextureInfo
@@ -80,7 +85,7 @@ void vaGBuffer::IHO_Draw( )
 #endif
 }
 
-bool vaGBuffer::ReCreateIfNeeded( shared_ptr<vaTexture> & inoutTex, int width, int height, vaResourceFormat format, bool needsUAV, int msaaSampleCount, float & inoutTotalSizeSum )
+bool vaGBuffer::ReCreateIfNeeded( shared_ptr<vaTexture> & inoutTex, int width, int height, vaResourceFormat format, bool needsUAV, int msaaSampleCount, float & inoutTotalSizeSum, vaResourceFormat fastClearFormat )
 {
 //    if( format == vaResourceFormat::Unknown )
 //    {
@@ -105,6 +110,8 @@ bool vaGBuffer::ReCreateIfNeeded( shared_ptr<vaTexture> & inoutTex, int width, i
         vaResourceFormat dsvFormat       = vaResourceFormat::Unknown;
         vaResourceFormat uavFormat       = format;
 
+        bool fastClearDepth = false;
+
         // handle special cases
         if( format == vaResourceFormat::D32_FLOAT )
         {
@@ -114,6 +121,7 @@ bool vaGBuffer::ReCreateIfNeeded( shared_ptr<vaTexture> & inoutTex, int width, i
             rtvFormat       = vaResourceFormat::Unknown;
             dsvFormat       = vaResourceFormat::D32_FLOAT;
             uavFormat       = vaResourceFormat::Unknown;
+            fastClearDepth = true;
         }
         else if( format == vaResourceFormat::D24_UNORM_S8_UINT )
         {
@@ -123,6 +131,7 @@ bool vaGBuffer::ReCreateIfNeeded( shared_ptr<vaTexture> & inoutTex, int width, i
             rtvFormat = vaResourceFormat::Unknown;
             dsvFormat = vaResourceFormat::D24_UNORM_S8_UINT;
             uavFormat = vaResourceFormat::Unknown;
+            fastClearDepth = true;
         }
         else if( format == vaResourceFormat::R8G8B8A8_UNORM_SRGB )
         {
@@ -148,7 +157,15 @@ bool vaGBuffer::ReCreateIfNeeded( shared_ptr<vaTexture> & inoutTex, int width, i
             (inoutTex->GetDSVFormat()==dsvFormat) && (inoutTex->GetUAVFormat()==uavFormat) && (inoutTex->GetSampleCount()==msaaSampleCount) )
             return false;
 
-        inoutTex = vaTexture::Create2D( GetRenderDevice(), resourceFormat, width, height, 1, 1, msaaSampleCount, bindFlags, vaTextureAccessFlags::None, srvFormat, rtvFormat, dsvFormat, uavFormat );
+        if( fastClearFormat != vaResourceFormat::Unknown )
+        {
+            if( fastClearDepth )
+                vaTexture::SetNextCreateFastClearDSV( fastClearFormat, 0.0f, 0 );
+            else
+                vaTexture::SetNextCreateFastClearRTV( fastClearFormat, vaVector4( 0.0f, 0.0f, 0.0f, 0.0f ) );
+        }
+
+        inoutTex = vaTexture::Create2D( GetRenderDevice(), resourceFormat, width, height, 1, 1, msaaSampleCount, bindFlags, vaResourceAccessFlags::Default, srvFormat, rtvFormat, dsvFormat, uavFormat );
     }
     inoutTotalSizeSum += width * height * vaResourceFormatHelpers::GetPixelSizeInBytes( format ) * msaaSampleCount;
     return true;
@@ -166,25 +183,25 @@ void vaGBuffer::UpdateResources( int width, int height, int msaaSampleCount, con
 
     float totalSizeInMB = 0.0f;
 
-    ReCreateIfNeeded( m_depthBuffer                 , width, height, m_formats.DepthBuffer,                   false, msaaSampleCount,    totalSizeInMB );    
-    ReCreateIfNeeded( m_depthBufferViewspaceLinear  , width, height, m_formats.DepthBufferViewspaceLinear,    false, msaaSampleCount,    totalSizeInMB );
-    ReCreateIfNeeded( m_radiance                    , width, height, m_formats.Radiance,                      false, msaaSampleCount,    totalSizeInMB );
-    if( ReCreateIfNeeded( m_outputColorTypeless     , width, height, m_formats.OutputColorTypeless,           true, 1,                  totalSizeInMB ) )                  // output is not MSAA, but has UAV
+    ReCreateIfNeeded( m_depthBuffer                 , width, height, m_formats.DepthBuffer,                   false, msaaSampleCount,    totalSizeInMB, m_formats.DepthBuffer);
+    ReCreateIfNeeded( m_depthBufferViewspaceLinear  , width, height, m_formats.DepthBufferViewspaceLinear,    false, msaaSampleCount,    totalSizeInMB, m_formats.DepthBufferViewspaceLinear );
+    ReCreateIfNeeded( m_radiance                    , width, height, m_formats.Radiance,                      false, msaaSampleCount,    totalSizeInMB, m_formats.Radiance );
+    if( ReCreateIfNeeded( m_outputColorTypeless     , width, height, m_formats.OutputColorTypeless,           true, 1,                  totalSizeInMB, m_formats.OutputColorView ) )                  // output is not MSAA, but has UAV
     {
-        m_outputColorIgnoreSRGBConvView = vaTexture::CreateView( *m_outputColorTypeless, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::UnorderedAccess | vaResourceBindSupportFlags::ShaderResource, 
+        m_outputColorIgnoreSRGBConvView = vaTexture::CreateView( m_outputColorTypeless, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::UnorderedAccess | vaResourceBindSupportFlags::ShaderResource, 
             m_formats.OutputColorIgnoreSRGBConvView, m_formats.OutputColorIgnoreSRGBConvView, vaResourceFormat::Unknown, m_formats.OutputColorIgnoreSRGBConvView );
-        m_outputColorView = vaTexture::CreateView( *m_outputColorTypeless, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource, 
+        m_outputColorView = vaTexture::CreateView( m_outputColorTypeless, vaResourceBindSupportFlags::RenderTarget | vaResourceBindSupportFlags::ShaderResource, 
             m_formats.OutputColorView, m_formats.OutputColorView, vaResourceFormat::Unknown, vaResourceFormat::Unknown );
         if( m_formats.OutputColorR32UINT_UAV == vaResourceFormat::R32_UINT )
-            m_outputColorR32UINT_UAV = vaTexture::CreateView( *m_outputColorTypeless, vaResourceBindSupportFlags::UnorderedAccess, vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaResourceFormat::Unknown, m_formats.OutputColorR32UINT_UAV );
+            m_outputColorR32UINT_UAV = vaTexture::CreateView( m_outputColorTypeless, vaResourceBindSupportFlags::UnorderedAccess, vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaResourceFormat::Unknown, m_formats.OutputColorR32UINT_UAV );
         else
             m_outputColorR32UINT_UAV = nullptr;
     }
 
     if( m_deferredEnabled )
     {
-        ReCreateIfNeeded( m_normalMap                   , width, height, m_formats.NormalMap,                     false, msaaSampleCount,    totalSizeInMB );
-        ReCreateIfNeeded( m_albedo                      , width, height, m_formats.Albedo,                        false, msaaSampleCount,    totalSizeInMB );
+        ReCreateIfNeeded( m_normalMap                   , width, height, m_formats.NormalMap,                     false, msaaSampleCount,    totalSizeInMB, m_formats.NormalMap );
+        ReCreateIfNeeded( m_albedo                      , width, height, m_formats.Albedo,                        false, msaaSampleCount,    totalSizeInMB, m_formats.Albedo );
     }
     else
     {
@@ -203,11 +220,95 @@ void vaGBuffer::UpdateShaders( )
     {
         m_shadersDirty = false;
     
-        m_depthToViewspaceLinearPS->CreateShaderFromFile(        m_shaderFileToUse, "ps_5_0", "DepthToViewspaceLinearPS",         m_staticShaderMacros );
-        m_debugDrawDepthPS->CreateShaderFromFile(                m_shaderFileToUse, "ps_5_0", "DebugDrawDepthPS",                 m_staticShaderMacros );
-        m_debugDrawDepthViewspaceLinearPS->CreateShaderFromFile( m_shaderFileToUse, "ps_5_0", "DebugDrawDepthViewspaceLinearPS",  m_staticShaderMacros );
-        m_debugDrawNormalMapPS->CreateShaderFromFile(            m_shaderFileToUse, "ps_5_0", "DebugDrawNormalMapPS",             m_staticShaderMacros );
-        m_debugDrawAlbedoPS->CreateShaderFromFile(               m_shaderFileToUse, "ps_5_0", "DebugDrawAlbedoPS",                m_staticShaderMacros );
-        m_debugDrawRadiancePS->CreateShaderFromFile(             m_shaderFileToUse, "ps_5_0", "DebugDrawRadiancePS",              m_staticShaderMacros );
+        m_depthToViewspaceLinearPS->CreateShaderFromFile(        m_shaderFileToUse, "ps_5_0", "DepthToViewspaceLinearPS",         m_staticShaderMacros, false );
+        m_debugDrawDepthPS->CreateShaderFromFile(                m_shaderFileToUse, "ps_5_0", "DebugDrawDepthPS",                 m_staticShaderMacros, false );
+        m_debugDrawDepthViewspaceLinearPS->CreateShaderFromFile( m_shaderFileToUse, "ps_5_0", "DebugDrawDepthViewspaceLinearPS",  m_staticShaderMacros, false );
+        m_debugDrawNormalMapPS->CreateShaderFromFile(            m_shaderFileToUse, "ps_5_0", "DebugDrawNormalMapPS",             m_staticShaderMacros, false );
+        m_debugDrawAlbedoPS->CreateShaderFromFile(               m_shaderFileToUse, "ps_5_0", "DebugDrawAlbedoPS",                m_staticShaderMacros, false );
+        m_debugDrawRadiancePS->CreateShaderFromFile(             m_shaderFileToUse, "ps_5_0", "DebugDrawRadiancePS",              m_staticShaderMacros, false );
     }
+}
+
+void vaGBuffer::RenderDebugDraw( vaSceneDrawContext & drawContext )
+{
+    assert( !m_shadersDirty );                              if( m_shadersDirty ) return;
+
+    drawContext;
+
+    assert( false ); // TODO: port to platform independent code
+
+#if 0
+    if( m_debugSelectedTexture == -1 )
+        return;
+
+    vaRenderDeviceContextDX11 * apiContext = drawContext.APIContext.SafeCast<vaRenderDeviceContextDX11*>( );
+    ID3D11DeviceContext * dx11Context = apiContext->GetDXContext( );
+
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*)nullptr, GBUFFER_SLOT0 );
+
+    if( m_debugSelectedTexture == 0 )
+    {
+        vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, m_depthBuffer->SafeCast<vaTextureDX11*>()->GetSRV(), GBUFFER_SLOT0 );
+        apiContext->FullscreenPassDraw( *m_debugDrawDepthPS );
+    }
+    else if( m_debugSelectedTexture == 1 )
+    {
+        vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, m_depthBufferViewspaceLinear->SafeCast<vaTextureDX11*>( )->GetSRV( ), GBUFFER_SLOT0 );
+        apiContext->FullscreenPassDraw( *m_debugDrawDepthViewspaceLinearPS );
+    }
+    else if( m_debugSelectedTexture == 2 )
+    {
+        vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, m_normalMap->SafeCast<vaTextureDX11*>( )->GetSRV( ), GBUFFER_SLOT0 );
+        apiContext->FullscreenPassDraw( *m_debugDrawNormalMapPS );
+    }
+    else if( m_debugSelectedTexture == 3 )
+    {
+        vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, m_albedo->SafeCast<vaTextureDX11*>( )->GetSRV( ), GBUFFER_SLOT0 );
+        apiContext->FullscreenPassDraw( *m_debugDrawAlbedoPS );
+    }
+    else if( m_debugSelectedTexture == 4 )
+    {
+        vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, m_radiance->SafeCast<vaTextureDX11*>( )->GetSRV( ), GBUFFER_SLOT0 );
+        apiContext->FullscreenPassDraw( *m_debugDrawRadiancePS );
+    }
+
+    // Reset
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*)nullptr, GBUFFER_SLOT0 );
+
+    // make sure nothing messed with our constant buffers and nothing uses them after
+    // vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, m_constantsBuffer.GetBuffer( ), RENDERMESH_CONSTANTSBUFFERSLOT );
+    //vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11Buffer*)NULL, RENDERMESH_CONSTANTSBUFFERSLOT );
+#endif
+}
+
+// draws provided depthTexture (can be the one obtained using GetDepthBuffer( )) into currently selected RT; relies on settings set in vaRenderGlobals and will assert and return without doing anything if those are not present
+void vaGBuffer::DepthToViewspaceLinear( vaSceneDrawContext & drawContext, vaTexture & depthTexture )
+{
+    assert( !m_shadersDirty );                              if( m_shadersDirty ) return;
+
+    drawContext; depthTexture;
+
+    assert( false ); // TODO: port to platform independent code
+
+#if 0
+
+    vaRenderDeviceContextDX11 * apiContext = drawContext.APIContext.SafeCast<vaRenderDeviceContextDX11*>( );
+    ID3D11DeviceContext * dx11Context = apiContext->GetDXContext( );
+
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, GBUFFER_SLOT0 );
+
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, depthTexture.SafeCast<vaTextureDX11*>( )->GetSRV( ), GBUFFER_SLOT0 );
+    apiContext->FullscreenPassDraw( *m_depthToViewspaceLinearPS );
+
+    // Reset
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, GBUFFER_SLOT0 );
+
+        //vaGraphicsItem renderItem;
+        //apiContext.FillFullscreenPassRenderItem( renderItem );
+        //renderItem.ConstantBuffers[ IMAGE_COMPARE_TOOL_BUFFERSLOT ]         = m_constants.GetBuffer();
+        //renderItem.ShaderResourceViews[ GBUFFER_SLOT0 ]                   = m_referenceTexture;
+        //renderItem.ShaderResourceViews[ IMAGE_COMPARE_TOOL_TEXTURE_SLOT1 ]  = m_helperTexture;
+        //renderItem.PixelShader          = m_visualizationPS;
+        //apiContext.ExecuteSingleItem( renderItem );
+#endif
 }

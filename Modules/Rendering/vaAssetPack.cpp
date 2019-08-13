@@ -29,6 +29,8 @@
 
 #include "Core/System/vaFileTools.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
 vaAssetTexture::vaAssetTexture( vaAssetPack & pack, const shared_ptr<vaTexture> & texture, const string & name ) 
@@ -43,7 +45,7 @@ vaAssetRenderMaterial::vaAssetRenderMaterial( vaAssetPack & pack, const shared_p
     : vaAsset( pack, vaAssetType::RenderMaterial, name, material )
 { }
 
-vaAssetPack::vaAssetPack( vaAssetPackManager & assetPackManager, const string & name ) : m_assetPackManager(assetPackManager), m_name( name )
+vaAssetPack::vaAssetPack( vaAssetPackManager & assetPackManager, const string & name ) : m_assetPackManager(assetPackManager), m_name( name ), vaUIPanel( "asset", 0, true, vaUIPanel::DockLocation::DockedRight, "Assets" )
 {
     assert( vaThreading::IsMainThread() );
 }
@@ -174,17 +176,17 @@ bool vaAssetPack::RenameAsset( vaAsset & asset, const string & newName, bool loc
 
     if( &asset.m_parentPack != this )
     {
-        VA_LOG_ERROR( "Unable to change asset name from '%s' to '%s' in asset pack '%s' - not correct parent pack!", asset.Name().c_str(), newName.c_str(), this->m_name.c_str()  )
+        VA_LOG_ERROR( "Unable to change asset name from '%s' to '%s' in asset pack '%s' - not correct parent pack!", asset.Name().c_str(), newName.c_str(), this->m_name.c_str()  );
         return false;
     }
     if( newName == asset.Name() )
     {
-        VA_LOG( "Changing asset name from '%s' to '%s' in asset pack '%s' - same name requested? Nothing changed.", asset.Name().c_str(), newName.c_str(), this->m_name.c_str()  )
+        VA_LOG( "Changing asset name from '%s' to '%s' in asset pack '%s' - same name requested? Nothing changed.", asset.Name().c_str(), newName.c_str(), this->m_name.c_str()  );
         return true;
     }
     if( Find( newName, false ) != nullptr )
     {
-        VA_LOG_ERROR( "Unable to change asset name from '%s' to '%s' in asset pack '%s' - name already used by another asset!", asset.Name().c_str(), newName.c_str(), this->m_name.c_str()  )
+        VA_LOG_ERROR( "Unable to change asset name from '%s' to '%s' in asset pack '%s' - name already used by another asset!", asset.Name().c_str(), newName.c_str(), this->m_name.c_str()  );
         return false;
     }
 
@@ -201,7 +203,7 @@ bool vaAssetPack::RenameAsset( vaAsset & asset, const string & newName, bool loc
         }
         else
         {
-            VA_LOG_ERROR( "Error changing asset name from '%s' to '%s' in asset pack '%s' - original asset not found!", asset.Name().c_str(), newName.c_str(), this->m_name.c_str()  )
+            VA_LOG_ERROR( "Error changing asset name from '%s' to '%s' in asset pack '%s' - original asset not found!", asset.Name().c_str(), newName.c_str(), this->m_name.c_str()  );
             return false;
         }
 
@@ -530,7 +532,7 @@ bool vaAssetPack::LoadAPACK( const wstring & fileName, bool async, bool lockMute
     }
     else
     {
-        assetStorageMutexLock.unlock();
+        // assetStorageMutexLock.unlock();
         return loadingLambda( vaBackgroundTaskManager::TaskContext() );
     }
 
@@ -552,7 +554,7 @@ bool vaAssetPack::SaveUnpacked( const wstring & folderRoot, bool lockMutex )
     vaFileTools::EnsureDirectoryExists( folderRoot );
 
     vaFileStream headerFile;
-    if( !headerFile.Open( folderRoot + L"AssetPack.xml", FileCreationMode::Create, FileAccessMode::Write ) )
+    if( !headerFile.Open( folderRoot + L"AssetPack.xml", FileCreationMode::OpenOrCreate, FileAccessMode::Write ) )
     {
         VA_LOG_ERROR( L"vaAssetPack::SaveUnpacked - Unable to open '%s'", (folderRoot + L"/AssetPack.xml").c_str() );
         return false;
@@ -560,9 +562,10 @@ bool vaAssetPack::SaveUnpacked( const wstring & folderRoot, bool lockMutex )
 
     vaXMLSerializer serializer;
 
-    serializer.WriterOpenElement( "VertexAsylumAssetPack" );
+    serializer.SerializeOpenChildElement( "VertexAsylumAssetPack" );
 
-    serializer.WriteAttribute( "FileVersion", (int32)c_packFileVersion );
+    int32 packFileVersion = c_packFileVersion;
+    serializer.Serialize<int32>( "FileVersion", packFileVersion );
     //serializer.WriteAttribute( "Name", m_name );
 
     bool hadError = false;
@@ -598,27 +601,27 @@ bool vaAssetPack::SaveUnpacked( const wstring & folderRoot, bool lockMutex )
             }
 
             vaFileStream assetHeaderFile;
-            if( !assetHeaderFile.Open( assetFolder + L"\\Asset.xml", FileCreationMode::Create, FileAccessMode::Write ) )
+            if( !assetHeaderFile.Open( assetFolder + L"\\Asset.xml", FileCreationMode::OpenOrCreate, FileAccessMode::Write ) )
             {
                 VA_LOG_ERROR( L"vaAssetPack::SaveUnpacked - Unable to open '%s'", (assetFolder + L"\\Asset.xml").c_str() );
-                serializer.WriterCloseElement( "VertexAsylumAssetPack" );
+                serializer.SerializePopToParentElement( "VertexAsylumAssetPack" );
                 return false;
             }
             vaXMLSerializer assetSerializer;
             string storageName = string("Asset_") + assetTypeName;
-            assetSerializer.WriterOpenElement( storageName.c_str() );
+            assetSerializer.SerializeOpenChildElement( storageName.c_str() );
             if( !it->second->SerializeUnpacked( assetSerializer, assetFolder ) )
             {
                 assert( false );
                 hadError = true;
             }
-            assetSerializer.WriterCloseElement( storageName.c_str() );
+            assetSerializer.SerializePopToParentElement( storageName.c_str() );
             assetSerializer.WriterSaveToFile( assetHeaderFile );
             assetHeaderFile.Close();
         }
     }
 
-    serializer.WriterCloseElement("VertexAsylumAssetPack");
+    serializer.SerializePopToParentElement("VertexAsylumAssetPack");
 
     serializer.WriterSaveToFile( headerFile );
 
@@ -645,10 +648,10 @@ bool vaAssetPack::LoadUnpacked( const wstring & folderRoot, bool lockMutex )
     vaXMLSerializer serializer( headerFile );
     headerFile.Close();
 
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.ReaderAdvanceToChildElement( "VertexAsylumAssetPack" ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeOpenChildElement( "VertexAsylumAssetPack" ) );
 
     int32 fileVersion = -1;
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.ReadAttribute( "FileVersion", (int32)fileVersion ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "FileVersion", (int32)fileVersion ) );
     // VERIFY_TRUE_RETURN_ON_FALSE( fileVersion == c_packFileVersion );
 
     // already named at creation
@@ -713,7 +716,7 @@ bool vaAssetPack::LoadUnpacked( const wstring & folderRoot, bool lockMutex )
 
             string storageName = string("Asset_") + assetTypeName;
 
-            VERIFY_TRUE_RETURN_ON_FALSE( assetSerializer.ReaderAdvanceToChildElement( storageName.c_str() ) );
+            VERIFY_TRUE_RETURN_ON_FALSE( assetSerializer.SerializeOpenChildElement( storageName.c_str() ) );
 
             shared_ptr<vaAsset> newAsset = nullptr;
 
@@ -742,11 +745,11 @@ bool vaAssetPack::LoadUnpacked( const wstring & folderRoot, bool lockMutex )
             //     assert( false );
             //     hadError = true;
             // }
-            VERIFY_TRUE_RETURN_ON_FALSE( assetSerializer.ReaderPopToParentElement( storageName.c_str() ) );
+            VERIFY_TRUE_RETURN_ON_FALSE( assetSerializer.SerializePopToParentElement( storageName.c_str() ) );
         }
     }
 
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.ReaderPopToParentElement( "VertexAsylumAssetPack" ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializePopToParentElement( "VertexAsylumAssetPack" ) );
 
     if( !hadError )
     {
@@ -924,7 +927,7 @@ void vaAssetRenderMaterial::ReplaceRenderMaterial( const shared_ptr<vaRenderMate
     ReplaceAsset( newRenderMaterial ); 
 }
 
-void vaAsset::IHO_Draw( )                     
+void vaAsset::UIPropertiesItemDraw( )                     
 {
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
     if( ImGui::Button( "Rename" ) )
@@ -949,10 +952,10 @@ void vaAsset::IHO_Draw( )
 #endif
 }
 
-void vaAssetRenderMesh::IHO_Draw( )
+void vaAssetRenderMesh::UIPropertiesItemDraw( )
 {
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
-    vaAsset::IHO_Draw( );
+    vaAsset::UIPropertiesItemDraw( );
 
     shared_ptr<vaRenderMesh> mesh = GetRenderMesh( );
 
@@ -968,10 +971,10 @@ void vaAssetRenderMesh::IHO_Draw( )
 #endif
 }
 
-void vaAssetTexture::IHO_Draw( )
+void vaAssetTexture::UIPropertiesItemDraw( )
 {
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
-    vaAsset::IHO_Draw();
+    vaAsset::UIPropertiesItemDraw();
 
     shared_ptr<vaTexture> texture = GetTexture( );
     assert( texture != nullptr );
@@ -981,7 +984,7 @@ void vaAssetTexture::IHO_Draw( )
 }
 
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
-static void IHO_DrawTextureInfo( string formatStr, const shared_ptr<vaTexture> & tex )
+static void UIDrawTextureInfo( string formatStr, const shared_ptr<vaTexture> & tex )
 {
     if( tex != nullptr )
     {
@@ -1000,7 +1003,7 @@ static void IHO_DrawTextureInfo( string formatStr, const shared_ptr<vaTexture> &
         ImGui::Text( formatStr.c_str(), "null" );
     }
 }
-static void IHO_DrawMaterialInputValueInfo( vaRenderMaterial::MaterialInput & materialInput )
+static void UIDrawMaterialInputValueInfo( vaRenderMaterial::MaterialInput & materialInput )
 {
     ImGui::PushID( materialInput.Name.c_str() );
     switch( materialInput.Type )
@@ -1016,10 +1019,10 @@ static void IHO_DrawMaterialInputValueInfo( vaRenderMaterial::MaterialInput & ma
 }
 #endif
 
-void vaAssetRenderMaterial::IHO_Draw( )
+void vaAssetRenderMaterial::UIPropertiesItemDraw( )
 {
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
-    vaAsset::IHO_Draw();
+    vaAsset::UIPropertiesItemDraw();
 
     ImGui::TextColored( ImVec4( 1.0f, 0.7f, 0.7f, 1.0f ), "Inputs:" );
     //ImGui::Indent();
@@ -1048,13 +1051,13 @@ void vaAssetRenderMaterial::IHO_Draw( )
 
         if( materialInput.SourceTextureID != vaCore::GUIDNull() )
         {
-            IHO_DrawTextureInfo( "  val: texture, %s", materialInput.GetSourceTexture() );
+            UIDrawTextureInfo( "  val: texture, %s", materialInput.GetSourceTexture() );
         }
         else
         {
             ImGui::Text( "  val: " );
             ImGui::SameLine();
-            IHO_DrawMaterialInputValueInfo( materialInput );
+            UIDrawMaterialInputValueInfo( materialInput );
         }
         if( materialInput != renderMaterial->GetInputs( )[i] )
             renderMaterial->SetInput( i, materialInput );
@@ -1110,7 +1113,7 @@ void vaAssetRenderMaterial::IHO_Draw( )
 #endif
 }
 
-void vaAssetPack::IHO_Draw( )
+void vaAssetPack::UIPanelDraw( )
 { 
     assert(vaThreading::IsMainThread()); 
 
@@ -1123,7 +1126,7 @@ void vaAssetPack::IHO_Draw( )
 
     if( m_ioTask != nullptr && !vaBackgroundTaskManager::GetInstance( ).IsFinished( m_ioTask ) )
     {
-        vaBackgroundTaskManager::GetInstance( ).InsertImGuiContentTask( m_ioTask );
+        vaBackgroundTaskManager::GetInstance( ).ImGuiTaskProgress( m_ioTask );
         disableEdit = true;
     }
 
@@ -1133,7 +1136,7 @@ void vaAssetPack::IHO_Draw( )
 
         // rename UI
         if( ImGui::Button( "Rename" ) )
-            ImGuiEx_PopupInputStringBegin( "Rename asset pack", Name() );
+            ImGuiEx_PopupInputStringBegin( "Rename asset pack", GetName() );
 
         string newName;
         if( ImGuiEx_PopupInputStringTick( newName ) )
@@ -1317,6 +1320,67 @@ void vaAssetPack::IHO_Draw( )
             textures.push_back(asset);
     }
 
+    ImGuiTabBarFlags tabBarFlags = 0;
+    tabBarFlags |= ImGuiTabBarFlags_Reorderable;
+    //tabBarFlags |= ImGuiTabBarFlags_AutoSelectNewTabs;
+    tabBarFlags |= ImGuiTabBarFlags_NoCloseWithMiddleMouseButton;
+    tabBarFlags |= ImGuiTabBarFlags_FittingPolicyScroll;    // ImGuiTabBarFlags_FittingPolicyResizeDown
+    if (ImGui::BeginTabBar("MyTabBar", tabBarFlags))
+    {
+        if( ImGui::BeginTabItem( vaStringTools::Format("Meshes (%d)###Meshes", (int)meshes.size() ).c_str( ) ) ) //ImGuiWindowFlags_NoBackground ) )
+        {
+            for( auto asset : meshes )
+            {
+                bool nodeOpen = ImGui::TreeNode( asset->Name().c_str() );
+                if( asset->GetResource( ) != nullptr )
+                    asset->GetResource( )->SetUIShowSelected( ImGui::IsItemHovered( ) );
+                if( nodeOpen )
+                {
+                    if( !disableEdit )
+                        asset->UIPropertiesItemDraw();
+                    ImGui::TreePop();
+                }
+            }
+            ImGui::EndTabItem();
+        }
+        if( ImGui::BeginTabItem( vaStringTools::Format("Materials (%d)###Materials", (int)materials.size() ).c_str( ) ) ) //ImGuiWindowFlags_NoBackground ) )
+        {
+            for( auto asset : materials )
+            {
+                bool nodeOpen = ImGui::TreeNode( asset->Name( ).c_str( ) );
+                if( asset->GetResource( ) != nullptr )
+                    asset->GetResource( )->SetUIShowSelected( ImGui::IsItemHovered( ) );
+                if( nodeOpen )
+                {
+                    if( !disableEdit )
+                        asset->UIPropertiesItemDraw();
+                    ImGui::TreePop();
+                }
+            }
+            ImGui::EndTabItem();
+        }
+        if( ImGui::BeginTabItem( vaStringTools::Format("Textures (%d)###Textures", (int)textures.size() ).c_str( ) ) ) //ImGuiWindowFlags_NoBackground ) )
+        {
+            for( auto asset : textures )
+            {
+                bool nodeOpen = ImGui::TreeNode( asset->Name( ).c_str( ) );
+                if( asset->GetResource( ) != nullptr )
+                    asset->GetResource( )->SetUIShowSelected( ImGui::IsItemHovered( ) );
+                if( nodeOpen )
+                {
+                    if( !disableEdit )
+                        asset->UIPropertiesItemDraw();
+                    ImGui::TreePop();
+                    if( asset->GetResource( ) != nullptr )
+                        asset->GetResource( )->SetUIShowSelected( ImGui::IsItemHovered( ) );
+                }
+            }
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+
+#if 0
     // Meshes
     if( ImGui::TreeNode( "Meshes", "Meshes (%d)", meshes.size() ) )
     {
@@ -1328,7 +1392,7 @@ void vaAssetPack::IHO_Draw( )
             if( nodeOpen )
             {
                 if( !disableEdit )
-                    asset->IHO_Draw();
+                    asset->UIPropertiesItemDraw();
                 ImGui::TreePop();
             }
         }
@@ -1345,7 +1409,7 @@ void vaAssetPack::IHO_Draw( )
             if( nodeOpen )
             {
                 if( !disableEdit )
-                    asset->IHO_Draw();
+                    asset->UIPropertiesItemDraw();
                 ImGui::TreePop();
             }
         }
@@ -1362,7 +1426,7 @@ void vaAssetPack::IHO_Draw( )
             if( nodeOpen )
             {
                 if( !disableEdit )
-                    asset->IHO_Draw();
+                    asset->UIPropertiesItemDraw();
                 ImGui::TreePop();
                 if( asset->GetResource( ) != nullptr )
                     asset->GetResource( )->SetUIShowSelected( ImGui::IsItemHovered( ) );
@@ -1370,6 +1434,7 @@ void vaAssetPack::IHO_Draw( )
         }
         ImGui::TreePop();
     }
+#endif
 
     ImGui::PopID( );
     ImGui::PopItemWidth( );
@@ -1381,7 +1446,7 @@ vaRenderDevice & vaAssetPack::GetRenderDevice( )
     return m_assetPackManager.GetRenderDevice(); 
 }
 
-vaAssetPackManager::vaAssetPackManager( vaRenderDevice & renderDevice ) : m_renderDevice( renderDevice )
+vaAssetPackManager::vaAssetPackManager( vaRenderDevice & renderDevice ) : m_renderDevice( renderDevice )//, vaUIPanel( "Assets" )
 {
     assert( vaThreading::IsMainThread() );
 
@@ -1548,7 +1613,7 @@ shared_ptr<vaAssetPack> vaAssetPackManager::FindLoadedPack( const string & _asse
     string assetPackName = vaStringTools::ToLower( _assetPackName );
 
     for( int i = 0; i < m_assetPacks.size(); i++ )
-        if( m_assetPacks[i]->Name() == assetPackName )
+        if( m_assetPacks[i]->GetName() == assetPackName )
             return m_assetPacks[i];
     return nullptr;
 }
@@ -1600,24 +1665,18 @@ void vaAssetPackManager::OnRenderingAPIAboutToShutdown( )
     UnloadAllPacks();
 }
 
-void vaAssetPackManager::IHO_Draw( )
-{ 
-    assert( vaThreading::IsMainThread() );
-#ifdef VA_IMGUI_INTEGRATION_ENABLED
-    // if( ImGui::Button( "Create new empty pack" ) )
-    // {
-    //     
-    // }
-    // 
-    // ImGui::Button( "Load existing .apack file" );
-    
-    ImGui::Text( "Asset packs in memory: " );
-
-    //ImGui::Indent();
-    for( size_t i = 0; i < m_assetPacks.size(); i++ )
-    {
-        vaImguiHierarchyObject::DrawCollapsable( *m_assetPacks[i] );
-    }
-    //ImGui::Unindent();
-#endif
-}
+// void vaAssetPackManager::UIPanelDraw( )
+// { 
+//     assert( vaThreading::IsMainThread() );
+// #ifdef VA_IMGUI_INTEGRATION_ENABLED
+//     vector<string> list;
+//     for( size_t i = 0; i < m_assetPacks.size(); i++ )
+//         list.push_back( m_assetPacks[i]->GetName() );
+//     ImGui::Text( "Asset packs in memory:" );
+//     ImGui::PushItemWidth(-1);
+//     ImGuiEx_ListBox( "###Asset packs in memory:", m_UIAssetPackIndex, list );
+//     ImGui::PopItemWidth();
+//     if( m_UIAssetPackIndex >= 0 && m_UIAssetPackIndex < m_assetPacks.size() )
+//         m_assetPacks[m_UIAssetPackIndex]->UIDraw();
+// #endif
+// }

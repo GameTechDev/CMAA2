@@ -29,8 +29,6 @@
 #include "Core/System/vaFileStream.h"
 #include "Core/vaStringTools.h"
 
-struct ImGuiTextEditCallbackData;
-
 namespace VertexAsylum
 {
 
@@ -122,65 +120,14 @@ namespace VertexAsylum
         }
     };
 
-    // This is a half-baked helper class for displaying log in a form of a console, with additional support for 
-    // commands and etc. Initially based on ImGui console examples.
-    // Requires additional work to be functional.
-    class vaConsole : public vaSingletonBase< vaConsole >
-    {
-        struct CommandInfo
-        {
-            string      Name;
-            //some-kindo-of-callback
-
-            CommandInfo( ) { }
-            explicit CommandInfo( const string & name ) : Name(name) { }
-        };
-
-    private:
-        char                    m_textInputBuffer[256];
-        bool                    m_scrollToBottom;
-        bool                    m_scrollByAddedLineCount = false;      // if already at bottom, scroll next frame to stay at bottom
-        int                     m_lastDrawnLogLineCount = 0;
-        
-        vector<CommandInfo>     m_commands;
-
-        vector<string>          m_commandHistory;
-        int                     m_commandHistoryPos;    // -1: new line, 0..History.Size-1 browsing history.
-
-        // show console with input text (otherwise just show log)
-        bool                    m_consoleOpen;
-        bool                    m_consoleWasOpen;
-
-    private:
-        friend class vaCore;
-        vaConsole( ); 
-        ~vaConsole( );
-
-    public:
-        bool                    IsConsoleOpen( ) const              { return m_consoleOpen; }
-        void                    SetConsoleOpen( bool consoleOpen )  { m_consoleOpen = consoleOpen; }
-
-        // Todo:
-        //void                    AddCommand( const string & name ... )
-        //void                    RemoveCommand( const string & name )
-
-        void                    Draw( int windowWidth, int windowHeight );
-
-    private:
-        void                    ExecuteCommand( const string & commandLine );
-
-    private:
-        static int              TextEditCallbackStub( ImGuiTextEditCallbackData * data );
-        int                     TextEditCallback( ImGuiTextEditCallbackData * data );
-    };
 
 
-#define VA_LOG( format, ... )                   { vaLog::GetInstance().Add( LOG_COLORS_NEUTRAL, format, __VA_ARGS__ ); } 
-#define VA_LOG_SUCCESS( format, ... )           { vaLog::GetInstance().Add( LOG_COLORS_SUCCESS, format, __VA_ARGS__ ); } 
-#define VA_LOG_WARNING( format, ... )           { vaLog::GetInstance().Add( LOG_COLORS_WARNING, format, __VA_ARGS__ ); } 
-#define VA_LOG_ERROR( format, ... )             { vaLog::GetInstance().Add( LOG_COLORS_ERROR, format, __VA_ARGS__ ); } 
+#define VA_LOG( format, ... )                   do { vaLog::GetInstance().Add( LOG_COLORS_NEUTRAL, format, __VA_ARGS__ );   } while(false)
+#define VA_LOG_SUCCESS( format, ... )           do { vaLog::GetInstance().Add( LOG_COLORS_SUCCESS, format, __VA_ARGS__ );   } while(false)
+#define VA_LOG_WARNING( format, ... )           do { vaLog::GetInstance().Add( LOG_COLORS_WARNING, format, __VA_ARGS__ );   } while(false)
+#define VA_LOG_ERROR( format, ... )             do { vaLog::GetInstance().Add( LOG_COLORS_ERROR, format, __VA_ARGS__ );     } while(false)
 
-#define VA_LOG_STACKINFO( format, ... )         { vaLog::GetInstance().Add( L"%s:%d : " format , VA_T(__FILE__), __LINE__, __VA_ARGS__); } 
-#define VA_LOG_WARNING_STACKINFO( format, ... ) { vaLog::GetInstance().Add( LOG_COLORS_WARNING, L"%s:%d : " format , VA_T(__FILE__), __LINE__, __VA_ARGS__); } 
-#define VA_LOG_ERROR_STACKINFO( format, ... )   { vaLog::GetInstance().Add( LOG_COLORS_ERROR, L"%s:%d : " format , VA_T(__FILE__), __LINE__, __VA_ARGS__); } 
+#define VA_LOG_STACKINFO( format, ... )         do { { vaLog::GetInstance().Add( L"%s:%d : " format , VA_T(__FILE__), __LINE__, __VA_ARGS__); }                     } while(false)
+#define VA_LOG_WARNING_STACKINFO( format, ... ) do { { vaLog::GetInstance().Add( LOG_COLORS_WARNING, L"%s:%d : " format , VA_T(__FILE__), __LINE__, __VA_ARGS__); } } while(false)
+#define VA_LOG_ERROR_STACKINFO( format, ... )   do { { vaLog::GetInstance().Add( LOG_COLORS_ERROR, L"%s:%d : " format , VA_T(__FILE__), __LINE__, __VA_ARGS__); }   } while(false)
 }

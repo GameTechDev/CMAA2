@@ -43,7 +43,7 @@
 namespace VertexAsylum
 {
 
-    class vaPostProcessBlur : public vaRenderingModule //, public vaImguiHierarchyObject
+    class vaPostProcessBlur : public vaRenderingModule
     {
     protected:
         int                                     m_texturesUpdatedCounter;
@@ -82,31 +82,31 @@ namespace VertexAsylum
 
     public:
 
-        void                                    UpdateGPUConstants( vaRenderDeviceContext & apiContext, float factor0 );
+        void                                    UpdateGPUConstants( vaRenderDeviceContext & renderContext, float factor0 );
 
         // for HDR images use gaussRadius that is at least 6 * ceil(gaussSigma); for LDR 3 * ceil(gaussSigma) is enough
         // if -1 is used, gaussRadius will be calculated as 6 * ceil(gaussSigma)
         // gaussRadius is the only factor that determines performance; 
-        vaDrawResultFlags                       Blur( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcInput, float gaussSigma, int gaussRadius = -1 );
+        vaDrawResultFlags                       Blur( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcInput, float gaussSigma, int gaussRadius = -1 );
 
         // same as Blur except output goes into m_lastScratchTexture which remains valid until next call to Blur or BlurToScratch or device reset
-        vaDrawResultFlags                       BlurToScratch( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcInput, float gaussSigma, int gaussRadius = -1 );
+        vaDrawResultFlags                       BlurToScratch( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcInput, float gaussSigma, int gaussRadius = -1 );
 
         // output from last BlurToScratch or nullptr if invalid
         const shared_ptr<vaTexture> &           GetLastScratch( ) const                 { return m_lastScratchTexture; }
 
     protected:
-        void                                    UpdateTextures( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcInput );
+        void                                    UpdateTextures( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcInput );
         bool                                    UpdateKernel( float gaussSigma, int gaussRadius );
 
     private:
         void                                    UpdateFastKernelWeightsAndOffsets( );
 
     public:
-        void                                    UpdateShaders( vaRenderDeviceContext & apiContext );
+        void                                    UpdateShaders( vaRenderDeviceContext & renderContext );
 
     protected:
-        virtual vaDrawResultFlags               BlurInternal( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & srcInput, bool blurToScratch );
+        virtual vaDrawResultFlags               BlurInternal( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & srcInput, bool blurToScratch );
     };
 
 }

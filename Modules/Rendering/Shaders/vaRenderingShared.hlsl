@@ -177,7 +177,8 @@ void ComputeOrthonormalBasis( float3 n, out float3 b1, out float3 b2 )
     const float a = -1.0 / (sign + n.z);
     const float b = n.x * n.y * a;
     b1 = float3(1.0f + sign * n.x * n.x * a, sign * b, -sign * n.x);
-    b2 = float3(b, sign + n.y * n.y * a, -n.y);}
+    b2 = float3(b, sign + n.y * n.y * a, -n.y);
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Core/vaCoreIncludes.h"
+#include "Core/vaUI.h"
 
 #include "vaRendering.h"
 
@@ -27,8 +28,6 @@
 #include "vaTexture.h"
 
 #include "Rendering/Shaders/vaSharedTypes.h"
-
-#include "IntegratedExternals/vaImguiIntegration.h"
 
 #include "vaRenderMaterial.h"
 
@@ -187,36 +186,51 @@ namespace VertexAsylum
         static shared_ptr<vaRenderMesh>                 CreateTeapot( vaRenderDevice & device, const vaMatrix4x4 & transform, const vaGUID & uid = vaCore::GUIDCreate() );
     };
 
+    struct vaRenderMeshCustomHandler;
+
     class vaRenderMeshDrawList
     {
     public:
         struct Entry
         {
-            std::shared_ptr<vaRenderMesh>               Mesh;
+            shared_ptr<vaRenderMesh>                    Mesh;
+            // shared_ptr<vaRenderMaterial>                OverrideMaterial;    // was not needed so far
             vaMatrix4x4                                 Transform;
-            uint32                                      SubPartMask;
 
             float                                       SortDistance;
 
-            // per-instance data; could be a color but it could be an index into more elaborate data storage somewhere, etc.
-            vaVector4                                   Color;
+            // per-instance data for custom rendering - could be something simple like custom per-instance coloring or mesh
+            vaRenderMeshCustomHandler *                 CustomHandler;  // handler  (and can be used as a type identifier through RTTI or similar)
+            uint64                                      CustomPayload;  // per-entry payload
 
-            Entry( const std::shared_ptr<vaRenderMesh> & mesh, const vaMatrix4x4 & transform, const vaVector4 & color = vaVector4( 1.0f, 1.0f, 1.0f, 1.0f ), uint32 subPartMask = 0xFFFFFFFF, float sortDistance = 0.0f ) : Mesh( mesh ), Transform( transform ), Color( color ), SubPartMask( subPartMask ), SortDistance( sortDistance ) { }
+            Entry( const std::shared_ptr<vaRenderMesh> & mesh, const vaMatrix4x4 & transform, float sortDistance = 0.0f,
+                    vaRenderMeshCustomHandler * customHandler = nullptr, uint64 customPayload = 0 ) : Mesh( mesh ), Transform( transform ), SortDistance( sortDistance ), CustomHandler( customHandler ), CustomPayload( customPayload ) { }
         };
 
     private:
         vector< Entry >                                 m_drawList;
         //vaRenderSelectionCullFlags                      m_usedFilter;
 
-    protected:
+    public:
+        // can be useful to deallocate / dispose of any per-list temporary storage, for ex. anything pointed to by the CustomPayload-s
+        // only called once before m_drawList.clear() and then cleared as well!
+        vaEvent<void(vaRenderMeshDrawList& list)>       Event_PreReset;
 
     public:
-        void                                            Reset( )                            { m_drawList.clear(); }
+        ~vaRenderMeshDrawList( )                        { Reset( ); }
+
+    public:
+        void                                            Reset( )                            { Event_PreReset.Invoke( *this ); Event_PreReset.RemoveAll(); m_drawList.clear(); }
         int                                             Count( ) const                      { return (int)m_drawList.size(); }
         
-        void                                            Insert( const std::shared_ptr<vaRenderMesh> & mesh, const vaMatrix4x4 & transform, const vaVector3 & sortFromReference, vaSortType sortType = vaSortType::FrontToBack, const vaVector4 & color = vaVector4( 1.0f, 1.0f, 1.0f, 1.0f ), uint32 subPartMask = 0xFFFFFFFF );
+        void                                            Insert( const std::shared_ptr<vaRenderMesh> & mesh, const vaMatrix4x4 & transform, const vaVector3 & sortFromReference, vaSortType sortType = vaSortType::FrontToBack, vaRenderMeshCustomHandler * customHandler = nullptr, uint64 customPayload = 0 );
 
         const Entry &                                   operator[] ( int index ) const      { return m_drawList[index]; }
+    };
+
+    struct vaRenderMeshCustomHandler
+    {
+        virtual void    ApplyMeshCustomization( vaSceneDrawContext & drawContext, const vaRenderMeshDrawList::Entry & entry, const vaRenderMaterial & material, vaGraphicsItem & renderItem )    = 0;
     };
 
     enum class vaRenderMeshDrawFlags : uint32
@@ -233,7 +247,7 @@ namespace VertexAsylum
 
     BITFLAG_ENUM_CLASS_HELPER( vaRenderMeshDrawFlags );
 
-    class vaRenderMeshManager : public vaRenderingModule, public vaImguiHierarchyObject
+    class vaRenderMeshManager : public vaRenderingModule, public vaUIPanel
     {
         VA_RENDERING_MODULE_MAKE_FRIENDS( );
 
@@ -244,7 +258,7 @@ namespace VertexAsylum
 
         bool                                            m_isDestructing;
 
-        vaTypedConstantBufferWrapper< RenderMeshConstants >
+        vaTypedConstantBufferWrapper< RenderMeshConstants, true >
                                                         m_constantsBuffer;
 
     public:
@@ -260,18 +274,19 @@ namespace VertexAsylum
         void                                            RenderMeshesTrackeeBeforeRemovedCallback( int removedTrackeeIndex, int replacedByTrackeeIndex );
 
     public:
-        virtual vaDrawResultFlags                       Draw( vaSceneDrawContext & drawContext, const vaRenderMeshDrawList & list, vaBlendMode blendMode, vaRenderMeshDrawFlags drawFlags );
+        virtual vaDrawResultFlags                       Draw( vaSceneDrawContext & drawContext, const vaRenderMeshDrawList & list, vaBlendMode blendMode, vaRenderMeshDrawFlags drawFlags,
+                                                                std::function< void( const vaRenderMeshDrawList::Entry & entry, const vaRenderMaterial & material, vaGraphicsItem & renderItem ) > globalCustomizer = nullptr );
 
         vaTT_Tracker< vaRenderMesh * > *                GetRenderMeshTracker( )                                                     { return &m_renderMeshes; }
 
         shared_ptr<vaRenderMesh>                        CreateRenderMesh( const vaGUID & uid = vaCore::GUIDCreate() );
 
     protected:
-        virtual string                                  IHO_GetInstanceName( ) const                                                { return vaStringTools::Format("vaRenderMeshManager (%d meshes)", m_renderMeshes.size() ); }
-        virtual void                                    IHO_Draw( );
+        virtual string                                  UIPanelGetDisplayName( ) const override { return "Meshes"; } //vaStringTools::Format( "vaRenderMaterialManager (%d meshes)", m_renderMaterials.size( ) ); }
+        virtual void                                    UIPanelDraw( );
     };
 
-    inline void vaRenderMeshDrawList::Insert( const std::shared_ptr<vaRenderMesh> & mesh, const vaMatrix4x4 & transform, const vaVector3 & sortFromReference, vaSortType sortType, const vaVector4 & color, uint32 subPartMask )
+    inline void vaRenderMeshDrawList::Insert( const std::shared_ptr<vaRenderMesh> & mesh, const vaMatrix4x4 & transform, const vaVector3 & sortFromReference, vaSortType sortType, vaRenderMeshCustomHandler * customHandler, uint64 customPayload )
     {
         if( mesh == nullptr )
         {
@@ -280,7 +295,7 @@ namespace VertexAsylum
         }
         float distance = ( vaVector3::TransformCoord( mesh->GetAABB().Center(), transform ) - sortFromReference ).Length();
         
-        Entry newEntry( mesh, transform, color, subPartMask, distance );
+        Entry newEntry( mesh, transform, distance, customHandler, customPayload );
 
         if( sortType != vaSortType::None )
         {

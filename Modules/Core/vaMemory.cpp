@@ -25,49 +25,7 @@ using namespace VertexAsylum;
 
 #include "IntegratedExternals/vaAssimpIntegration.h"
 
-namespace
-{
-
-	struct TempBufferInstance
-	{
-		VertexAsylum::byte *    Data;
-		int                     Size;
-		bool                    InUse;
-
-		TempBufferInstance()		
-		{ 
-			Data = NULL; 
-			Size = 0; 
-			InUse = false; 
-		}
-		~TempBufferInstance()	
-		{ 
-         Destroy( );
-		}
-		void Create( int size )
-		{
-			assert( !InUse ); 
-			assert( Data == NULL ); 
-			Data = new VertexAsylum::byte[ size ];
-			Size = size;
-		}
-      void Destroy( )
-      {
-         assert( !InUse );
-         if( Data != NULL )
-            delete[] Data;
-         Data = NULL;
-         Size = 0;
-         InUse = false;
-      }
-	};
-}
-
-// currently only one, simplest possible implementation
-static TempBufferInstance		s_tempBuffer;
-
 _CrtMemState s_memStateStart;
-
 
 void vaMemory::Initialize( )
 {
@@ -106,14 +64,11 @@ void vaMemory::Initialize( )
       //_CrtSetBreakAlloc( 291 );  // <- if this didn't work, the allocation probably happens before Initialize() or is a global variable
     #endif
 
-	    s_tempBuffer.Create( 2 * 1024 * 1024 );
     }
 }
 
 void vaMemory::Deinitialize()
 {
-   s_tempBuffer.Destroy( );
-
 #if defined(DEBUG) || defined(_DEBUG)
    _CrtMemState memStateStop, memStateDiff;
    _CrtMemCheckpoint( &memStateStop );
@@ -137,33 +92,5 @@ void vaMemory::Deinitialize()
    }
 #endif
 }
-
-void * vaMemory::AllocTempBuffer( int size )
-{
-	if( s_tempBuffer.InUse || s_tempBuffer.Size < size )
-	{
-		return new byte[size];
-	}
-	else
-	{
-		s_tempBuffer.InUse = true;
-		return s_tempBuffer.Data;
-	}
-}
-
-void	vaMemory::FreeTempBuffer( void * buffer )
-{
-	if( buffer == s_tempBuffer.Data )
-	{
-		assert( s_tempBuffer.InUse );
-		s_tempBuffer.InUse = false;
-	}
-	else
-	{
-		byte * bytePtr = (byte *)buffer;
-		delete[] bytePtr;
-	}
-}
-
 
 

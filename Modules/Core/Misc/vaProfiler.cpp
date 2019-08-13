@@ -1,5 +1,5 @@
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -28,8 +28,12 @@
 
 #include "Rendering/vaRenderDevice.h"
 
-#ifdef NUGET_PACKAGE_WinPixEventRuntime_INSTALLED
-#include "pix3.h"
+#ifdef VA_USE_PIX3
+#define USE_PIX
+#endif
+
+#ifdef USE_PIX
+#include <pix3.h>
 #endif
 
 using namespace VertexAsylum;
@@ -43,7 +47,7 @@ vaNestedProfilerNode::vaNestedProfilerNode( vaNestedProfilerNode * parentNode, c
 {
     if( renderDeviceContext != nullptr )
     {
-        m_GPUProfiler = VA_RENDERING_MODULE_CREATE_UNIQUE( vaGPUTimer, vaGPUTimerParams( *renderDeviceContext ) );
+        m_GPUProfiler = VA_RENDERING_MODULE_CREATE_SHARED( vaGPUTimer, vaGPUTimerParams( *renderDeviceContext ) );
         m_GPUProfiler->SetName( name );
     }
 
@@ -112,7 +116,7 @@ const vaNestedProfilerNode * vaNestedProfilerNode::FindSubNode( const string & n
     return nullptr;
 }
 
-vaNestedProfilerNode * vaNestedProfilerNode::StartScope( const string & name, vaRenderDeviceContext * renderDeviceContext, double currentTime, int64 profilerFrameIndex, bool aggregateIfSameNameInScope )
+vaNestedProfilerNode * vaNestedProfilerNode::StartScope( const string & name, double currentTime, int64 profilerFrameIndex, bool aggregateIfSameNameInScope, vaRenderDeviceContext * renderDeviceContext )
 {
     vaNestedProfilerNode * node = nullptr;
     auto it = m_childNodes.find( name );
@@ -147,7 +151,7 @@ vaNestedProfilerNode * vaNestedProfilerNode::StartScope( const string & name, va
                     return nullptr;
                 }
                 else
-                    return StartScope( name.substr( 0, passIDOffset ) + '_' + 'p' + (char)('0'+counter/10) + (char)('0'+counter%10), renderDeviceContext, currentTime, profilerFrameIndex, aggregateIfSameNameInScope );
+                    return StartScope( name.substr( 0, passIDOffset ) + '_' + 'p' + (char)('0'+counter/10) + (char)('0'+counter%10), currentTime, profilerFrameIndex, aggregateIfSameNameInScope, renderDeviceContext );
             }
         }
 
@@ -177,13 +181,21 @@ vaNestedProfilerNode * vaNestedProfilerNode::StartScope( const string & name, va
     node->m_framesUntouched = 0;
     node->m_childNodeUsageFrameCounter = 0;
 
+
     if( node->m_GPUProfiler )
-        node->m_GPUProfiler->Start( );
+        node->m_GPUProfiler->Start( renderDeviceContext );
+    else
+    {
+#ifdef USE_PIX
+        if( name != "" )
+            PIXBeginEvent( PIX_COLOR_INDEX(0), node->m_name.c_str() );
+#endif
+    }
 
     return node;
 }
 
-void vaNestedProfilerNode::StopScope( double currentTime )
+void vaNestedProfilerNode::StopScope( double currentTime, vaRenderDeviceContext * renderDeviceContext )
 {
     assert( m_startTimeCPU != 0.0 );
     
@@ -191,7 +203,14 @@ void vaNestedProfilerNode::StopScope( double currentTime )
     m_startTimeCPU = 0.0;
 
     if( m_GPUProfiler )
-        m_GPUProfiler->Stop( );
+        m_GPUProfiler->Stop( renderDeviceContext );
+    else
+    {
+#ifdef USE_PIX
+    if( m_name != "" )
+        PIXEndEvent( );
+#endif
+    }
 
     assert( m_framesUntouched == 0 );
 }
@@ -299,8 +318,9 @@ void vaNestedProfilerNode::Proccess( )
     }
 }
 
-void vaNestedProfilerNode::Display( const string & namePath, int depth, bool cpu, vaProfilerTimingsDisplayType displayType )
+void vaNestedProfilerNode::Display( const string & namePath, int depth, bool cpu, bool skipInitialNonGPUNodes, vaProfilerTimingsDisplayType displayType )
 {
+    namePath; depth; cpu; displayType;
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
     string newNamePath = m_name;
 
@@ -321,6 +341,16 @@ void vaNestedProfilerNode::Display( const string & namePath, int depth, bool cpu
         info = "  " + info;
     else
         info = "- " + info;
+
+    bool skipThis = skipZero && (depth == 0);
+
+    if( skipInitialNonGPUNodes && m_GPUProfiler == nullptr )
+    {
+        skipThis = true;
+        depth = std::max( 0, depth-1 );
+    }
+    else
+        skipInitialNonGPUNodes = false;
 
     int totalIndentCharCount = (skipZero)?( (depth-1) * indentCharCount ) : ( depth * indentCharCount );
     totalIndentCharCount = vaMath::Max( 0, totalIndentCharCount );
@@ -365,6 +395,7 @@ void vaNestedProfilerNode::Display( const string & namePath, int depth, bool cpu
     displayTimeExclusiveGPU = vaMath::Max( 0.0f, displayTimeExclusiveGPU );
 
     info.insert( info.end(), whiteSpaceCount, ' ' );
+#if 0 // show "(self) all"
     if( cpu )
         info += vaStringTools::Format( "(%5.3f) %5.3f", displayTimeExclusiveCPU*1000.0f, displayTimeTotalCPU*1000.0f );
     else
@@ -372,8 +403,15 @@ void vaNestedProfilerNode::Display( const string & namePath, int depth, bool cpu
         if( m_hasGPUTimings )
             info += vaStringTools::Format( "(%5.3f) %5.3f", displayTimeExclusiveGPU*1000.0f, displayTimeTotalGPU*1000.0f );
     }
-
-    bool skipThis = skipZero && (depth == 0);
+#else // just show "all"
+    if( cpu )
+        info += vaStringTools::Format( "%7.3f", displayTimeTotalCPU*1000.0f );
+    else
+    {
+        if( m_hasGPUTimings )
+            info += vaStringTools::Format( "%7.3f", displayTimeTotalGPU*1000.0f );
+    }
+#endif
 
     if( cpu || m_hasGPUTimings )
     {
@@ -392,7 +430,7 @@ void vaNestedProfilerNode::Display( const string & namePath, int depth, bool cpu
 
                 for( auto it = m_sortedChildNodes.begin( ); it != m_sortedChildNodes.end( ); it++ )
                     if( (*it) != nullptr )
-                        (*it)->Display( newNamePath, depth + 1, cpu, displayType );
+                        (*it)->Display( newNamePath, depth + 1, cpu, skipInitialNonGPUNodes, displayType );
 
                 //ImGui::Unindent( );
             }
@@ -411,6 +449,7 @@ vaProfiler::vaProfiler( )
 
 #ifdef VA_REMOTERY_INTEGRATION_ENABLED
     {
+        /*
         rmtSettings * settings = rmt_Settings( );
 
         settings->port = 0x4597;
@@ -424,6 +463,7 @@ vaProfiler::vaProfiler( )
         settings->input_handler = NULL;
         settings->input_handler_context = NULL;
         settings->logFilename = "";
+        */
 
         rmt_CreateGlobalInstance( &m_remotery );
     }
@@ -435,37 +475,51 @@ vaProfiler::vaProfiler( )
 vaProfiler::~vaProfiler( )
 {
     assert( vaThreading::IsMainThread( ) );
+    if( m_currentScope != nullptr )
+    {
+        assert( m_currentScope == &m_root );
+        StopScope( m_currentScope, nullptr );
+        assert( m_currentScope == nullptr );
+    }
+
 #ifdef VA_REMOTERY_INTEGRATION_ENABLED
     rmt_DestroyGlobalInstance( m_remotery );
 #endif
 }
 
-vaNestedProfilerNode * vaProfiler::StartScope( const string & name, vaRenderDeviceContext * renderDeviceContext, bool aggregateIfSameNameInScope )
+vaNestedProfilerNode * vaProfiler::StartScope( const string & name, bool aggregateIfSameNameInScope, vaRenderDeviceContext * renderDeviceContext )
 {
-#ifdef NUGET_PACKAGE_WinPixEventRuntime_INSTALLED
-    PIXBeginEvent( 0x00000000, name.c_str() );
-#endif
-
     assert( vaThreading::IsMainThread( ) );
     if( !vaThreading::IsMainThread( ) )
         return nullptr;
 
-    assert( m_currentScope != nullptr );    // have you called vaProfiler::GetInstance().NewFrame() at the beginning of the frame?
-    return m_currentScope = m_currentScope->StartScope( name, renderDeviceContext, m_timer.GetCurrentTimeDouble( ), m_profilerFrameIndex, aggregateIfSameNameInScope );
+    if( m_currentScope == nullptr )
+    {
+        m_currentScope = &m_root;
+        assert( m_currentScope->m_GPUProfiler == nullptr );
+        m_currentScope->m_nodeUsageIndex = 0;
+        m_currentScope->m_lastUsedProfilerFrameIndex = m_profilerFrameIndex;
+        m_currentScope->m_startTimeCPU = m_timer.GetCurrentTimeDouble( );
+        m_currentScope->m_framesUntouched = 0;
+        m_currentScope->m_childNodeUsageFrameCounter = 0;
+#ifdef USE_PIX
+        if( m_currentScope->m_name != "" )
+            PIXBeginEvent( PIX_COLOR_INDEX(0), m_currentScope->m_name.c_str() );
+#endif
+    }
+    else
+        m_currentScope = m_currentScope->StartScope( name, m_timer.GetCurrentTimeDouble( ), m_profilerFrameIndex, aggregateIfSameNameInScope, renderDeviceContext );
+    return m_currentScope;
 }
 
-void vaProfiler::StopScope( vaNestedProfilerNode * node )
+void vaProfiler::StopScope( vaNestedProfilerNode * node, vaRenderDeviceContext * renderDeviceContext )
 {
-#ifdef NUGET_PACKAGE_WinPixEventRuntime_INSTALLED
-    PIXEndEvent( );
-#endif
-
     assert( vaThreading::IsMainThread( ) );
     if( !vaThreading::IsMainThread( ) )
         return;
 
     assert( node == m_currentScope );
-    node->StopScope( m_timer.GetCurrentTimeDouble( ) );
+    node->StopScope( m_timer.GetCurrentTimeDouble( ), renderDeviceContext );
     m_lastScope = node;
     m_currentScope = node->m_parentNode;
 }
@@ -490,22 +544,18 @@ void vaProfiler::NewFrame( )
     if( m_currentScope != nullptr )
     {
         assert( m_currentScope == &m_root );
-        StopScope( m_currentScope );
+        StopScope( m_currentScope, nullptr );
         assert( m_currentScope == nullptr );
     }
     
     m_root.RemoveOrphans( );
     m_root.Proccess( );
     
-    // start root
-    assert( m_root.m_startTimeCPU == 0.0 );
-    m_root.m_startTimeCPU = m_timer.GetCurrentTimeDouble( );
-    m_root.m_framesUntouched = 0;
-    m_root.m_childNodeUsageFrameCounter = 0;
-
-    m_currentScope = &m_root;
-
     m_profilerFrameIndex++;
+
+    // start root
+    m_currentScope = StartScope( m_root.m_name, false, nullptr );
+    assert( m_currentScope == &m_root );
 }
 //void vaProfiler::Proccess( )
 //{
@@ -516,6 +566,7 @@ void vaProfiler::NewFrame( )
 void vaProfiler::InsertImGuiContent( bool showCPU )
 {
     assert( vaThreading::IsMainThread( ) );
+    showCPU;
 
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
     bool showGPU = !showCPU;
@@ -538,9 +589,9 @@ void vaProfiler::InsertImGuiContent( bool showCPU )
     assert( m_currentScope != nullptr );    // have you called vaProfiler::GetInstance().NewFrame() at the beginning of the frame?
     //ImGui::Text( "" );
     if( showCPU )
-        m_root.Display( "", 0, true, m_displayType );
+        m_root.Display( "", 0, true, false, m_displayType );
     if( showGPU )
-        m_root.Display( "", 0, false, m_displayType );
+        m_root.Display( "", 0, false, true, m_displayType );
     //ImGui::Text( "" );
 
     ImGui::PopID();
@@ -573,11 +624,11 @@ void vaProfiler::EnkiWaitStopCallback( uint32_t threadnum_ )
 
 
 vaScopeTimer::vaScopeTimer( const string & name, vaRenderDeviceContext * renderDeviceContext, bool aggregateIfSameNameInScope )
-    : m_node( (!s_disableScopeTimer)?(vaProfiler::GetInstance().StartScope( name, renderDeviceContext, aggregateIfSameNameInScope ) ) : ( nullptr ) ) 
+    : m_node( (!s_disableScopeTimer)?(vaProfiler::GetInstance().StartScope( name, aggregateIfSameNameInScope, renderDeviceContext ) ) : ( nullptr ) ), m_renderDeviceContext( renderDeviceContext )
 { 
 }
 vaScopeTimer::~vaScopeTimer( )
 {
     if( !s_disableScopeTimer )
-        vaProfiler::GetInstance().StopScope( m_node );
+        vaProfiler::GetInstance().StopScope( m_node, m_renderDeviceContext );
 }

@@ -50,7 +50,7 @@ void vaSimpleShadowMap::SetResolution( int resolution )
     {
         m_resolution = resolution;
 
-        m_shadowMap = vaTexture::Create2D( vaResourceFormat::R16_TYPELESS, resolution, resolution, 1, 1, 1, vaResourceBindSupportFlags::DepthStencil | vaResourceBindSupportFlags::ShaderResource, vaTextureAccessFlags::None, NULL, 0, vaResourceFormat::R16_UNORM, vaResourceFormat::Unknown, vaResourceFormat::D16_UNORM);
+        m_shadowMap = vaTexture::Create2D( vaResourceFormat::R16_TYPELESS, resolution, resolution, 1, 1, 1, vaResourceBindSupportFlags::DepthStencil | vaResourceBindSupportFlags::ShaderResource, vaResourceAccessFlags::Default, NULL, 0, vaResourceFormat::R16_UNORM, vaResourceFormat::Unknown, vaResourceFormat::D16_UNORM);
 
         InternalResolutionOrTexelWorldSizeChanged( );
     }

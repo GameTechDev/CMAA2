@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -21,6 +21,8 @@
 #include "Rendering/Shaders/vaSharedTypes.h"
 
 #include "Rendering/vaTextureHelpers.h"
+
+#include "IntegratedExternals/vaImguiIntegration.h"
 
 using namespace VertexAsylum;
 
@@ -45,41 +47,39 @@ void vaLight::CorrectLimits( )
 
 bool vaLight::Serialize( vaXMLSerializer & serializer )
 {
-    if( serializer.SerializeOpenChildElement( "Light" ) )
-    {
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Name", Name ) );
+    if( serializer.GetVersion() <= 0 )
+        if( !serializer.SerializeOpenChildElement( "Light" ) )
+        { assert( false ); return false; }
 
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Type", (int32&)Type) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<string>( "Name", Name ) );
 
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Intensity"     ,   Intensity         ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Position"      ,   Position          ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Direction"     ,   Direction         ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Up"            ,   Up                ) );
-        //VERIFY_TRUE_RETURN_ON_FALSE( 
-                                        serializer.SerializeValue( "Size", Size );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "SpotInnerAngle",   SpotInnerAngle    ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "SpotOuterAngle",   SpotOuterAngle    ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "Type", (int32&)Type) );
 
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "CastShadows",      CastShadows,     false ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector3>( "Intensity"     ,   Intensity         ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector3>( "Position"      ,   Position          ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector3>( "Direction"     ,   Direction         ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector3>( "Up"            ,   Up                ) );
+    //VERIFY_TRUE_RETURN_ON_FALSE( 
+                                    serializer.Serialize<float>( "Size", Size );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<float>( "SpotInnerAngle",   SpotInnerAngle    ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<float>( "SpotOuterAngle",   SpotOuterAngle    ) );
 
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<bool>( "CastShadows",      CastShadows,     false ) );
+
+    if( serializer.GetVersion() <= 0 )
         VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializePopToParentElement( "Light" ) );
 
-        if( serializer.IsReading( ) )
-        {
-            CorrectLimits( );
-        }
-
-        return true;
-    }
-    else
+    if( serializer.IsReading( ) )
     {
-        VA_LOG_WARNING( L"Unable to load light, unexpected contents." );
-        return false;
+        CorrectLimits( );
     }
+
+    return true;
 }
 
-void vaLight::IHO_Draw( ) 
-{ 
+void vaLight::UIPropertiesItemDraw( ) 
+{
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     const vector<string> lightTypes = { "Ambient", "Directional", "Point", "Spot" };
 
     if( ImGui::Button( "Rename" ) )
@@ -112,6 +112,7 @@ void vaLight::IHO_Draw( )
     ImGui::Checkbox( "CastShadows", &CastShadows );
 
     CorrectLimits( );
+#endif
 }
 
 void VertexAsylum::vaLight::Reset( )
@@ -129,36 +130,33 @@ void vaFogSphere::CorrectLimits( )
 
 bool vaFogSphere::Serialize( vaXMLSerializer & serializer )
 {
-    if( serializer.SerializeOpenChildElement( "FogSphere" ) )
+ //   if( serializer.GetVersion() <= 0 )
+ //       if( !serializer.SerializeOpenChildElement( "FogSphere" ) )
+ //           { assert( false ); return false; }
+
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<bool>( "Enabled",          Enabled         ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<bool>( "UseCustomCenter",  UseCustomCenter ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector3>( "Center",           Center          ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector3>( "Color",            Color           ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<float>( "RadiusInner",      RadiusInner     ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<float>( "RadiusOuter",      RadiusOuter     ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<float>( "BlendCurvePow",    BlendCurvePow   ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<float>( "BlendMultiplier",  BlendMultiplier ) );
+
+//    if( serializer.GetVersion() <= 0 )
+//        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializePopToParentElement( "FogSphere" ) );
+
+    if( serializer.IsReading( ) )
     {
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Enabled",          Enabled         ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "UseCustomCenter",  UseCustomCenter ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Center",           Center          ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "Color",            Color           ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "RadiusInner",      RadiusInner     ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "RadiusOuter",      RadiusOuter     ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "BlendCurvePow",    BlendCurvePow   ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "BlendMultiplier",  BlendMultiplier ) );
-
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializePopToParentElement( "FogSphere" ) );
-
-        if( serializer.IsReading( ) )
-        {
-            CorrectLimits( );
-        }
-
-        return true;
+        CorrectLimits( );
     }
-    else
-    {
-        VA_LOG_WARNING( L"Unable to load fog sphere, unexpected/missing contents." );
-        return false;
-    }
+
+    return true;
 }
 
-void vaFogSphere::IHO_Draw( )
+void vaFogSphere::UIPropertiesItemDraw( )
 {
-
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     ImGui::Checkbox( "Enabled", &Enabled );
     ImGui::Checkbox( "UseCustomCenter", &UseCustomCenter );
     ImGui::InputFloat3( "Center", &Center.x );
@@ -173,20 +171,22 @@ void vaFogSphere::IHO_Draw( )
     ImGui::InputFloat( "Blend multiplier", &BlendMultiplier );
 
     CorrectLimits( );
+#endif
 }
 
 
 vaLighting::vaLighting( const vaRenderingModuleParams & params ) : vaRenderingModule( vaRenderingModuleParams(params) ), 
     m_constantsBuffer( params ),
     m_applyDirectionalAmbientPS( params ),
-    m_applyDirectionalAmbientShadowedPS( params )
+    m_applyDirectionalAmbientShadowedPS( params ),
+    vaUIPanel( "Lighting", 0, false, vaUIPanel::DockLocation::DockedLeftBottom )
 {
     m_debugInfo = "Lighting";
 
     // just setup some basic lights
-    m_lights.push_back( std::make_shared<vaLight>( vaLight::MakeAmbient( "DefaultAmbient", vaVector3( 0.15f, 0.15f, 0.15f ) ) ) );
+    m_lights.push_back( std::make_shared<vaLight>( vaLight::MakeAmbient( "DefaultAmbient", vaVector3( 0.05f, 0.05f, 0.15f ) ) ) );
 
-    m_lights.push_back( std::make_shared<vaLight>( vaLight::MakeDirectional( "DefaultDirectional", vaVector3( 1.1f, 1.1f, 1.1f ), vaVector3( 0.0f, 0.0f, -1.0f ).Normalized() ) ) );
+    m_lights.push_back( std::make_shared<vaLight>( vaLight::MakeDirectional( "DefaultDirectional", vaVector3( 1.0f, 1.0f, 0.9f ), vaVector3( 0.0f, -1.0f, -1.0f ).Normalized() ) ) );
 }
 
 vaLighting::~vaLighting( )
@@ -247,7 +247,7 @@ shared_ptr<vaShadowmap> vaLighting::FindShadowmapForLight( const shared_ptr<vaLi
     return nullptr;
 }
 
-void vaLighting::UpdateLightingGlobalShaderConstants( vaSceneDrawContext & drawContext )
+void vaLighting::UpdateShaderConstants( vaSceneDrawContext & drawContext )
 {
     vaMatrix4x4 mat = drawContext.Camera.GetViewMatrix( ) * drawContext.Camera.GetProjMatrix( );
     
@@ -382,7 +382,7 @@ void vaLighting::UpdateLightingGlobalShaderConstants( vaSceneDrawContext & drawC
         else { VA_WARN( "vaLighting - requested more than the max number of spot/point lights (%d)", ShaderLightSpot::MaxLights ); }
     }
 
-    m_constantsBuffer.Update( drawContext.APIContext, consts );
+    m_constantsBuffer.Update( drawContext.RenderDeviceContext, consts );
 }
 
 void vaLighting::SetLights( const vector<shared_ptr<vaLight>> & lights )
@@ -421,11 +421,13 @@ void vaLighting::CreateShadowmapTextures( )
 {
     assert( !m_shadowmapTexturesCreated );
 
-    m_shadowCubeDepthTexture = vaTexture::Create2D( GetRenderDevice(), vaResourceFormat::R16_TYPELESS, m_shadowCubeResolution, m_shadowCubeResolution, 1, 6, 1, vaResourceBindSupportFlags::DepthStencil,
-        vaTextureAccessFlags::None, vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaResourceFormat::D16_UNORM, vaResourceFormat::Unknown, vaTextureFlags::Cubemap, vaTextureContentsType::DepthBuffer );
+    vaTexture::SetNextCreateFastClearDSV( m_shadowCubeDepthFormat, 0.0f, 0 );
+    m_shadowCubeDepthTexture = vaTexture::Create2D( GetRenderDevice(), m_shadowCubeDepthFormat, m_shadowCubeResolution, m_shadowCubeResolution, 1, 6, 1, vaResourceBindSupportFlags::DepthStencil,
+        vaResourceAccessFlags::Default, vaResourceFormat::Unknown, vaResourceFormat::Unknown, m_shadowCubeDepthFormat, vaResourceFormat::Unknown, vaTextureFlags::Cubemap, vaTextureContentsType::DepthBuffer );
 
+    vaTexture::SetNextCreateFastClearRTV( m_shadowCubeFormat, vaVector4( 10000.0f, 10000.0f, 10000.0f, 10000.0f ) );
     m_shadowCubeArrayTexture = vaTexture::Create2D( GetRenderDevice(), m_shadowCubeFormat, m_shadowCubeResolution, m_shadowCubeResolution, 1, 6*m_shadowCubeMapCount, 1, vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::RenderTarget,
-        vaTextureAccessFlags::None, m_shadowCubeFormat, m_shadowCubeFormat, vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaTextureFlags::Cubemap, vaTextureContentsType::LinearDepth );
+        vaResourceAccessFlags::Default, m_shadowCubeFormat, m_shadowCubeFormat, vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaTextureFlags::Cubemap, vaTextureContentsType::LinearDepth );
 
     m_shadowmapTexturesCreated = true;
 }
@@ -524,14 +526,14 @@ void vaCubeShadowmap::Tick( float deltaTime )
             const shared_ptr<vaTexture> & cubeDepth = lighting->GetCubemapDepthTexture( );
             assert( cubeDepth != nullptr );
 
-            m_cubemapArraySRV = vaTexture::CreateView( *outTextureArray, vaResourceBindSupportFlags::ShaderResource, outTextureArray->GetSRVFormat(), vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaResourceFormat::Unknown, 
+            m_cubemapArraySRV = vaTexture::CreateView( outTextureArray, vaResourceBindSupportFlags::ShaderResource, outTextureArray->GetSRVFormat(), vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaResourceFormat::Unknown, 
                     vaTextureFlags::Cubemap | vaTextureFlags::CubemapButArraySRV, 0, -1, outTextureIndex*6, 6 );
 
             for( int i = 0; i < 6; i++ )
             {
-                m_cubemapArrayRTVs[i] = vaTexture::CreateView( *outTextureArray, vaResourceBindSupportFlags::RenderTarget, vaResourceFormat::Unknown, outTextureArray->GetRTVFormat(), vaResourceFormat::Unknown, vaResourceFormat::Unknown, 
+                m_cubemapArrayRTVs[i] = vaTexture::CreateView( outTextureArray, vaResourceBindSupportFlags::RenderTarget, vaResourceFormat::Unknown, outTextureArray->GetRTVFormat(), vaResourceFormat::Unknown, vaResourceFormat::Unknown, 
                     vaTextureFlags::Cubemap, 0, -1, outTextureIndex*6+i, 1 );
-                m_cubemapSliceDSVs[i] = vaTexture::CreateView( *cubeDepth, vaResourceBindSupportFlags::DepthStencil, vaResourceFormat::Unknown, vaResourceFormat::Unknown, cubeDepth->GetDSVFormat(), vaResourceFormat::Unknown, 
+                m_cubemapSliceDSVs[i] = vaTexture::CreateView( cubeDepth, vaResourceBindSupportFlags::DepthStencil, vaResourceFormat::Unknown, vaResourceFormat::Unknown, cubeDepth->GetDSVFormat(), vaResourceFormat::Unknown, 
                     vaTextureFlags::Cubemap, 0, -1, i, 1 );
             }
 
@@ -546,12 +548,13 @@ void vaCubeShadowmap::Tick( float deltaTime )
     vaShadowmap::Tick( deltaTime );
 }
 
-void vaLighting::IHO_Draw( )
+void vaLighting::UIPanelDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     ImGui::Text( "Lights: %d", (int)m_lights.size() );
 
     ImGui::Text( "Shadowmaps: %d", (int)m_shadowmaps.size() );
-    vaImguiHierarchyObject * ptrsToDisplay[4096];
+    vaUIPropertiesItem * ptrsToDisplay[4096];
     int countToShow = std::min( (int)m_shadowmaps.size( ), (int)_countof( ptrsToDisplay ) );
     for( int i = 0; i < countToShow; i++ ) ptrsToDisplay[i] = m_shadowmaps[i].get( );
 
@@ -563,7 +566,7 @@ void vaLighting::IHO_Draw( )
         ptrsToDisplay[i] = m_shadowmaps[i].get( );
     }
 
-    vaImguiHierarchyObject::DrawList( "Shadowmaps", ptrsToDisplay, countToShow, currentShadowmap, 0.0f, 90, 140.0f + ImGui::GetContentRegionAvailWidth( ) );
+    vaUIPropertiesItem::DrawList( "Shadowmaps", ptrsToDisplay, countToShow, currentShadowmap, 0.0f, 90, 140.0f + ImGui::GetContentRegionAvailWidth( ) );
     if( currentShadowmap >= 0 && currentShadowmap < countToShow )
         m_UI_SelectedShadow = m_shadowmaps[currentShadowmap];
 
@@ -581,6 +584,7 @@ void vaLighting::IHO_Draw( )
         }
     }
     ImGui::InputFloat( "CubePCFFilterScale", &m_shadowCubePCFFilterScale, 0.1f );
+#endif
 }
 
 
@@ -588,8 +592,9 @@ vaCubeShadowmap::vaCubeShadowmap( vaRenderDevice & device, const shared_ptr<vaLi
 {
 }
 
-void vaCubeShadowmap::IHO_Draw( )
+void vaCubeShadowmap::UIPanelDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     shared_ptr<vaLight> light = GetLight( ).lock( );
     if( light == nullptr )
     {
@@ -601,6 +606,7 @@ void vaCubeShadowmap::IHO_Draw( )
     }
 
     GetRenderDevice().GetTextureTools().UIDrawImGuiInfo( m_cubemapArraySRV );
+#endif
 }
 
 shared_ptr<vaShadowmap> vaShadowmap::Create( vaRenderDevice & device, const shared_ptr<vaLight> & light, const shared_ptr<vaLighting> & lightingSystem )
@@ -638,7 +644,7 @@ void vaCubeShadowmap::SetToRenderSelectionFilter( vaRenderSelectionFilter & filt
     filter = vaRenderSelectionFilter( light->Position );
 }
 
-vaDrawResultFlags vaCubeShadowmap::Draw( vaRenderDeviceContext & renderContext, vaRenderingGlobals & globals, vaRenderSelection & renderSelection )
+vaDrawResultFlags vaCubeShadowmap::Draw( vaRenderDeviceContext & renderContext, vaRenderSelection & renderSelection )
 {
     if( m_storageTextureIndex == -1 )
         return vaDrawResultFlags::UnspecifiedError;
@@ -652,7 +658,7 @@ vaDrawResultFlags vaCubeShadowmap::Draw( vaRenderDeviceContext & renderContext, 
     if( lightingSystem == nullptr )
         return vaDrawResultFlags::UnspecifiedError;
     
-    vaCameraBase cameraFrontCubeFace;
+    vaCameraBase cameraFrontCubeFace( false );
 
     cameraFrontCubeFace.SetYFOV( 90.0f / 180.0f * VA_PIf );
     cameraFrontCubeFace.SetNearPlane( vaMath::Max( 0.001f, light->Size ) );
@@ -679,7 +685,7 @@ vaDrawResultFlags vaCubeShadowmap::Draw( vaRenderDeviceContext & renderContext, 
         {
             // I hope this clears just the single slice on all HW
             destinationCubeDSVs[i]->ClearDSV( renderContext, true, cameraFrontCubeFace.GetUseReversedZ( ) ? ( 0.0f ) : ( 1.0f ), false, 0 );
-            destinationCubeRTVs[i]->ClearRTV( renderContext, vaVector4( 10000.0f, 10000.0f, 10000.0f, 0.0f ) );
+            destinationCubeRTVs[i]->ClearRTV( renderContext, vaVector4( 10000.0f, 10000.0f, 10000.0f, 10000.0f ) );
 
             vaVector3 lookAtDir, upVec;
 
@@ -715,7 +721,7 @@ vaDrawResultFlags vaCubeShadowmap::Draw( vaRenderDeviceContext & renderContext, 
             tempCamera.SetOrientationLookAt( position + lookAtDir, upVec );
             tempCamera.Tick( 0, false );
         
-            vaSceneDrawContext drawContext( tempCamera, renderContext, globals, vaDrawContextOutputType::CustomShadow, vaDrawContextFlags::CustomShadowmapShaderLinearDistanceToCenter );
+            vaSceneDrawContext drawContext( renderContext, tempCamera, vaDrawContextOutputType::CustomShadow, vaDrawContextFlags::CustomShadowmapShaderLinearDistanceToCenter );
             drawContext.ViewspaceDepthOffsets = lightingSystem->GetCubeShadowViewspaceDepthOffsets();
 
             //renderContext.SetRenderTarget( nullptr, destinationCubeDepth, true );
@@ -740,8 +746,8 @@ void vaLighting::UpdateResourcesIfNeeded( vaSceneDrawContext & drawContext )
     {
         m_shadersDirty = false;
 
-        m_applyDirectionalAmbientPS->CreateShaderFromFile( m_shaderFileToUse.c_str(), "ps_5_0", "ApplyDirectionalAmbientPS", m_staticShaderMacros );
-        m_applyDirectionalAmbientShadowedPS->CreateShaderFromFile( m_shaderFileToUse.c_str(), "ps_5_0", "ApplyDirectionalAmbientShadowedPS", m_staticShaderMacros );
+        m_applyDirectionalAmbientPS->CreateShaderFromFile( m_shaderFileToUse.c_str(), "ps_5_0", "ApplyDirectionalAmbientPS", m_staticShaderMacros, false );
+        m_applyDirectionalAmbientShadowedPS->CreateShaderFromFile( m_shaderFileToUse.c_str(), "ps_5_0", "ApplyDirectionalAmbientShadowedPS", m_staticShaderMacros, false );
 
         //m_applyTonemapPS.CreateShaderFromFile( GetShaderFilePath( ), "ps_5_0", "ApplyTonemapPS", m_staticShaderMacros );
     }

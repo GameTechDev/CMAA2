@@ -141,7 +141,7 @@ namespace VertexAsylum
 
     bool                ImGuiEx_PopupInputStringTick( string & outValue )
     {
-        ImGui::SetNextWindowContentWidth( 300.0f );
+        ImGui::SetNextWindowContentSize(ImVec2(300.0f, 0.0f));
         if( ImGui::BeginPopupModal( c_popup_InputString_Label ) )
         {
             if( c_popup_InputString_JustOpened )
@@ -176,10 +176,12 @@ namespace VertexAsylum
 }
 
 #else
-void vaImguiHierarchyObject::DrawCollapsable( vaImguiHierarchyObject & obj, bool display_frame, bool default_open, bool indent )
+void vaImguiHierarchyObject::DrawCollapsable( vaImguiHierarchyObject &, bool, bool, bool )
 {
 }
 #endif
+
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
 
 namespace VertexAsylum
 {
@@ -194,3 +196,5 @@ namespace VertexAsylum
     void                ImSetBigClearSansBold(    ImFont * font )   { s_bigClearSansBold    = font; }
 
 }
+
+#endif

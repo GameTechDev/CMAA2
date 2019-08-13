@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Core/vaCoreIncludes.h"
+#include "Core/vaUI.h"
 
 #include "Rendering/vaRenderingIncludes.h"
 
@@ -28,7 +29,7 @@
 
 namespace VertexAsylum
 {
-    class vaFXAAWrapper : public VertexAsylum::vaRenderingModule, public vaImguiHierarchyObject
+    class vaFXAAWrapper : public VertexAsylum::vaRenderingModule, public vaUIPanel
     {
     public:
         enum Preset { PRESET_LOW, PRESET_MEDIUM, PRESET_HIGH, PRESET_ULTRA };
@@ -53,25 +54,26 @@ namespace VertexAsylum
 
         vaTypedConstantBufferWrapper<FXAAShaderConstants>
                                     m_constantsBuffer;
+        
+        Preset                      m_usedPreset                    = (Preset)-1;
+        bool                        m_useOptionalLuma               = false;
+        vaAutoRMI<vaPixelShader>    m_FXAAEffect_3_11_PS;
 
-    protected:
-        vaFXAAWrapper( const vaRenderingModuleParams & params );
     public:
+        vaFXAAWrapper( const vaRenderingModuleParams & params );
         ~vaFXAAWrapper( );
 
     public:
         // Applies FXAA to currently selected render target using provided inputs
-        virtual vaDrawResultFlags   Draw( vaRenderDeviceContext & deviceContext, const shared_ptr<vaTexture> & inputColor, const shared_ptr<vaTexture> & optionalInLuma = nullptr )  = 0;
-
-        // if FXAA is no longer used make sure it's not reserving any memory
-        virtual void                CleanupTemporaryResources( )                                                            = 0;
+        virtual vaDrawResultFlags   Draw( vaRenderDeviceContext & deviceContext, const shared_ptr<vaTexture> & inputColor, const shared_ptr<vaTexture> & optionalInLuma = nullptr );
 
     protected:
-        virtual void                UpdateConstants( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & inputColor, const shared_ptr<vaTexture> & optionalInLuma = nullptr );
+        bool                        UpdateResources( vaRenderDeviceContext & deviceContext, const shared_ptr<vaTexture> & inputColor, const shared_ptr<vaTexture> & optionalInLuma );
+        virtual void                UpdateConstants( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & inputColor, const shared_ptr<vaTexture> & optionalInLuma = nullptr );
 
     private:
-        virtual string              IHO_GetInstanceName( ) const { return "FXAA"; }
-        virtual void                IHO_Draw( );
+        virtual void                UIPanelDraw( ) override;
+        virtual bool                UIPanelIsListed( ) const override          { return false; }
     };
 
 }

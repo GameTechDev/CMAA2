@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -19,17 +19,14 @@
 
 #define VA_IMGUI_INTEGRATION_ENABLED
 
-//#define VA_REMOTERY_INTEGRATION_ENABLED
-//#define VA_REMOTERY_INTEGRATION_USE_D3D11 // bit buggy, probably integration issues
+// #define VA_REMOTERY_INTEGRATION_ENABLED
 
 // #define VA_LIBTIFF_INTEGRATION_ENABLED
 
 #define VA_ENKITS_INTEGRATION_ENABLED
 
-//#define VA_BULLETPHYSICS_INTEGRATION_ENABLED
-
 //#define VA_ASSIMP_INTEGRATION_ENABLED
 
 #define VA_ZLIB_INTEGRATION_ENABLED
 
-//#define VA_HALF_FLOAT_ENABLED
+//#define VA_USE_PIX3

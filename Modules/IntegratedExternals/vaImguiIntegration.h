@@ -13,6 +13,8 @@
 
 namespace VertexAsylum
 {
+
+
     class vaImguiHierarchyObject
     {
     private:
@@ -38,15 +40,16 @@ namespace VertexAsylum
     };
 
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
-    inline ImVec4       ImFromVA( const vaVector4 &  v )            { return ImVec4( v.x, v.y, v.z, v.w); }
-    inline ImVec4       ImFromVA( const vaVector3 &  v )            { return ImVec4( v.x, v.y, v.z, 0.0f); }
-    inline vaVector4    VAFromIm( const ImVec4 &  v )               { return vaVector4( v.x, v.y, v.z, v.w); }
+    inline ImVec4       ImFromVA( const vaVector4 &  v )            { return ImVec4( v.x, v.y, v.z, v.w ); }
+    inline ImVec4       ImFromVA( const vaVector3 &  v )            { return ImVec4( v.x, v.y, v.z, 0.0f ); }
+    inline ImVec2       ImFromVA( const vaVector2 &  v )            { return ImVec2( v.x, v.y ); }
+    inline vaVector4    VAFromIm( const ImVec4 &  v )               { return vaVector4( v.x, v.y, v.z, v.w ); }
 
     bool                ImguiEx_VectorOfStringGetter( void * strVectorPtr, int n, const char** out_text );
 
     inline bool         ImGuiEx_ListBox( const char * label, int & itemIndex, const std::vector<std::string> & elements, int heightInItems = -1 )
     {
-        ImGui::ListBox( label, &itemIndex, ImguiEx_VectorOfStringGetter, (void*)&elements, (int)elements.size(), heightInItems );
+        return ImGui::ListBox( label, &itemIndex, ImguiEx_VectorOfStringGetter, (void*)&elements, (int)elements.size(), heightInItems );
     }
 
     inline bool         ImGuiEx_Combo( const char * label, int & itemIndex, const std::vector<std::string> & elements )

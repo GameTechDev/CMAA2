@@ -23,7 +23,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Adapted to C++ by Filip Strugar, 2011, based on C# code by Renaud Bédard
+// Adapted to C++ by Filip Strugar, 2011, based on C# code by Renaud Bedard
 // http://theinstructionlimit.com/?p=417
 //
 // Adapted from java source by Herman Tulleken

@@ -17,13 +17,99 @@
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include "vaSharedTypes.h"
+
+#ifndef VA_COMPILED_AS_SHADER_CODE
+namespace VertexAsylum
+{
+#endif
+
+struct ShaderLightDirectional
+{
+    static const int    MaxLights                       = 16;
+
+    vaVector3           Intensity;
+    float               IntensityLength;
+
+    vaVector3           Direction;
+    float               Dummy1;
+};
+//struct ShaderLightPoint - no longer used, just using spot instead
+//{
+//    static const int    MaxLights                       = 16;
+//
+//    vaVector3           Intensity;
+//    float               Size;                           // distance from which to start attenuating or compute umbra/penumbra/antumbra / compute specular (making this into a 'sphere' light) - useful to avoid near-infinities for when close-to-point lights
+//    vaVector3           Position;
+//    float               EffectiveRadius;                // distance at which it is considered that it cannot effectively contribute any light and can be culled
+//};
+struct ShaderLightSpot
+{
+    static const int    MaxLights                       = 32;
+
+    vaVector3           Intensity;
+    float               IntensityLength;
+    vaVector3           Position;
+    float               EffectiveRadius;                // distance at which it is considered that it cannot effectively contribute any light and can be culled
+    vaVector3           Direction;
+    float               Size;                           // distance from which to start attenuating or compute umbra/penumbra/antumbra / compute specular (making this into a 'sphere' light) - useful to avoid near-infinities for when close-to-point lights
+    float               SpotInnerAngle;                 // angle from Direction below which the spot light has the full intensity (a.k.a. inner cone angle)
+    float               SpotOuterAngle;                 // angle from Direction below which the spot light intensity starts dropping (a.k.a. outer cone angle)
+    
+    float               CubeShadowIndex;                // if used, index of cubemap shadow in the cubemap array texture; otherwise -1
+    float               Dummy1;
+};
+
+struct LightingShaderConstants
+{
+    static const int        MaxShadowCubes                  = 8;   // so the number of cube faces is x6 this - lots of RAM
+
+    vaVector4               AmbientLightIntensity;
+
+    // See vaFogSphere for descriptions
+    vaVector3               FogCenter;
+    int                     FogEnabled;
+
+    vaVector3               FogColor;
+    float                   FogRadiusInner;
+
+    float                   FogRadiusOuter;
+    float                   FogBlendCurvePow;
+    float                   FogBlendMultiplier;
+    float                   FogRange;                   // FogRadiusOuter - FogRadiusInner
+
+    vaMatrix4x4             EnvmapRotation;             // ideally we shouldn't need this but at the moment we support this to simplify asset side...
+    
+    int                     EnvmapEnabled;
+    float                   EnvmapMultiplier;
+    int                     LightCountDirectional;
+    int                     LightCountSpotAndPoint;
+
+    int                     LightCountSpotOnly;
+    float                   CubeShadowDirJitterOffset;          // 'sideways' offset when doing PCF jitter for cubemap shadows
+    float                   CubeShadowViewDistJitterOffset;     // multiplication offset along cube sampling dir - similar to ViewspaceDepthOffsetFlatMul but only identical at the cube face centers!!
+    float                   CubeShadowViewDistJitterOffsetSqrt; // same as above but for use with sqrt-packed cube shadowmaps
+
+    ShaderLightDirectional  LightsDirectional[ShaderLightDirectional::MaxLights];
+    //ShaderLightPoint        LightsPoint[ShaderLightPoint::MaxLights];
+    ShaderLightSpot         LightsSpotAndPoint[ShaderLightSpot::MaxLights];
+
+    //
+    // vaVector4               ShadowCubes[MaxShadowCubes];    // .xyz is cube center and .w is unused at the moment
+};
+
+#ifndef VA_COMPILED_AS_SHADER_CODE
+} // namespace VertexAsylum
+#endif
+
+#ifdef VA_COMPILED_AS_SHADER_CODE
+
 #include "vaShared.hlsl"
 
+TextureCube         g_EnvironmentMap            : register( T_CONCATENATER( SHADERGLOBAL_LIGHTING_ENVMAP_TEXTURESLOT_V ) );
+TextureCubeArray    g_CubeShadowmapArray        : register( T_CONCATENATER( SHADERGLOBAL_LIGHTING_CUBE_SHADOW_TEXTURESLOT_V ) );
 
-TextureCube         g_EnvironmentMap            : register( T_CONCATENATER( SHADERGLOBAL_LIGHTING_ENVMAP_TEXTURESLOT ) );
-TextureCubeArray    g_CubeShadowmapArray        : register( T_CONCATENATER( SHADERGLOBAL_LIGHTING_CUBE_SHADOW_TEXTURESLOT ) );
-
-cbuffer LightingConstantsBuffer                 : register( B_CONCATENATER( LIGHTINGGLOBAL_CONSTANTSBUFFERSLOT ) )
+cbuffer LightingConstantsBuffer                 : register( B_CONCATENATER( LIGHTINGGLOBAL_CONSTANTSBUFFERSLOT_V ) )
 {
     LightingShaderConstants     g_Lighting;
 }
@@ -46,7 +132,7 @@ float3      LightingApplyFog( float3 surfaceViewspacePos, float3 inColor )
     return lerp( inColor, g_Lighting.FogColor, LightingGetFogK( surfaceViewspacePos ) );
 }
 
-
+#endif
 
 
 // #include "vaSimpleShadowMap.hlsl"

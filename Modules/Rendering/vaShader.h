@@ -42,8 +42,8 @@ namespace VertexAsylum
 
     // There are 3 states that the shader can be in (+transitions): 
     //  - "clean" state:                    when created or after a call to Clear()
-    //  - "initialized with data" state:    just after a call to Create* functions but before they finished or if the Create* function failed or if DestroyShader() was called after Create
-    //  - "created" state:                  after API compilation was success and everything is fine (use IsCreated() to check for this); one can step back to "initialized" state with DestroyShader() and step back up with CreateShader()
+    //  - "initialized with data" state:    just after a call to Create* functions but before they finished compiling or if the Create* compilation failed or if DestroyShader() was called after Create
+    //  - "created" (compiled) state:       after API compilation was success and everything is fine (use IsCreated() to check for this); one can step back to "initialized" state with DestroyShader() and step back up with CreateShader()
     // Transitions can only be initiated from the main thread at the moment.
     // Transitions from "clean" to "initialized" are quick; Create* functions will run a background thread that will complete the transition to "created" state; transition back from "created" to "clean" or "initialized" to "clean" are done with Clear()
     // The only usable state is "created" and it can be checked (from any thread) using IsCreated() or by trying to obtain API shader handle
@@ -57,13 +57,19 @@ namespace VertexAsylum
         static std::atomic_int          s_activelyCompilingShaderCount;
         int                             m_allShaderListIndex;
 
-    protected:
+    public:
         enum class State
         {
             Empty,      // afer Clear() or at construction
-            Uncooked,   // initialized with data required to compile but not compiled yet (or currently compiling)
+            Uncooked,   // initialized with data required to compile but not compiled yet (or currently compiling, or couldn't compile due to an error)
             Cooked      // compiled and ready to use
-        }                               m_state                 = State::Empty;
+        };
+
+    protected:
+        State                           m_state                 = State::Empty;
+
+        static std::atomic_int64_t      s_lastUniqueShaderContentsID;               // used to assign unique IDs to shaders every time they get recompiled; can be made persistent between application loads by using shader cache
+        int64                           m_uniqueContentsID      = -1;               // every time shader gets compiled (transitions to Cooked state) it gets a new unique ID, otherwise -1; can be made persistent between application loads by using shader cache
 
         // either loaded from the file system, or the code is set manually as a string
         wstring                         m_shaderFilePath;
@@ -92,25 +98,29 @@ namespace VertexAsylum
     public:
         virtual                         ~vaShader( );
 
-        virtual void                    CreateShaderFromFile( const wstring & filePath, const string & shaderModel, const string & entryPoint, const vaShaderMacroContaner & macros = vaShaderMacroContaner( ), bool forceImmediateCompile = false );
-        void                            CreateShaderFromFile( const string & filePath, const string & shaderModel, const string & entryPoint, const vaShaderMacroContaner & macros = vaShaderMacroContaner( ), bool forceImmediateCompile = false )    { CreateShaderFromFile( vaStringTools::SimpleWiden(filePath), shaderModel, entryPoint, macros, forceImmediateCompile ); }
+        virtual void                    CreateShaderFromFile( const wstring & filePath, const string & shaderModel, const string & entryPoint, const vaShaderMacroContaner & macros, bool forceImmediateCompile );
+        void                            CreateShaderFromFile( const string & filePath, const string & shaderModel, const string & entryPoint, const vaShaderMacroContaner & macros, bool forceImmediateCompile )    { CreateShaderFromFile( vaStringTools::SimpleWiden(filePath), shaderModel, entryPoint, macros, forceImmediateCompile ); }
 
-        virtual void                    CreateShaderFromBuffer( const string & shaderCode, const string & shaderModel, const string & entryPoint, const vaShaderMacroContaner & macros = vaShaderMacroContaner( ), bool forceImmediateCompile = false );
+        virtual void                    CreateShaderFromBuffer( const string & shaderCode, const string & shaderModel, const string & entryPoint, const vaShaderMacroContaner & macros, bool forceImmediateCompile );
 
-//        virtual void                    SetToAPI( vaRenderDeviceContext & apiContext, bool assertOnOverwrite = true )     = 0;
-//        virtual void                    UnsetFromAPI( vaRenderDeviceContext & apiContext, bool assertOnNotSet = true )    = 0;
+//        virtual void                    SetToAPI( vaRenderDeviceContext & renderContext, bool assertOnOverwrite = true )     = 0;
+//        virtual void                    UnsetFromAPI( vaRenderDeviceContext & renderContext, bool assertOnNotSet = true )    = 0;
 
         virtual void                    Clear( )        = 0;
         virtual void                    Reload( );
         static void                     ReloadAll( );
         virtual void                    WaitFinishIfBackgroundCreateActive( );  // sometimes you absolutely need the shader and don't care about blocking / sync point
 
+        // IsEmpty returns 'true' before CreateShaderFromXXX is called at which point it returns 'false'; if multithreaded compilation is enabled, IsCreated will still return 'false' until the compile finishes
         virtual bool                    IsEmpty( )      { std::unique_lock<mutex> allShaderDataLock( m_allShaderDataMutex, std::try_to_lock ); if( allShaderDataLock.owns_lock() ) return m_state == State::Empty; else return false; } // if locked it's not empty!
+        // IsCreated returns 'false' until CreateShaderFromXXX is called AND background multithreaded compilation is done; once the shader is available for use it returns 'true'
         virtual bool                    IsCreated( )    = 0;
-                
-        bool                            IsLoadedFromCache( ) const  { std::unique_lock<mutex> allShaderDataLock( m_allShaderDataMutex ); return m_lastLoadedFromCache; }
 
-        const std::string &             GetEntryPoint( ) const      { std::unique_lock<mutex> allShaderDataLock( m_allShaderDataMutex ); return m_entryPoint; }
+        int64                           GetUniqueContentsID( ) const    { std::unique_lock<mutex> allShaderDataLock( m_allShaderDataMutex ); return m_uniqueContentsID; }
+                
+        bool                            IsLoadedFromCache( ) const      { std::unique_lock<mutex> allShaderDataLock( m_allShaderDataMutex ); return m_lastLoadedFromCache; }
+
+        const std::string &             GetEntryPoint( ) const          { std::unique_lock<mutex> allShaderDataLock( m_allShaderDataMutex ); return m_entryPoint; }
 
 #ifdef VA_HOLD_SHADER_DISASM
         void                            SetShaderDisasmAutoDumpToFile( bool enable )    { std::unique_lock<mutex> allShaderDataLock( m_allShaderDataMutex );  m_disasmAutoDumpToFile = enable; }
@@ -130,49 +140,76 @@ namespace VertexAsylum
                                         GetAllShaderList( )             { return s_allShaderList; }
         static mutex &                  GetAllShaderListMutex( )        { return s_allShaderListMutex; }
         static int32                    GetNumberOfCompilingShaders( )  { return s_activelyCompilingShaderCount; }
+
+        // you'll need this if casting directly from vaShader to any of the platform-dependent ones - but it's slow.
+        // template< typename CastToType >
+        // CastToType                      SafeCast( )                                                                 
+        // {
+        //     // damn you virtual inheritance - why did I do it this way? oh well...
+        //     CastToType ret = dynamic_cast< CastToType >( this );
+        //     assert( ret != NULL );
+        //     return ret;
+        // }
     };
 
     class vaPixelShader : public virtual vaShader
     {
-    private:
+        void *                      m_cachedPlatformPtr = nullptr;
+
     public:
         vaPixelShader( ) { };
-        ~vaPixelShader( ) { }
+        virtual ~vaPixelShader( ) { }
+
+       // to avoid dynamic_cast for performance reasons (as this specific call happens very, very frequently) 
+       template< typename OutType > OutType SafeCast( ) { return vaCachedDynamicCast<OutType>( this, m_cachedPlatformPtr ); }
     };
 
     class vaComputeShader : public virtual vaShader
     {
-    private:
+        void *                      m_cachedPlatformPtr = nullptr;
+
     public:
         vaComputeShader( ) { };
-        ~vaComputeShader( ) { }
+        virtual ~vaComputeShader( ) { }
 
-//    public:
-//        virtual void                    Dispatch( vaRenderDeviceContext & apiContext, uint32 threadGroupCountX, uint32 threadGroupCountY, uint32 threadGroupCountZ )    = 0;
+       // to avoid dynamic_cast for performance reasons (as this specific call happens very, very frequently) 
+       template< typename OutType > OutType SafeCast( ) { return vaCachedDynamicCast<OutType>( this, m_cachedPlatformPtr ); }
     };
 
     class vaHullShader : public virtual vaShader
     {
-    private:
+        void *                      m_cachedPlatformPtr = nullptr;
+
     public:
         vaHullShader( ) { };
-        ~vaHullShader( ) { }
+        virtual ~vaHullShader( ) { }
+
+       // to avoid dynamic_cast for performance reasons (as this specific call happens very, very frequently) 
+       template< typename OutType > OutType SafeCast( ) { return vaCachedDynamicCast<OutType>( this, m_cachedPlatformPtr ); }
     };
 
     class vaDomainShader : public virtual vaShader
     {
-    private:
+        void *                      m_cachedPlatformPtr = nullptr;
+
     public:
         vaDomainShader( ) { };
-        ~vaDomainShader( ) { }
+        virtual ~vaDomainShader( ) { }
+
+       // to avoid dynamic_cast for performance reasons (as this specific call happens very, very frequently) 
+       template< typename OutType > OutType SafeCast( ) { return vaCachedDynamicCast<OutType>( this, m_cachedPlatformPtr ); }
     };
 
     class vaGeometryShader : public virtual vaShader
     {
-    private:
+        void *                      m_cachedPlatformPtr = nullptr;
+
     public:
         vaGeometryShader( ) { };
-        ~vaGeometryShader( ) { }
+        virtual ~vaGeometryShader( ) { }
+
+       // to avoid dynamic_cast for performance reasons (as this specific call happens very, very frequently) 
+       template< typename OutType > OutType SafeCast( ) { return vaCachedDynamicCast<OutType>( this, m_cachedPlatformPtr ); }
     };
 
     struct vaVertexInputElementDesc
@@ -238,13 +275,19 @@ namespace VertexAsylum
 
     class vaVertexShader : public virtual vaShader
     {
-    private:
+        void *                      m_cachedPlatformPtr = nullptr;
+
+    protected:
+        vaVertexInputLayoutDesc     m_inputLayout;
     public:
         vaVertexShader( ) { };
-        ~vaVertexShader( ) { }
+        virtual ~vaVertexShader( ) { }
 
-        virtual void                CreateShaderAndILFromFile( const wstring & filePath, const string & shaderModel, const string & entryPoint, const vector<vaVertexInputElementDesc> & inputLayoutElements, const vaShaderMacroContaner & macros = vaShaderMacroContaner( ), bool forceImmediateCompile = false )     = 0;
-        virtual void                CreateShaderAndILFromBuffer( const string & shaderCode, const string & shaderModel, const string & entryPoint, const vector<vaVertexInputElementDesc> & inputLayoutElements, const vaShaderMacroContaner & macros = vaShaderMacroContaner( ), bool forceImmediateCompile = false )  = 0;
+        virtual void                CreateShaderAndILFromFile( const wstring & filePath, const string & shaderModel, const string & entryPoint, const vector<vaVertexInputElementDesc> & inputLayoutElements, const vaShaderMacroContaner & macros, bool forceImmediateCompile )     = 0;
+        virtual void                CreateShaderAndILFromBuffer( const string & shaderCode, const string & shaderModel, const string & entryPoint, const vector<vaVertexInputElementDesc> & inputLayoutElements, const vaShaderMacroContaner & macros, bool forceImmediateCompile )  = 0;
+
+       // to avoid dynamic_cast for performance reasons (as this specific call happens very, very frequently) 
+       template< typename OutType > OutType SafeCast( ) { return vaCachedDynamicCast<OutType>( this, m_cachedPlatformPtr ); }
     };
 
     // Singleton utility class for handling shaders

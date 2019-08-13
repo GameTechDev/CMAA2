@@ -132,40 +132,40 @@ Texture2D<float>    g_Update3DCursorDepthSource                 : register( t0 )
 Texture2DMS<float>  g_Update3DCursorDepthSourceMS               : register( t1 );
 RWTexture1D<float4> g_Update3DCursorDestination                 : register( u0 );
 
+void OutputCursorCapture( float depth )
+{
+    float4 pos;
+    pos.xy = NDCToClipSpacePositionXY( g_Global.CursorScreenPosition.xy );
+    pos.z = depth;
+    pos.w = 1.0;
+
+    pos = mul( g_Global.ViewProjInv, pos );
+    pos /= pos.w;
+    
+    g_Update3DCursorDestination[ 0 ] = float4( pos.xyz, depth );
+}
+
 [numthreads(1, 1, 1)]
-void CursorCaptureCS( uint3 groupID : SV_GroupID )
+void CursorCaptureCS( uint3 groupID : SV_GroupID )  // no MSAA version
+{
+    float depth = g_Update3DCursorDepthSource.Load( int3( g_Global.CursorScreenPosition, 0 ) );
+
+    OutputCursorCapture( depth );
+}
+
+[numthreads(1, 1, 1)]
+void CursorCaptureMSCS( uint3 groupID : SV_GroupID )
 {
     float depth = 0;
 
-    // activated once on Dispatch( 2, 1, 1 ) - no MSAA
-    if( groupID.x == 1 )        
-    {
-        depth = g_Update3DCursorDepthSource.Load( int3( g_Global.CursorScreenPosition, 0 ) );
-    }
-    // activated once on Dispatch( 1, 2, 1 ) - MSAA
-    else if( groupID.y == 1 )
-    {
-        int width, height, samples;
-        g_Update3DCursorDepthSourceMS.GetDimensions( width, height, samples );
+    int width, height, samples;
+    g_Update3DCursorDepthSourceMS.GetDimensions( width, height, samples );
 
-        // get max depth from all MSAA samples
-        depth = 0;
-        for( int i = 0; i < samples; i++ )
-            depth = max( depth, g_Update3DCursorDepthSourceMS.Load( int2( g_Global.CursorScreenPosition ), i ) );
-    }
+    // get max depth from all MSAA samples
+    for( int i = 0; i < samples; i++ )
+        depth = max( depth, g_Update3DCursorDepthSourceMS.Load( int2( g_Global.CursorScreenPosition ), i ) );
 
-    if( groupID.x == 1 || groupID.y == 1 )
-    {
-        float4 pos;
-        pos.xy = NDCToClipSpacePositionXY( g_Global.CursorScreenPosition.xy );
-        pos.z = depth;
-        pos.w = 1.0;
-
-        pos = mul( g_Global.ViewProjInv, pos );
-        pos /= pos.w;
-    
-        g_Update3DCursorDestination[ 0 ] = float4( pos.xyz, depth );
-    }
+    OutputCursorCapture( depth );
 }
 #endif
 
@@ -235,7 +235,7 @@ float4 DebugDrawNormalsFromDepthPS( in float4 inPos : SV_Position ) : SV_Target0
 
 #ifdef VA_ZOOM_TOOL_SPECIFIC
 
-cbuffer ZoomToolConstantsBuffer                      : register( B_CONCATENATER( ZOOMTOOL_CONSTANTS_BUFFERSLOT ) )
+cbuffer ZoomToolConstantsBuffer                      : register( B_CONCATENATER( ZOOMTOOL_CONSTANTSBUFFERSLOT ) )
 {
     ZoomToolShaderConstants         g_zoomToolConstants;
 }

@@ -9,7 +9,9 @@
 
 #include "Rendering/vaRenderingIncludes.h"
 
+#ifndef __INTELLISENSE__
 #include "Rendering/Shaders/vaSkybox.hlsl"
+#endif
 
 namespace VertexAsylum
 {

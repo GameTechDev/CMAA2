@@ -84,17 +84,17 @@ std::shared_ptr<vaMemoryStream> vaFileTools::LoadFileToMemoryStream( const wstri
 {
     vaFileStream file;
     if( !file.Open( fileName, FileCreationMode::Open ) )
-        return std::shared_ptr<vaMemoryStream>( NULL );
+        return std::shared_ptr<vaMemoryStream>( nullptr );
 
     int64 length = file.GetLength( );
 
     if( length == 0 )
-        return std::shared_ptr<vaMemoryStream>( NULL );
+        return std::shared_ptr<vaMemoryStream>( nullptr );
 
     std::shared_ptr<vaMemoryStream> ret( new vaMemoryStream( length ) );
 
     if( !file.Read( ret->GetBuffer( ), ret->GetLength( ) ) )
-        return std::shared_ptr<vaMemoryStream>( NULL );
+        return std::shared_ptr<vaMemoryStream>( nullptr );
 
     return ret;
 }
@@ -231,8 +231,8 @@ void                      vaFileTools::EmbeddedFilesRegister( const wstring & _p
 
     if( it != s_EmbeddedFiles.end( ) )
     {
-        VA_WARN( L"Embedded file %s already registered!", pathName.c_str( ) )
-            return;
+        VA_WARN( L"Embedded file %s already registered!", pathName.c_str( ) );
+        return;
     }
 
     s_EmbeddedFiles.insert( std::pair<wstring, EmbeddedFileData>( pathName,

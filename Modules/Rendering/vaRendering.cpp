@@ -68,8 +68,7 @@ vaRenderingModule * vaRenderingModuleRegistrar::CreateModule( const std::string 
         {
             wstring wname = vaStringTools::SimpleWiden( cleanedUpName );
             VA_ERROR( L"vaRenderingCore::CreateModule - name '%s' not registered.", wname.c_str( ) );
-            assert( false );
-            return NULL;
+            return nullptr;
         }
     }
 

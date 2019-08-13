@@ -25,10 +25,12 @@
 
 #include "Rendering/Shaders/vaSharedTypes_HelperTools.h"
 
+#include "Core/vaUI.h"
+
 namespace VertexAsylum
 {
     // will be moved to its own file at some point, if it ever grows into something more serious
-    class vaImageCompareTool : public VertexAsylum::vaRenderingModule, public vaImguiHierarchyObject
+    class vaImageCompareTool : public VertexAsylum::vaRenderingModule, public vaUIPanel
     {
     public:
         enum class VisType
@@ -64,17 +66,16 @@ namespace VertexAsylum
         ~vaImageCompareTool( );
 
     public:
-        virtual void                RenderTick( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess );
+        virtual void                RenderTick( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess );
 
     public:
-        virtual void                SaveAsReference( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut );
-        virtual vaVector4           CompareWithReference( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess );
+        virtual void                SaveAsReference( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut );
+        virtual vaVector4           CompareWithReference( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorInOut, shared_ptr<vaPostProcess> & postProcess );
 
     protected:
 
     private:
-        virtual string              IHO_GetInstanceName( ) const { return "CompareTool"; }
-        virtual void                IHO_Draw( );
+        virtual void                UIPanelDraw( ) override;
     };
 
 

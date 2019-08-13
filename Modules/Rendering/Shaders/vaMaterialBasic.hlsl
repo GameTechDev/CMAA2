@@ -121,6 +121,7 @@ float3x3 BasicMaterialGetCotangentFrame( const RenderMaterialShaderInterpolants 
 // Pretty heavy noise function based on world position with 'procedural mip layers' (computed from the viewspace pos using g_Global.ViewInv - so another offsetted 
 // pseudo-ViewInv matrix can be used for precision if need be).
 // I'm sure there's a better procedural noise somewhere but I couldn't find one that is stable in world space, doesn't flicker too much, doesn't use textures
+// TODO: look at https://developer.amd.com/wordpress/media/2012/10/03_Clever_Shader_Tricks.pdf - Shader LOD branching - might have a better LOD compute
 float ComputeNoise( const in RenderMaterialShaderInterpolants interpolants )
 {
     float3 worldPos = mul( g_Global.ViewInv, float4( interpolants.ViewspacePos.xyz, 1) ).xyz; 
@@ -425,9 +426,14 @@ float3 BasicMaterialFinalizeLight( float3 viewspacePos, BasicSurfaceMaterialValu
     // start calculating final colour
     float3 lightAccum       = 0;
 
-    //material.Opacity = 1;
+    // for debugging
+    // material.Opacity = 1;
 
     lightAccum  += material.Albedo.rgb * g_Lighting.AmbientLightIntensity.rgb;
+
+    // for debugging AO and similar - lights everything with white ambient and takes out most of the other lighting
+    // lightAccum = 50.0;
+
     lightAccum  += diffuseAccum;
 
     // these are not diminished by alpha so "un-alpha" them here (should probably use premult alpha blending mode and multiply above by alpha instead)

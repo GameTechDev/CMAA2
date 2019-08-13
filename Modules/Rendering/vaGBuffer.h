@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Core/vaCoreIncludes.h"
+#include "Core/vaUI.h"
 
 #include "vaRendering.h"
 
@@ -27,14 +28,10 @@
 
 #include "vaTexture.h"
 
-//#include "Rendering/Shaders/vaSharedTypes.h"
-
-#include "IntegratedExternals/vaImguiIntegration.h"
-
 namespace VertexAsylum
 {
     // A helper for GBuffer rendering - does creation and updating of render target textures and provides debug views of them.
-    class vaGBuffer : public vaRenderingModule, public vaImguiHierarchyObject
+    class vaGBuffer : public vaRenderingModule, public vaUIPanel
     {
     public:
 
@@ -92,7 +89,7 @@ namespace VertexAsylum
         int                                             m_sampleCount;
         bool                                            m_deferredEnabled;
 
-        vaAutoRMI<vaPixelShader>                        m_pixelShader;
+        //vaAutoRMI<vaPixelShader>                        m_pixelShader;
         vaAutoRMI<vaPixelShader>                        m_depthToViewspaceLinearPS;
         vaAutoRMI<vaPixelShader>                        m_debugDrawDepthPS;
         vaAutoRMI<vaPixelShader>                        m_debugDrawDepthViewspaceLinearPS;
@@ -136,18 +133,18 @@ namespace VertexAsylum
     public:
         void                                            UpdateResources( int width, int height, int msaaSampleCount = 1, const BufferFormats & formats = BufferFormats(), bool enableDeferred = false );
 
-        virtual void                                    RenderDebugDraw( vaSceneDrawContext & drawContext )                                          = 0;
+        virtual void                                    RenderDebugDraw( vaSceneDrawContext & drawContext );
 
-        // draws provided depthTexture (can be the one obtained using GetDepthBuffer( )) into currently selected RT; relies on settings set in vaRenderingGlobals and will assert and return without doing anything if those are not present
-        virtual void                                    DepthToViewspaceLinear( vaSceneDrawContext & drawContext, vaTexture & depthTexture )         = 0;
+        // draws provided depthTexture (can be the one obtained using GetDepthBuffer( )) into currently selected RT; relies on settings set in vaRenderGlobals and will assert and return without doing anything if those are not present
+        virtual void                                    DepthToViewspaceLinear( vaSceneDrawContext & drawContext, vaTexture & depthTexture );
 
     private:
-        virtual string                                  IHO_GetInstanceName( ) const { return m_debugInfo; }
-        virtual void                                    IHO_Draw( );
+        virtual string                                  UIPanelGetDisplayName( ) const { return m_debugInfo; }
+        virtual void                                    UIPanelDraw( );
 
     protected:
         void                                            UpdateShaders( );
-        bool                                            ReCreateIfNeeded( shared_ptr<vaTexture> & inoutTex, int width, int height, vaResourceFormat format, bool needsUAV, int msaaSampleCount, float & inoutTotalSizeSum );
+        bool                                            ReCreateIfNeeded( shared_ptr<vaTexture> & inoutTex, int width, int height, vaResourceFormat format, bool needsUAV, int msaaSampleCount, float & inoutTotalSizeSum, vaResourceFormat fastClearFormat );
     };
 
 }

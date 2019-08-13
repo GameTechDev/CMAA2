@@ -74,12 +74,12 @@ namespace VertexAsylum
         ID3D11ShaderResourceView *      m_inLumaReadonlySRV                     = nullptr;
         //
         ID3D11ShaderResourceView *      m_inColorMSReadonlySRV                  = nullptr;
-        ID3D11ShaderResourceView *      m_inColorMSComplexityMaskReadonly       = nullptr;
+        ID3D11ShaderResourceView *      m_inColorMSComplexityMaskReadonlySRV    = nullptr;
         //
         ////////////////////////////////////////////////////////////////////////////////////
 
         ////////////////////////////////////////////////////////////////////////////////////
-        // used only for .Gather
+        // used only for .Gather - can be avoided for slight loss of perf
         ID3D11SamplerState *            m_pointSampler                          = nullptr;
         ////////////////////////////////////////////////////////////////////////////////////
 
@@ -101,9 +101,12 @@ namespace VertexAsylum
         // This buffer contains per-location linked list heads (pointing to 'workingDeferredBlendItemList') (to add to confusion, it's all in 2x2-sized chunks to reduce memory usage)
         shared_ptr<vaTexture>           m_workingDeferredBlendItemListHeads     = nullptr;
         //
-        // DispatchIndirect helper buffer
+        // Global counters & info for setting up DispatchIndirect
         ID3D11Buffer *                  m_workingControlBuffer                  = nullptr;
         ID3D11UnorderedAccessView *     m_workingControlBufferUAV               = nullptr;
+        // DispatchIndirect/ExecuteIndirect buffer
+        ID3D11Buffer *                  g_workingExecuteIndirectBuffer          = nullptr;
+        ID3D11UnorderedAccessView *     g_workingExecuteIndirectBufferUAV       = nullptr;
         //
         ////////////////////////////////////////////////////////////////////////////////////
 
@@ -155,7 +158,6 @@ vaCMAA2DX11::vaCMAA2DX11( const vaRenderingModuleParams & params ) : vaCMAA2( pa
 vaCMAA2DX11::~vaCMAA2DX11( )
 {
     CleanupTemporaryResources();
-    Reset( );
     SAFE_RELEASE( m_pointSampler );
 }
 
@@ -224,6 +226,65 @@ static bool CheckUAVTypedStoreFormatSupport( ID3D11Device* device, DXGI_FORMAT f
     return typed_unordered_access_view && uav_typed_store;
 }
 
+static ID3D11UnorderedAccessView * CreateUnorderedAccessView( ID3D11Resource * resource, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN,        int mipSliceMin = 0, int arraySliceMin = 0, int arraySliceCount = -1 )
+{
+    ID3D11UnorderedAccessView * ret = NULL;
+
+    D3D11_UNORDERED_ACCESS_VIEW_DESC desc;
+    D3D11_UAV_DIMENSION dimension = D3D11_UAV_DIMENSION_UNKNOWN;
+
+    ID3D11Texture2D * texture2D = NULL;
+    if( SUCCEEDED( resource->QueryInterface( IID_ID3D11Texture2D, (void**)&texture2D ) ) )
+    {
+        D3D11_TEXTURE2D_DESC descTex2D;
+        texture2D->GetDesc( &descTex2D );
+
+        if( arraySliceCount == -1 )
+            arraySliceCount = descTex2D.ArraySize - arraySliceMin;
+
+        assert( mipSliceMin >= 0 && (UINT)mipSliceMin < descTex2D.MipLevels );
+        assert( arraySliceMin >= 0 && (UINT)arraySliceMin < descTex2D.ArraySize );
+        assert( arraySliceMin + arraySliceCount > 0 && (UINT)arraySliceMin + arraySliceCount <= descTex2D.ArraySize );
+
+        dimension = ( descTex2D.ArraySize == 1 ) ? ( D3D11_UAV_DIMENSION_TEXTURE2D ) : ( D3D11_UAV_DIMENSION_TEXTURE2DARRAY );
+
+        desc = CD3D11_UNORDERED_ACCESS_VIEW_DESC( texture2D, dimension, format );
+
+        if( dimension == D3D11_UAV_DIMENSION_TEXTURE2D )
+        {
+            desc.Texture2D.MipSlice             = mipSliceMin;
+            assert( arraySliceMin == 0 );
+        }
+        else if( dimension == D3D11_UAV_DIMENSION_TEXTURE2DARRAY )
+        {
+            desc.Texture2DArray.MipSlice        = mipSliceMin;
+            desc.Texture2DArray.FirstArraySlice = arraySliceMin;
+            desc.Texture2DArray.ArraySize       = arraySliceCount;
+        }
+        else { assert( false ); }
+
+        SAFE_RELEASE( texture2D );
+    }
+    else
+    {
+        assert( false );
+        return nullptr;
+    }
+
+    ID3D11Device * device = nullptr;
+    resource->GetDevice(&device);
+    device->Release(); // yeah, ugly - we know at minimum texture will guarantee device persistence but still...
+    if( SUCCEEDED( device->CreateUnorderedAccessView( resource, &desc, &ret ) ) )
+    {
+        return ret;
+    }
+    else
+    {
+        assert( false );
+        return NULL;
+    }
+}
+
 void vaCMAA2DX11::CleanupTemporaryResources( )
 {
     SAFE_RELEASE( m_workingShapeCandidatesUAV );
@@ -231,11 +292,13 @@ void vaCMAA2DX11::CleanupTemporaryResources( )
     SAFE_RELEASE( m_workingDeferredBlendItemListUAV );
     SAFE_RELEASE( m_workingControlBuffer );
     SAFE_RELEASE( m_workingControlBufferUAV );
+    SAFE_RELEASE( g_workingExecuteIndirectBuffer );
+    SAFE_RELEASE( g_workingExecuteIndirectBufferUAV );
     SAFE_RELEASE( m_inoutColorReadonlySRV   );
     SAFE_RELEASE( m_inoutColorWriteonlyUAV  );
     SAFE_RELEASE( m_inLumaReadonlySRV );
     SAFE_RELEASE( m_inColorMSReadonlySRV  );
-    SAFE_RELEASE( m_inColorMSComplexityMaskReadonly  );
+    SAFE_RELEASE( m_inColorMSComplexityMaskReadonlySRV  );
 
     m_workingEdges                      = nullptr;
     m_workingDeferredBlendItemListHeads = nullptr;
@@ -244,6 +307,8 @@ void vaCMAA2DX11::CleanupTemporaryResources( )
     m_externalOptionalInLuma            = nullptr;
     m_externalInColorMS                 = nullptr;
     m_externalInColorMSComplexityMask   = nullptr;
+
+    Reset();
 }
 
 bool vaCMAA2DX11::UpdateResources( vaRenderDeviceContext & deviceContext, const shared_ptr<vaTexture> & inoutColor, const shared_ptr<vaTexture> & optionalInLuma, const shared_ptr<vaTexture> & inColorMS, const shared_ptr<vaTexture> & inColorMSComplexityMask )
@@ -264,7 +329,6 @@ bool vaCMAA2DX11::UpdateResources( vaRenderDeviceContext & deviceContext, const 
     }
 
     CleanupTemporaryResources();
-    Reset();
 
     // track the external inputs so we can re-create
     m_externalInOutColor                = inoutColor;
@@ -285,8 +349,8 @@ bool vaCMAA2DX11::UpdateResources( vaRenderDeviceContext & deviceContext, const 
         m_inColorMSReadonlySRV->AddRef();
         if( inColorMSComplexityMask != nullptr )
         {
-            m_inColorMSComplexityMaskReadonly = inColorMSComplexityMask->SafeCast<vaTextureDX11*>( )->GetSRV( );
-            m_inColorMSComplexityMaskReadonly->AddRef();
+            m_inColorMSComplexityMaskReadonlySRV = inColorMSComplexityMask->SafeCast<vaTextureDX11*>( )->GetSRV( );
+            m_inColorMSComplexityMaskReadonlySRV->AddRef();
         }
 
         m_textureSampleCount = inColorMS->GetArrayCount();
@@ -339,7 +403,7 @@ bool vaCMAA2DX11::UpdateResources( vaRenderDeviceContext & deviceContext, const 
         // if we support direct writes to this format - excellent, just create an UAV on it and Bob's your uncle
         if( CheckUAVTypedStoreFormatSupport( d3d11Device, srvFormat ) )
         {
-            m_inoutColorWriteonlyUAV = vaDirectXTools::CreateUnorderedAccessView( inoutColor->SafeCast<vaTextureDX11*>( )->GetTexture2D() );
+            m_inoutColorWriteonlyUAV = CreateUnorderedAccessView( inoutColor->SafeCast<vaTextureDX11*>( )->GetTexture2D() );
             assert( m_inoutColorWriteonlyUAV != nullptr );   // check DX errors for clues
             validInputOutputs = m_inoutColorWriteonlyUAV != nullptr;
             convertToSRGBOnOutput = false;      // no conversion will be needed as the GPU supports direct typed UAV store
@@ -350,7 +414,7 @@ bool vaCMAA2DX11::UpdateResources( vaRenderDeviceContext & deviceContext, const 
         // maybe just sRGB UAV store is not supported?
         else if( CheckUAVTypedStoreFormatSupport( d3d11Device, srvFormatStrippedSRGB ) )
         {
-            m_inoutColorWriteonlyUAV = vaDirectXTools::CreateUnorderedAccessView( inoutColor->SafeCast<vaTextureDX11*>( )->GetTexture2D(), srvFormatStrippedSRGB );
+            m_inoutColorWriteonlyUAV = CreateUnorderedAccessView( inoutColor->SafeCast<vaTextureDX11*>( )->GetTexture2D(), srvFormatStrippedSRGB );
             assert( m_inoutColorWriteonlyUAV != nullptr ); // check DX errors for clues
             validInputOutputs = m_inoutColorWriteonlyUAV != nullptr;
             uavStoreTyped = true;
@@ -359,7 +423,7 @@ bool vaCMAA2DX11::UpdateResources( vaRenderDeviceContext & deviceContext, const 
         // ok we have to encode manually
         else
         {
-            m_inoutColorWriteonlyUAV = vaDirectXTools::CreateUnorderedAccessView( inoutColor->SafeCast<vaTextureDX11*>( )->GetTexture2D(), DXGI_FORMAT_R32_UINT );
+            m_inoutColorWriteonlyUAV = CreateUnorderedAccessView( inoutColor->SafeCast<vaTextureDX11*>( )->GetTexture2D(), DXGI_FORMAT_R32_UINT );
             assert( m_inoutColorWriteonlyUAV != nullptr ); // check DX errors for clues
             validInputOutputs = m_inoutColorWriteonlyUAV != nullptr;
             if( validInputOutputs )
@@ -384,7 +448,6 @@ bool vaCMAA2DX11::UpdateResources( vaRenderDeviceContext & deviceContext, const 
         {
             assert( false );
             CleanupTemporaryResources();
-            Reset( );
             return false;
         }
     }
@@ -448,11 +511,16 @@ bool vaCMAA2DX11::UpdateResources( vaRenderDeviceContext & deviceContext, const 
 
         // Control buffer (always the same size, doesn't need re-creating but oh well)
         {
-            CD3D11_BUFFER_DESC cdesc( 16 * sizeof( UINT ), D3D11_BIND_UNORDERED_ACCESS, D3D11_USAGE_DEFAULT, 0, D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS | D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS, sizeof( UINT ) );
+            CD3D11_BUFFER_DESC cdesc( 16 * sizeof( UINT ), D3D11_BIND_UNORDERED_ACCESS, D3D11_USAGE_DEFAULT, 0, D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS, sizeof( UINT ) );
             UINT initData[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             D3D11_SUBRESOURCE_DATA srd;
             srd.pSysMem = initData; srd.SysMemPitch = srd.SysMemSlicePitch = 0;
             V( CreateBufferAndViews( d3d11Device, cdesc, &srd, &m_workingControlBuffer, nullptr, &m_workingControlBufferUAV, D3D11_BUFFER_UAV_FLAG_RAW ) );
+        }
+        // Control buffer (always the same size, doesn't need re-creating but oh well)
+        {
+            CD3D11_BUFFER_DESC cdesc( 4 * sizeof( UINT ), D3D11_BIND_UNORDERED_ACCESS, D3D11_USAGE_DEFAULT, 0, D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS | D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS, sizeof( UINT ) );
+            V( CreateBufferAndViews( d3d11Device, cdesc, nullptr, &g_workingExecuteIndirectBuffer, nullptr, &g_workingExecuteIndirectBufferUAV, D3D11_BUFFER_UAV_FLAG_RAW ) );
         }
     }
 
@@ -468,12 +536,11 @@ bool vaCMAA2DX11::UpdateResources( vaRenderDeviceContext & deviceContext, const 
             shaderMacros.push_back( std::pair<std::string, std::string>( "CMAA2_USE_HALF_FLOAT_PRECISION", "0" ) );
 #endif
 
-        m_CSEdgesColor2x2->CreateShaderFromFile( L"CMAA2/CMAA2.hlsl", "cs_5_0", "EdgesColor2x2CS", shaderMacros );
-        m_CSProcessCandidates->CreateShaderFromFile( L"CMAA2/CMAA2.hlsl", "cs_5_0", "ProcessCandidatesCS", shaderMacros );
-        m_CSDeferredColorApply2x2->CreateShaderFromFile( L"CMAA2/CMAA2.hlsl", "cs_5_0", "DeferredColorApply2x2CS", shaderMacros );
-        m_CSComputeDispatchArgs->CreateShaderFromFile( L"CMAA2/CMAA2.hlsl", "cs_5_0", "ComputeDispatchArgsCS", shaderMacros );
-
-        m_CSDebugDrawEdges->CreateShaderFromFile( L"CMAA2/CMAA2.hlsl", "cs_5_0", "DebugDrawEdgesCS", shaderMacros );
+        m_CSEdgesColor2x2->CreateShaderFromFile( L"CMAA2/CMAA2.hlsl", "cs_5_0", "EdgesColor2x2CS", shaderMacros, false );
+        m_CSProcessCandidates->CreateShaderFromFile( L"CMAA2/CMAA2.hlsl", "cs_5_0", "ProcessCandidatesCS", shaderMacros, false );
+        m_CSDeferredColorApply2x2->CreateShaderFromFile( L"CMAA2/CMAA2.hlsl", "cs_5_0", "DeferredColorApply2x2CS", shaderMacros, false );
+        m_CSComputeDispatchArgs->CreateShaderFromFile( L"CMAA2/CMAA2.hlsl", "cs_5_0", "ComputeDispatchArgsCS", shaderMacros, false );
+        m_CSDebugDrawEdges->CreateShaderFromFile( L"CMAA2/CMAA2.hlsl", "cs_5_0", "DebugDrawEdgesCS", shaderMacros, false );
     }
 
     return true;
@@ -523,6 +590,12 @@ vaDrawResultFlags vaCMAA2DX11::Execute( vaRenderDeviceContext & deviceContext )
 {
     ID3D11DeviceContext * dx11Context = vaSaferStaticCast< vaRenderDeviceContextDX11 * >( &deviceContext )->GetDXContext( );
 
+    // make sure shaders are not still compiling
+    m_CSEdgesColor2x2->WaitFinishIfBackgroundCreateActive();
+    m_CSProcessCandidates->WaitFinishIfBackgroundCreateActive();
+    m_CSDeferredColorApply2x2->WaitFinishIfBackgroundCreateActive();
+    m_CSComputeDispatchArgs->WaitFinishIfBackgroundCreateActive();
+
     ID3D11ComputeShader * shaderEdgesColor2x2          = m_CSEdgesColor2x2         ->SafeCast<vaComputeShaderDX11*>()->GetShader();
     ID3D11ComputeShader * shaderProcessCandidates      = m_CSProcessCandidates     ->SafeCast<vaComputeShaderDX11*>()->GetShader();
     ID3D11ComputeShader * shaderDeferredColorApply2x2  = m_CSDeferredColorApply2x2 ->SafeCast<vaComputeShaderDX11*>()->GetShader();
@@ -531,11 +604,11 @@ vaDrawResultFlags vaCMAA2DX11::Execute( vaRenderDeviceContext & deviceContext )
     if( shaderEdgesColor2x2 == nullptr || shaderProcessCandidates  == nullptr || shaderDeferredColorApply2x2  == nullptr || shaderComputeDispatchArgs  == nullptr || shaderDebugDrawEdges  == nullptr )
         {   /*VA_WARN( "CMAA2: Not all shaders compiled, can't run" );*/ return vaDrawResultFlags::ShadersStillCompiling; }
 
-    UpdateConstants( deviceContext );
+    // UpdateConstants( deviceContext );
 
     dx11Context->CSSetSamplers( 0, 1, &m_pointSampler );
 
-    ID3D11UnorderedAccessView * UAVs[]                      = { nullptr, m_workingEdges->SafeCast<vaTextureDX11*>( )->GetUAV( ), m_workingShapeCandidatesUAV, m_workingDeferredBlendLocationListUAV, m_workingDeferredBlendItemListUAV, m_workingDeferredBlendItemListHeads->SafeCast<vaTextureDX11*>( )->GetUAV( ), m_workingControlBufferUAV };
+    ID3D11UnorderedAccessView * UAVs[]                      = { nullptr, m_workingEdges->SafeCast<vaTextureDX11*>( )->GetUAV( ), m_workingShapeCandidatesUAV, m_workingDeferredBlendLocationListUAV, m_workingDeferredBlendItemListUAV, m_workingDeferredBlendItemListHeads->SafeCast<vaTextureDX11*>( )->GetUAV( ), m_workingControlBufferUAV, g_workingExecuteIndirectBufferUAV };
     ID3D11UnorderedAccessView * nullUAVs[_countof( UAVs )]  = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
 
     // Warning: the input SRV >must< be in UNORM_SRGB format if the resource is sRGB
@@ -546,12 +619,12 @@ vaDrawResultFlags vaCMAA2DX11::Execute( vaRenderDeviceContext & deviceContext )
     if( m_inColorMSReadonlySRV != nullptr )
     {
         // we read from the MS surface...
-        SRVs[0] = m_inColorMSReadonlySRV;
+        SRVs[2] = m_inColorMSReadonlySRV;
         // ...and write all resolved pixels to output buffer (and then later write anti-aliased ones again on top of them)
         UAVs[0] = m_inoutColorWriteonlyUAV;
 
         // also set multisample complexity mask SRV, if provided
-        SRVs[1] = m_inColorMSComplexityMaskReadonly;
+        SRVs[1] = m_inColorMSComplexityMaskReadonlySRV;
     }
     else
     {
@@ -583,7 +656,7 @@ vaDrawResultFlags vaCMAA2DX11::Execute( vaRenderDeviceContext & deviceContext )
     {
         VA_SCOPE_CPUGPU_TIMER( ProcessCandidates, deviceContext );
         dx11Context->CSSetShader( shaderProcessCandidates, nullptr, 0 );
-        dx11Context->DispatchIndirect( m_workingControlBuffer, 0 );
+        dx11Context->DispatchIndirect( g_workingExecuteIndirectBuffer, 0 );
     }
 
     // Set up for the second DispatchIndirect
@@ -595,7 +668,7 @@ vaDrawResultFlags vaCMAA2DX11::Execute( vaRenderDeviceContext & deviceContext )
 
     SRVs[0] = nullptr;                                                      // remove input colors
     if( m_textureSampleCount != 1 )
-        SRVs[0] = m_inColorMSReadonlySRV;                                           // special case for MSAA - needs input MSAA colors for correct resolve in case of only partially touched pixels
+        SRVs[2] = m_inColorMSReadonlySRV;                                           // special case for MSAA - needs input MSAA colors for correct resolve in case of only partially touched pixels
     dx11Context->CSSetShaderResources( 0, _countof( SRVs ), SRVs );
 
     UAVs[0] = m_inoutColorWriteonlyUAV;                                     // set output colors
@@ -605,7 +678,7 @@ vaDrawResultFlags vaCMAA2DX11::Execute( vaRenderDeviceContext & deviceContext )
     {
         VA_SCOPE_CPUGPU_TIMER( DeferredColorApply, deviceContext );
         dx11Context->CSSetShader( shaderDeferredColorApply2x2, nullptr, 0 );
-        dx11Context->DispatchIndirect( m_workingControlBuffer, 0 );
+        dx11Context->DispatchIndirect( g_workingExecuteIndirectBuffer, 0 );
     }
 
     // DEBUGGING
@@ -634,7 +707,7 @@ vaDrawResultFlags vaCMAA2DX11::Execute( vaRenderDeviceContext & deviceContext )
 }
 
 
-void RegistervaCMAA2DX11( )
+void RegisterCMAA2DX11( )
 {
     VA_RENDERING_MODULE_REGISTER( vaRenderDeviceDX11, vaCMAA2, vaCMAA2DX11 );
 }

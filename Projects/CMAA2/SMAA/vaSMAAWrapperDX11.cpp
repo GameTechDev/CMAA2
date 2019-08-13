@@ -20,6 +20,7 @@
 #include "Core/vaCoreIncludes.h"
 
 #include "Rendering/DirectX/vaDirectXIncludes.h"
+
 #include "Rendering/DirectX/vaDirectXTools.h"
 
 #include "Scene/vaSceneIncludes.h"
@@ -37,6 +38,8 @@
 #include "vaSMAAWrapper.h"
 
 #include "SMAA.h"
+
+#include "Rendering/DirectX/vaRenderDeviceContextDX12.h" // only so the dx12 stub compiles - will be removed once ported to dx12 file
 
 namespace VertexAsylum
 {
@@ -134,6 +137,29 @@ namespace VertexAsylum
         virtual SMAATechniqueInterface* CreateTechnique( const char * name, const std::vector<D3D_SHADER_MACRO> & defines ) override;
         virtual void                    DestroyAllTechniques( ) override;
     };
+
+    // there is no DX12 port yet so just stub it out here
+    class vaSMAAWrapperDX12 : public vaSMAAWrapper
+    {
+        VA_RENDERING_MODULE_MAKE_FRIENDS( );
+
+    public:
+        explicit vaSMAAWrapperDX12( const vaRenderingModuleParams & params ) : vaSMAAWrapper( params ) { }
+        ~vaSMAAWrapperDX12( ) { }
+
+        // Applies SMAA to currently selected render target using provided inputs
+        virtual vaDrawResultFlags   Draw( vaRenderDeviceContext & deviceContext, const shared_ptr<vaTexture> & inputColor, const shared_ptr<vaTexture> & optionalInLuma = nullptr ) override 
+        { 
+            // NOT IMPLEMENTED IN DX12
+            deviceContext; inputColor, optionalInLuma; 
+            deviceContext.GetRenderTarget()->ClearRTV( deviceContext, vaVector4( 1.0f, 0.0f, 1.0f, 0.0f ) );
+            return vaDrawResultFlags::None;  
+        }
+
+        // if SMAA is no longer used make sure it's not reserving any memory
+        virtual void                CleanupTemporaryResources( ) override { }
+    };
+
 
 }
 
@@ -247,21 +273,21 @@ bool vaSMAAWrapperDX11::UpdateResources( vaRenderDeviceContext & deviceContext, 
         m_sampleCount = inputColor->GetArrayCount();
         if( m_sampleCount == 1 )
         {
-            m_viewColor0 = vaTexture::CreateView( *inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, inputColor->GetSRVFormat(),
+            m_viewColor0 = vaTexture::CreateView( inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, inputColor->GetSRVFormat(),
                 vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, 0, 1, 0, 1 );
-            m_viewColorIgnoreSRGB0 = vaTexture::CreateView( *inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, vaResourceFormatHelpers::StripSRGB( inputColor->GetSRVFormat( ) ),
+            m_viewColorIgnoreSRGB0 = vaTexture::CreateView( inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, vaResourceFormatHelpers::StripSRGB( inputColor->GetSRVFormat( ) ),
                 vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, 0, 1, 0, 1 );
         }
         else
         {
             assert( m_sampleCount == 2 );
-            m_viewColor0 = vaTexture::CreateView( *inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, inputColor->GetSRVFormat( ),
+            m_viewColor0 = vaTexture::CreateView( inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, inputColor->GetSRVFormat( ),
                 vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, 0, 1, 0, 1 );
-            m_viewColorIgnoreSRGB0 = vaTexture::CreateView( *inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, vaResourceFormatHelpers::StripSRGB( inputColor->GetSRVFormat( ) ),
+            m_viewColorIgnoreSRGB0 = vaTexture::CreateView( inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, vaResourceFormatHelpers::StripSRGB( inputColor->GetSRVFormat( ) ),
                 vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, 0, 1, 0, 1 );
-            m_viewColor1 = vaTexture::CreateView( *inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, inputColor->GetSRVFormat( ),
+            m_viewColor1 = vaTexture::CreateView( inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, inputColor->GetSRVFormat( ),
                 vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, 0, 1, 1, 1 );
-            m_viewColorIgnoreSRGB1 = vaTexture::CreateView( *inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, vaResourceFormatHelpers::StripSRGB( inputColor->GetSRVFormat( ) ),
+            m_viewColorIgnoreSRGB1 = vaTexture::CreateView( inputColor, /*inputColor->GetBindSupportFlags()*/vaResourceBindSupportFlags::ShaderResource, vaResourceFormatHelpers::StripSRGB( inputColor->GetSRVFormat( ) ),
                 vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaResourceFormat::Automatic, vaTextureFlags::None, 0, 1, 1, 1 );
         }
     }
@@ -409,12 +435,6 @@ SMAATechniqueInterface* vaSMAAWrapperDX11::CreateTechnique( const char * _name, 
     defines;
     shared_ptr<TechniqueThingieDX11> tech = std::make_shared<TechniqueThingieDX11>( vaRenderingModuleParams(GetRenderDevice()) );
 
-// const D3D11_INPUT_ELEMENT_DESC layout[] = {
-//     { "POSITION",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-//     { "TEXCOORD",  0, DXGI_FORMAT_R32G32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-// };
-// UINT numElements = sizeof( layout ) / sizeof( D3D11_INPUT_ELEMENT_DESC );
-
     std::vector<vaVertexInputElementDesc> inputElements;
     inputElements.push_back( { "POSITION",  0, vaResourceFormat::R32G32B32_FLOAT,    0, vaVertexInputElementDesc::AppendAlignedElement, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } );
     inputElements.push_back( { "TEXCOORD",  0, vaResourceFormat::R32G32_FLOAT,       0, vaVertexInputElementDesc::AppendAlignedElement, vaVertexInputElementDesc::InputClassification::PerVertexData, 0 } );
@@ -431,15 +451,8 @@ SMAATechniqueInterface* vaSMAAWrapperDX11::CreateTechnique( const char * _name, 
     if( name == "LumaEdgeDetection" )
     {
         //technique10 LumaEdgeDetection {
-        //    pass LumaEdgeDetection {
-        //        SetVertexShader(CompileShader(vs_4_0, DX10_SMAAEdgeDetectionVS()));
-        //        SetPixelShader(CompileShader(PS_VERSION, DX10_SMAALumaEdgeDetectionPS()));
-        //        SetDepthStencilState(DisableDepthReplaceStencil, 1);
-        //        SetBlendState(NoBlending, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
-        //    }
-
-        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAAEdgeDetectionVS", inputElements, shaderMacros );
-        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAALumaEdgeDetectionPS", shaderMacros );
+        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAAEdgeDetectionVS", inputElements, shaderMacros, true );
+        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAALumaEdgeDetectionPS", shaderMacros, true );
         tech->DSS = m_DisableDepthReplaceStencil;
         tech->BS  = m_NoBlending;
         tech->BlendFactor[0] = 0.0f; tech->BlendFactor[1] = 0.0f; tech->BlendFactor[2] = 0.0f; tech->BlendFactor[3] = 0.0f;
@@ -448,8 +461,8 @@ SMAATechniqueInterface* vaSMAAWrapperDX11::CreateTechnique( const char * _name, 
     }
     else if( name == "LumaRawEdgeDetection" )
     {
-        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAAEdgeDetectionVS", inputElements, shaderMacros );
-        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAALumaRawEdgeDetectionPS", shaderMacros );
+        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAAEdgeDetectionVS", inputElements, shaderMacros, true );
+        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAALumaRawEdgeDetectionPS", shaderMacros, true );
         tech->DSS = m_DisableDepthReplaceStencil;
         tech->BS  = m_NoBlending;
         tech->BlendFactor[0] = 0.0f; tech->BlendFactor[1] = 0.0f; tech->BlendFactor[2] = 0.0f; tech->BlendFactor[3] = 0.0f;
@@ -459,14 +472,8 @@ SMAATechniqueInterface* vaSMAAWrapperDX11::CreateTechnique( const char * _name, 
     else if( name == "ColorEdgeDetection" )
     {
         //technique10 ColorEdgeDetection {
-        //    pass ColorEdgeDetection {
-        //        SetVertexShader(CompileShader(vs_4_0, DX10_SMAAEdgeDetectionVS()));
-        //        SetPixelShader(CompileShader(PS_VERSION, DX10_SMAAColorEdgeDetectionPS()));
-        //        SetDepthStencilState(DisableDepthReplaceStencil, 1);
-        //        SetBlendState(NoBlending, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
-
-        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAAEdgeDetectionVS", inputElements, shaderMacros );
-        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAAColorEdgeDetectionPS", shaderMacros );
+        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAAEdgeDetectionVS", inputElements, shaderMacros, true );
+        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAAColorEdgeDetectionPS", shaderMacros, true );
         tech->DSS = m_DisableDepthReplaceStencil;
         tech->BS  = m_NoBlending;
         tech->BlendFactor[0] = 0.0f; tech->BlendFactor[1] = 0.0f; tech->BlendFactor[2] = 0.0f; tech->BlendFactor[3] = 0.0f;
@@ -476,13 +483,8 @@ SMAATechniqueInterface* vaSMAAWrapperDX11::CreateTechnique( const char * _name, 
     else if( name == "DepthEdgeDetection" )
     {
         //technique10 DepthEdgeDetection {
-        //    pass DepthEdgeDetection {
-        //        SetVertexShader(CompileShader(vs_4_0, DX10_SMAAEdgeDetectionVS()));
-        //        SetPixelShader(CompileShader(PS_VERSION, DX10_SMAADepthEdgeDetectionPS()));
-        //        SetDepthStencilState(DisableDepthReplaceStencil, 1);
-        //        SetBlendState(NoBlending, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
-        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAAEdgeDetectionVS", inputElements, shaderMacros );
-        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAADepthEdgeDetectionPS", shaderMacros );
+        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAAEdgeDetectionVS", inputElements, shaderMacros, true );
+        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAADepthEdgeDetectionPS", shaderMacros, true );
         tech->DSS = m_DisableDepthReplaceStencil;
         tech->BS  = m_NoBlending;
         tech->BlendFactor[0] = 0.0f; tech->BlendFactor[1] = 0.0f; tech->BlendFactor[2] = 0.0f; tech->BlendFactor[3] = 0.0f;
@@ -492,13 +494,8 @@ SMAATechniqueInterface* vaSMAAWrapperDX11::CreateTechnique( const char * _name, 
     else if( name == "BlendingWeightCalculation" )
     {
         //technique10 BlendingWeightCalculation {
-        //    pass BlendingWeightCalculation {
-        //        SetVertexShader(CompileShader(vs_4_0, DX10_SMAABlendingWeightCalculationVS()));
-        //        SetPixelShader(CompileShader(PS_VERSION, DX10_SMAABlendingWeightCalculationPS()));
-        //        SetDepthStencilState(DisableDepthUseStencil, 1);
-        //        SetBlendState(NoBlending, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
-        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAABlendingWeightCalculationVS", inputElements, shaderMacros );
-        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAABlendingWeightCalculationPS", shaderMacros );
+        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAABlendingWeightCalculationVS", inputElements, shaderMacros, true );
+        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAABlendingWeightCalculationPS", shaderMacros, true );
         tech->DSS = m_DisableDepthUseStencil;
         tech->BS  = m_NoBlending;
         tech->BlendFactor[0] = 0.0f; tech->BlendFactor[1] = 0.0f; tech->BlendFactor[2] = 0.0f; tech->BlendFactor[3] = 0.0f;
@@ -508,14 +505,9 @@ SMAATechniqueInterface* vaSMAAWrapperDX11::CreateTechnique( const char * _name, 
     else if( name == "NeighborhoodBlending" )
     {
         //technique10 NeighborhoodBlending {
-        //    pass NeighborhoodBlending {
-        //        SetVertexShader(CompileShader(vs_4_0, DX10_SMAANeighborhoodBlendingVS()));
-        //        SetPixelShader(CompileShader(PS_VERSION, DX10_SMAANeighborhoodBlendingPS()));
-        //        SetDepthStencilState(DisableDepthStencil, 0);
-        //        SetBlendState(Blend, float4(blendFactor, blendFactor, blendFactor, blendFactor), 0xFFFFFFFF);
-        //        // For SMAA 1x, just use NoBlending!
-        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAANeighborhoodBlendingVS", inputElements, shaderMacros );
-        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAANeighborhoodBlendingPS", shaderMacros );
+
+        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAANeighborhoodBlendingVS", inputElements, shaderMacros, true );
+        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAANeighborhoodBlendingPS", shaderMacros, true );
         tech->DSS = m_DisableDepthStencil;
         tech->BS  = m_Blend;
         tech->BlendFactor[0] = 0.0f; tech->BlendFactor[1] = 0.0f; tech->BlendFactor[2] = 0.0f; tech->BlendFactor[3] = 0.0f;
@@ -526,13 +518,8 @@ SMAATechniqueInterface* vaSMAAWrapperDX11::CreateTechnique( const char * _name, 
     else if( name == "Resolve" )
     {
         //technique10 Resolve {
-        //    pass Resolve {
-        //        SetVertexShader(CompileShader(vs_4_0, DX10_SMAAResolveVS()));
-        //        SetPixelShader(CompileShader(PS_VERSION, DX10_SMAAResolvePS()));
-        //        SetDepthStencilState(DisableDepthStencil, 0);
-        //        SetBlendState(NoBlending, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
-        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAAResolveVS", inputElements, shaderMacros );
-        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAAResolvePS", shaderMacros );
+        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAAResolveVS", inputElements, shaderMacros, true );
+        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAAResolvePS", shaderMacros, true );
         tech->DSS = m_DisableDepthStencil;
         tech->BS  = m_NoBlending;
         tech->BlendFactor[0] = 0.0f; tech->BlendFactor[1] = 0.0f; tech->BlendFactor[2] = 0.0f; tech->BlendFactor[3] = 0.0f;
@@ -542,13 +529,8 @@ SMAATechniqueInterface* vaSMAAWrapperDX11::CreateTechnique( const char * _name, 
     else if( name == "Separate" )
     {
         //technique10 Separate {
-        //    pass Separate {
-        //        SetVertexShader(CompileShader(vs_4_0, DX10_SMAASeparateVS()));
-        //        SetPixelShader(CompileShader(PS_VERSION, DX10_SMAASeparatePS()));
-        //        SetDepthStencilState(DisableDepthStencil, 0);
-        //        SetBlendState(NoBlending, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
-        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAASeparateVS", inputElements, shaderMacros );
-        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAASeparatePS", shaderMacros );
+        tech->VS->CreateShaderAndILFromFile( shaderFileName, vsVersion, "DX10_SMAASeparateVS", inputElements, shaderMacros, true );
+        tech->PS->CreateShaderFromFile( shaderFileName, psVersion, "DX10_SMAASeparatePS", shaderMacros, true );
         tech->DSS = m_DisableDepthStencil;
         tech->BS  = m_NoBlending;
         tech->BlendFactor[0] = 0.0f; tech->BlendFactor[1] = 0.0f; tech->BlendFactor[2] = 0.0f; tech->BlendFactor[3] = 0.0f;
@@ -560,26 +542,14 @@ SMAATechniqueInterface* vaSMAAWrapperDX11::CreateTechnique( const char * _name, 
         string s =  string("") +
                     "float4 RenderVS(float4 pos : POSITION,    inout float2 coord : TEXCOORD0) : SV_POSITION { pos.x = -0.5 + 0.5 * pos.x; return pos; }" +
                     "float4 RenderPS(float4 pos : SV_POSITION,       float2 coord : TEXCOORD0) : SV_TARGET   { return 1.0; }" + 
-//                    "DepthStencilState DisableDepthStencil { DepthEnable = FALSE; StencilEnable = FALSE; };"
-//                    "BlendState NoBlending { AlphaToCoverageEnable = FALSE; BlendEnable[0] = FALSE; };"
-//                    "technique10 Render { pass Render {"
-//                    "SetVertexShader(CompileShader(vs_4_0, RenderVS())); SetGeometryShader(NULL); SetPixelShader(CompileShader(ps_4_0, RenderPS()));"
-//                    "SetDepthStencilState(DisableDepthStencil, 0);"
-//                    "SetBlendState(NoBlending, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);"
-//                    "}}"
-                    "Texture2DMS<float4, 2> texMS : register( t5 );" + 
+                    "Texture2DMS<float4, 2> srcMultiSampled : register( t5 );" + 
                     "float4 LoadVS(float4 pos : POSITION,    inout float2 coord : TEXCOORD0) : SV_POSITION { return pos; }" + 
-                    "float4 LoadPS(float4 pos : SV_POSITION,       float2 coord : TEXCOORD0) : SV_TARGET   { int2 ipos = int2(pos.xy); return texMS.Load(ipos, 0); }";
-//                    "technique10 Load { pass Load {"
-//                    "SetVertexShader(CompileShader(vs_4_0, LoadVS())); SetGeometryShader(NULL); SetPixelShader(CompileShader(ps_4_0, LoadPS()));"
-//                    "SetDepthStencilState(DisableDepthStencil, 0);"
-//                    "SetBlendState(NoBlending, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);"
-//                    "}}";
+                    "float4 LoadPS(float4 pos : SV_POSITION,       float2 coord : TEXCOORD0) : SV_TARGET   { int2 ipos = int2(pos.xy); return srcMultiSampled.Load(ipos, 0); }";
 
         if( name == "detectMSAAOrder_Render" )
         {
-            tech->VS->CreateShaderAndILFromBuffer( s, "vs_4_0", "RenderVS", inputElements, shaderMacros );
-            tech->PS->CreateShaderFromBuffer( s, "ps_4_0", "RenderPS", shaderMacros );
+            tech->VS->CreateShaderAndILFromBuffer( s, "vs_4_0", "RenderVS", inputElements, shaderMacros, true );
+            tech->PS->CreateShaderFromBuffer( s, "ps_4_0", "RenderPS", shaderMacros, true );
             tech->DSS = m_DisableDepthStencil;
             tech->BS  = m_NoBlending;
             tech->BlendFactor[0] = 0.0f; tech->BlendFactor[1] = 0.0f; tech->BlendFactor[2] = 0.0f; tech->BlendFactor[3] = 0.0f;
@@ -588,8 +558,8 @@ SMAATechniqueInterface* vaSMAAWrapperDX11::CreateTechnique( const char * _name, 
         }
         else if( name == "detectMSAAOrder_Load" )
         {
-            tech->VS->CreateShaderAndILFromBuffer( s, "vs_4_0", "LoadVS", inputElements, shaderMacros );
-            tech->PS->CreateShaderFromBuffer( s, "ps_4_0", "LoadPS", shaderMacros );
+            tech->VS->CreateShaderAndILFromBuffer( s, "vs_4_0", "LoadVS", inputElements, shaderMacros, true );
+            tech->PS->CreateShaderFromBuffer( s, "ps_4_0", "LoadPS", shaderMacros, true );
             tech->DSS = m_DisableDepthStencil;
             tech->BS  = m_NoBlending;
             tech->BlendFactor[0] = 0.0f; tech->BlendFactor[1] = 0.0f; tech->BlendFactor[2] = 0.0f; tech->BlendFactor[3] = 0.0f;
@@ -639,4 +609,9 @@ void TechniqueThingieDX11::ApplyStates( ID3D11DeviceContext * context )
 void RegisterSMAAWrapperDX11( )
 {
     VA_RENDERING_MODULE_REGISTER( vaRenderDeviceDX11, vaSMAAWrapper, vaSMAAWrapperDX11 );
+}
+
+void RegisterSMAAWrapperDX12( )
+{
+    VA_RENDERING_MODULE_REGISTER( vaRenderDeviceDX12, vaSMAAWrapper, vaSMAAWrapperDX12 );
 }

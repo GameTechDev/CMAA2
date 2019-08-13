@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Core/vaCoreIncludes.h"
+#include "Core/vaUI.h"
 
 #include "Rendering/vaRenderingIncludes.h"
 
@@ -28,7 +29,7 @@
 
 namespace VertexAsylum
 {
-    class vaSMAAWrapper : public VertexAsylum::vaRenderingModule, public vaImguiHierarchyObject
+    class vaSMAAWrapper : public VertexAsylum::vaRenderingModule, public vaUIPanel
     {
     public:
         // enum Mode { MODE_SMAA_1X, MODE_SMAA_T2X, MODE_SMAA_S2X, MODE_SMAA_4X, MODE_SMAA_COUNT = MODE_SMAA_4X };
@@ -66,11 +67,11 @@ namespace VertexAsylum
         virtual void                CleanupTemporaryResources( )                                                            = 0;
 
     protected:
-        // virtual void                UpdateConstants( vaRenderDeviceContext & apiContext );
+        // virtual void                UpdateConstants( vaRenderDeviceContext & renderContext );
 
     private:
-        virtual string              IHO_GetInstanceName( ) const { return "SMAA"; }
-        virtual void                IHO_Draw( );
+        virtual void                UIPanelDraw( ) override;
+        virtual bool                UIPanelIsListed( ) const override          { return false; }
     };
 
 }

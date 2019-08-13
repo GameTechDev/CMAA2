@@ -39,16 +39,12 @@ namespace VertexAsylum
     public:
         struct Settings : vaApplicationBase::Settings
         {
-            // if not NULL, output will be redirected to this window
-            HWND            UserOutputWindow;
-             
-            // if OutputWindow == NULL a new window will be created with following settings:
             HCURSOR         Cursor;
             HICON           Icon;
             HICON           SmallIcon;
             int             CmdShow;
 
-            Settings( );
+            Settings( const wstring & appName = L"Name me plz", const wstring & cmdLine = L"", int cmdShow = SW_SHOWDEFAULT );
         };
 
     protected:
@@ -63,8 +59,6 @@ namespace VertexAsylum
         HCURSOR                             m_cursorArrow;
         HCURSOR                             m_cursorNone;
 
-        WINDOWPLACEMENT                     m_windowPlacement;
-
         bool                                m_preventWMSIZEResizeSwapChain;
         bool                                m_inResizeOrMove;
 
@@ -72,11 +66,9 @@ namespace VertexAsylum
         vaInputMouse                        m_mouse;
 
     public:
-        vaApplicationWin( Settings & settings, const std::shared_ptr<vaRenderDevice> & renderDevice, const wstring & cmdLine );
+        vaApplicationWin( const Settings & settings, const std::shared_ptr<vaRenderDevice> & renderDevice );
         virtual ~vaApplicationWin( );
 
-    public:
-        virtual void                        Initialize( );
         //
     public:
         // run the main loop!
@@ -85,10 +77,10 @@ namespace VertexAsylum
     public:
         const vaSystemTimer &               GetMainTimer( ) const                   { return m_mainTimer; }
         //
-        vaVector2i                          GetWindowPosition( ) override ;
+        vaVector2i                          GetWindowPosition( ) const override ;
         void                                SetWindowPosition( const vaVector2i & position ) override ;
         //
-        vaVector2i                          GetWindowClientAreaSize( ) override ;
+        vaVector2i                          GetWindowClientAreaSize( ) const override ;
         void                                SetWindowClientAreaSize( const vaVector2i & clientSize ) override ;
         //        //
         float                               GetAvgFramerate( ) const                { return m_avgFramerate; }
@@ -96,26 +88,20 @@ namespace VertexAsylum
         //
         virtual void                        CaptureMouse( );
         virtual void                        ReleaseMouse( );
-        //     
-        virtual bool                        IsFullscreen( ) const;
-        virtual void                        SetFullscreen( bool fullscreen )        { if( fullscreen != IsFullscreen() ) ToggleFullscreen(); }
-        virtual void                        ToggleFullscreen( );
         //
     protected:
+        virtual void                        Initialize( ) override;
         void                                UpdateMouseClientWindowRect( );
         //
     public:
-        static vaApplicationWin &              GetInstance( )                          { return *s_instance; }
+        static vaApplicationWin &           GetInstance( )                          { return *s_instance; }
         //
     protected:
-        //virtual void                        OnGotFocus( );
-        //virtual void                        OnLostFocus( );
 
         virtual void                        Tick( float deltaTime );
 
-        virtual void                        OnResized( int width, int height, bool windowed );
-
-        void                                ToggleFullscreenInternal( );
+        bool                                IsWindowFullscreenInternal( ) const;
+        void                                SetFullscreenWindowInternal( bool fullscreen );
 
     public:
 
@@ -131,6 +117,12 @@ namespace VertexAsylum
         void                                UpdateDeviceSizeOnWindowResize( );
         //
         bool                                UpdateUserWindowChanges( );
+
+    public:
+        // this creates the render device, application and calls initialize and shutdown callbacks - just an example of use, one can do everything manually instead
+        static void                         Run( const vaApplicationWin::Settings & settings, std::function< void( vaApplicationBase & application, bool starting ) > startStopCallback );
+
+        static vector<pair<string, string>> EnumerateGraphicsAPIsAndAdapters( );
 
     };
 

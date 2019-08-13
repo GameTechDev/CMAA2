@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------------
 // Fxaa3_11.h - version used in CMAA2 sample (https://github.com/GameTechDev/CMAA2)
-// Original source: https://github.com/NVIDIAGameWorks/GraphicsSamples/blob/master/samples/es3-kepler/FXAA/FXAA3_11.h
+// Original source: https://github.com/NVIDIAGameWorks/D3DSamples/blob/master/samples/FXAA/src/FXAA3_11.h
 // Modifications:   Added FXAA_LUMA_SEPARATE_R8 code path for the ability to load
 //                  precomputed luma from a separate R8 texture (still using gather)
 //                  instead of using .a channel in the color buffer in order to
@@ -9,12 +9,12 @@
 //                  memory bandwidth usage and improves performance in memory bound 
 //                  scenarios when compared to using alpha channel to store luma.
 //----------------------------------------------------------------------------------
-// File:        es3-kepler\FXAA/FXAA3_11.h
-// SDK Version: v3.00 
+// File:        FXAA\src/FXAA3_11.h
+// SDK Version: v1.2 
 // Email:       gameworks@nvidia.com
 // Site:        http://developer.nvidia.com/
 //
-// Copyright (c) 2014-2015, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2014, NVIDIA CORPORATION. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -42,7 +42,10 @@
 //
 //----------------------------------------------------------------------------------
 /*============================================================================
+
+
                     NVIDIA FXAA 3.11 by TIMOTHY LOTTES
+
 ------------------------------------------------------------------------------
                            INTEGRATION CHECKLIST
 ------------------------------------------------------------------------------
@@ -51,32 +54,44 @@ In the shader source, setup defines for the desired configuration.
 When providing multiple shaders (for different presets),
 simply setup the defines differently in multiple files.
 Example,
+
   #define FXAA_PC 1
   #define FXAA_HLSL_5 1
   #define FXAA_QUALITY__PRESET 12
+
 Or,
+
   #define FXAA_360 1
   
 Or,
+
   #define FXAA_PS3 1
   
 Etc.
+
 (2.)
 Then include this file,
+
   #include "Fxaa3_11.h"
+
 (3.)
 Then call the FXAA pixel shader from within your desired shader.
 Look at the FXAA Quality FxaaPixelShader() for docs on inputs.
 As for FXAA 3.11 all inputs for all shaders are the same 
 to enable easy porting between platforms.
+
   return FxaaPixelShader(...);
+
 (4.)
 Insure pass prior to FXAA outputs RGBL (see next section).
 Or use,
+
   #define FXAA_GREEN_AS_LUMA 1
+
 (5.)
 Setup engine to provide the following constants
 which are used in the FxaaPixelShader() inputs,
+
   FxaaFloat2 fxaaQualityRcpFrame,
   FxaaFloat4 fxaaConsoleRcpFrameOpt,
   FxaaFloat4 fxaaConsoleRcpFrameOpt2,
@@ -88,54 +103,76 @@ which are used in the FxaaPixelShader() inputs,
   FxaaFloat fxaaConsoleEdgeThreshold,
   FxaaFloat fxaaConsoleEdgeThresholdMin,
   FxaaFloat4 fxaaConsole360ConstDir
+
 Look at the FXAA Quality FxaaPixelShader() for docs on inputs.
+
 (6.)
 Have FXAA vertex shader run as a full screen triangle,
 and output "pos" and "fxaaConsolePosPos" 
 such that inputs in the pixel shader provide,
+
   // {xy} = center of pixel
   FxaaFloat2 pos,
+
   // {xy__} = upper left of pixel
   // {__zw} = lower right of pixel
   FxaaFloat4 fxaaConsolePosPos,
+
 (7.)
 Insure the texture sampler(s) used by FXAA are set to bilinear filtering.
+
+
 ------------------------------------------------------------------------------
                     INTEGRATION - RGBL AND COLORSPACE
 ------------------------------------------------------------------------------
 FXAA3 requires RGBL as input unless the following is set, 
+
   #define FXAA_GREEN_AS_LUMA 1
+
 In which case the engine uses green in place of luma,
 and requires RGB input is in a non-linear colorspace.
+
 RGB should be LDR (low dynamic range).
 Specifically do FXAA after tonemapping.
+
 RGB data as returned by a texture fetch can be non-linear,
 or linear when FXAA_GREEN_AS_LUMA is not set.
 Note an "sRGB format" texture counts as linear,
 because the result of a texture fetch is linear data.
 Regular "RGBA8" textures in the sRGB colorspace are non-linear.
+
 If FXAA_GREEN_AS_LUMA is not set,
 luma must be stored in the alpha channel prior to running FXAA.
 This luma should be in a perceptual space (could be gamma 2.0).
 Example pass before FXAA where output is gamma 2.0 encoded,
+
   color.rgb = ToneMap(color.rgb); // linear color output
   color.rgb = sqrt(color.rgb);    // gamma 2.0 color output
   return color;
+
 To use FXAA,
+
   color.rgb = ToneMap(color.rgb);  // linear color output
   color.rgb = sqrt(color.rgb);     // gamma 2.0 color output
   color.a = dot(color.rgb, FxaaFloat3(0.299, 0.587, 0.114)); // compute luma
   return color;
+
 Another example where output is linear encoded,
 say for instance writing to an sRGB formated render target,
 where the render target does the conversion back to sRGB after blending,
+
   color.rgb = ToneMap(color.rgb); // linear color output
   return color;
+
 To use FXAA,
+
   color.rgb = ToneMap(color.rgb); // linear color output
   color.a = sqrt(dot(color.rgb, FxaaFloat3(0.299, 0.587, 0.114))); // compute luma
   return color;
+
 Getting luma correct is required for the algorithm to work correctly.
+
+
 ------------------------------------------------------------------------------
                           BEING LINEARLY CORRECT?
 ------------------------------------------------------------------------------
@@ -143,21 +180,28 @@ Applying FXAA to a framebuffer with linear RGB color will look worse.
 This is very counter intuitive, but happends to be true in this case.
 The reason is because dithering artifacts will be more visiable 
 in a linear colorspace.
+
+
 ------------------------------------------------------------------------------
                              COMPLEX INTEGRATION
 ------------------------------------------------------------------------------
 Q. What if the engine is blending into RGB before wanting to run FXAA?
+
 A. In the last opaque pass prior to FXAA,
    have the pass write out luma into alpha.
    Then blend into RGB only.
    FXAA should be able to run ok
    assuming the blending pass did not any add aliasing.
    This should be the common case for particles and common blending passes.
+
 A. Or use FXAA_GREEN_AS_LUMA.
+
 ============================================================================*/
 
 /*============================================================================
+
                              INTEGRATION KNOBS
+
 ============================================================================*/
 //
 // FXAA_PS3 and FXAA_360 choose the console algorithm (FXAA3 CONSOLE).
@@ -397,7 +441,9 @@ NOTE the other tuning knobs are now in the shader function inputs!
 
 
 /*============================================================================
+
                            FXAA QUALITY - PRESETS
+
 ============================================================================*/
 
 /*============================================================================
@@ -600,7 +646,9 @@ NOTE the other tuning knobs are now in the shader function inputs!
 
 
 /*============================================================================
+
                                 API PORTING
+
 ============================================================================*/
 #if (FXAA_GLSL_120 == 1) || (FXAA_GLSL_130 == 1)
     #define FxaaBool bool
@@ -713,7 +761,9 @@ NOTE the other tuning knobs are now in the shader function inputs!
 
 
 /*============================================================================
+
                              FXAA3 QUALITY - PC
+
 ============================================================================*/
 #if (FXAA_PC == 1)
 /*--------------------------------------------------------------------------*/
@@ -1354,7 +1404,9 @@ FxaaFloat4 FxaaPixelShader(
 
 
 /*============================================================================
+
                       FXAA3 CONSOLE - 360 PIXEL SHADER 
+
 ------------------------------------------------------------------------------
 This optimized version thanks to suggestions from Andy Luedke.
 Should be fully tex bound in all cases.
@@ -1448,18 +1500,24 @@ float4 FxaaPixelShader(
 
 
 /*============================================================================
+
          FXAA3 CONSOLE - OPTIMIZED PS3 PIXEL SHADER (NO EARLY EXIT)
+
 ==============================================================================
 The code below does not exactly match the assembly.
 I have a feeling that 12 cycles is possible, but was not able to get there.
 Might have to increase register count to get full performance.
 Note this shader does not use perspective interpolation.
+
 Use the following cgc options,
+
   --fenable-bx2 --fastmath --fastprecision --nofloatbindings
+
 ------------------------------------------------------------------------------
                              NVSHADERPERF OUTPUT
 ------------------------------------------------------------------------------
 For reference and to aid in debug, output of NVShaderPerf should match this,
+
 Shader to schedule:
   0: texpkb h0.w(TRUE), v5.zyxx, #0
   2: addh h2.z(TRUE), h0.w, constant(0.001953, 0.000000, 0.000000, 0.000000).x
@@ -1498,6 +1556,7 @@ Shader to schedule:
  47: movh h0(TRUE), h0
  48: addx.c0 rc(TRUE), h2, h2.w
  49: movh h0(c0.NE.x), h1
+
 IPU0 ------ Simplified schedule: --------
 Pass |  Unit  |  uOp |  PC:  Op
 -----+--------+------+-------------------------
@@ -1573,7 +1632,9 @@ Pass   SCT  TEX  SCB
  11:  50%   0% 100%
  12:  50%   0% 100%
  13:  25%   0% 100%
+
 MEAN:  17%  61%  67%
+
 Pass   SCT0  SCT1   TEX  SCB0  SCB1
   1:    0%    0%  100%    0%  100%
   2:    0%    0%  100%    0%  100%
@@ -1588,6 +1649,7 @@ Pass   SCT0  SCT1   TEX  SCB0  SCB1
  11:  100%  100%    0%  100%  100%
  12:  100%  100%    0%  100%  100%
  13:  100%    0%    0%  100%  100%
+
 MEAN:   30%   23%   61%   76%  100%
 Fragment Performance Setup: Driver RSX Compiler, GPU RSX, Flags 0x5
 Results 13 cycles, 3 r regs, 923,076,923 pixels/s
@@ -1726,20 +1788,26 @@ half4 FxaaPixelShader(
 
 
 /*============================================================================
+
        FXAA3 CONSOLE - OPTIMIZED PS3 PIXEL SHADER (WITH EARLY EXIT)
+
 ==============================================================================
 The code mostly matches the assembly.
 I have a feeling that 14 cycles is possible, but was not able to get there.
 Might have to increase register count to get full performance.
 Note this shader does not use perspective interpolation.
+
 Use the following cgc options,
+
  --fenable-bx2 --fastmath --fastprecision --nofloatbindings
+
 Use of FXAA_GREEN_AS_LUMA currently adds a cycle (16 clks).
 Will look at fixing this for FXAA 3.12.
 ------------------------------------------------------------------------------
                              NVSHADERPERF OUTPUT
 ------------------------------------------------------------------------------
 For reference and to aid in debug, output of NVShaderPerf should match this,
+
 Shader to schedule:
   0: texpkb h0.w(TRUE), v5.zyxx, #0
   2: addh h2.y(TRUE), h0.w, constant(0.001953, 0.000000, 0.000000, 0.000000).x
@@ -1784,6 +1852,7 @@ Shader to schedule:
  54: slth.c0 rc(TRUE), h5.z, h5
  55: movh h0(c0.NE.w), h2
  56: movh h0(c0.NE.x), h1
+
 IPU0 ------ Simplified schedule: --------
 Pass |  Unit  |  uOp |  PC:  Op
 -----+--------+------+-------------------------
@@ -1870,7 +1939,9 @@ Pass   SCT  TEX  SCB
  13: 100%   0% 100%
  14:  50%   0%  50%
  15: 100%   0% 100%
+
 MEAN:  26%  60%  56%
+
 Pass   SCT0  SCT1   TEX  SCB0  SCB1
   1:    0%    0%  100%  100%    0%
   2:    0%    0%  100%  100%    0%
@@ -1887,6 +1958,7 @@ Pass   SCT0  SCT1   TEX  SCB0  SCB1
  13:  100%  100%    0%  100%  100%
  14:  100%  100%    0%  100%  100%
  15:  100%  100%    0%  100%  100%
+
 MEAN:   33%   33%   60%   86%   80%
 Fragment Performance Setup: Driver RSX Compiler, GPU RSX, Flags 0x5
 Results 15 cycles, 3 r regs, 800,000,000 pixels/s

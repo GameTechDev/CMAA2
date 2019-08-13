@@ -38,7 +38,7 @@
 #define CMAA2_CS_INPUT_KERNEL_SIZE_Y                16
 
 // The rest below is shader only code
-#ifndef CMAA2_INCLUDED_FROM_CPP
+#ifndef __cplusplus
 
 // If the color buffer range is bigger than [0, 1] then use this, otherwise don't (and gain some precision - see https://bartwronski.com/2017/04/02/small-float-formats-r11g11b10f-precision/)
 #ifndef CMAA2_SUPPORT_HDR_COLOR_RANGE
@@ -180,9 +180,10 @@ RWStructuredBuffer<uint>        g_workingDeferredBlendLocationList  : register( 
 RWStructuredBuffer<uint2>       g_workingDeferredBlendItemList      : register( u4 );       // 
 RWTexture2D<uint>               g_workingDeferredBlendItemListHeads : register( u5 );
 RWByteAddressBuffer             g_workingControlBuffer              : register( u6 );
+RWByteAddressBuffer             g_workingExecuteIndirectBuffer      : register( u7 );
 
 #if CMAA_MSAA_SAMPLE_COUNT > 1
-Texture2DArray<lpfloat4>        g_inColorMSReadonly                 : register( t0 );       // input MS color
+Texture2DArray<lpfloat4>        g_inColorMSReadonly                 : register( t2 );       // input MS color
 Texture2D<lpfloat>              g_inColorMSComplexityMaskReadonly   : register( t1 );       // input MS color control surface
 #else
 Texture2D<lpfloat4>             g_inoutColorReadonly                : register( t0 );       // input color
@@ -863,9 +864,12 @@ void ComputeDispatchArgsCS( uint3 groupID : SV_GroupID )
         g_workingShapeCandidates.GetDimensions( appendBufferMaxCount, appendBufferStride );
         shapeCandidateCount = min( shapeCandidateCount, appendBufferMaxCount );
 
-        g_workingControlBuffer.Store( 4*0, ( shapeCandidateCount + CMAA2_PROCESS_CANDIDATES_NUM_THREADS - 1 ) / CMAA2_PROCESS_CANDIDATES_NUM_THREADS );
-        g_workingControlBuffer.Store( 4*1, 1 );                                                                                                       
-        g_workingControlBuffer.Store( 4*2, 1 );                                                                                                       
+        // write dispatch indirect arguments for ProcessCandidatesCS
+        g_workingExecuteIndirectBuffer.Store( 4*0, ( shapeCandidateCount + CMAA2_PROCESS_CANDIDATES_NUM_THREADS - 1 ) / CMAA2_PROCESS_CANDIDATES_NUM_THREADS );
+        g_workingExecuteIndirectBuffer.Store( 4*1, 1 );                                                                                                       
+        g_workingExecuteIndirectBuffer.Store( 4*2, 1 );                                                                                                       
+
+        // write actual number of items to process in ProcessCandidatesCS
         g_workingControlBuffer.Store( 4*3, shapeCandidateCount );                                                                                     
     } 
     // activated once on Dispatch( 1, 2, 1 )
@@ -881,16 +885,20 @@ void ComputeDispatchArgsCS( uint3 groupID : SV_GroupID )
             blendLocationCount = min( blendLocationCount, appendBufferMaxCount );
         }
 
+        // write dispatch indirect arguments for DeferredColorApply2x2CS
 #if CMAA2_DEFERRED_APPLY_THREADGROUP_SWAP
-        g_workingControlBuffer.Store( 4*0, 1 );
-        g_workingControlBuffer.Store( 4*1, ( blendLocationCount + CMAA2_DEFERRED_APPLY_NUM_THREADS - 1 ) / CMAA2_DEFERRED_APPLY_NUM_THREADS );
+        g_workingExecuteIndirectBuffer.Store( 4*0, 1 );
+        g_workingExecuteIndirectBuffer.Store( 4*1, ( blendLocationCount + CMAA2_DEFERRED_APPLY_NUM_THREADS - 1 ) / CMAA2_DEFERRED_APPLY_NUM_THREADS );
 #else
-        g_workingControlBuffer.Store( 4*0, ( blendLocationCount + CMAA2_DEFERRED_APPLY_NUM_THREADS - 1 ) / CMAA2_DEFERRED_APPLY_NUM_THREADS );
-        g_workingControlBuffer.Store( 4*1, 1 );
+        g_workingExecuteIndirectBuffer.Store( 4*0, ( blendLocationCount + CMAA2_DEFERRED_APPLY_NUM_THREADS - 1 ) / CMAA2_DEFERRED_APPLY_NUM_THREADS );
+        g_workingExecuteIndirectBuffer.Store( 4*1, 1 );
 #endif
-        g_workingControlBuffer.Store( 4*2, 1 );
-        g_workingControlBuffer.Store( 4*3, blendLocationCount); // need this to know where to limit later processing
+        g_workingExecuteIndirectBuffer.Store( 4*2, 1 );
 
+        // write actual number of items to process in DeferredColorApply2x2CS
+        g_workingControlBuffer.Store( 4*3, blendLocationCount);
+
+        // clear counters for next frame
         g_workingControlBuffer.Store( 4*4 , 0 );
         g_workingControlBuffer.Store( 4*8 , 0 );
         g_workingControlBuffer.Store( 4*12, 0 );
@@ -1448,6 +1456,6 @@ void DebugDrawEdgesCS( uint2 dispatchThreadID : SV_DispatchThreadID )
 //#endif
 }
 
-#endif // #ifndef CMAA2_INCLUDED_FROM_CPP
+#endif // #ifndef __cplusplus
 
 #endif // #ifndef __CMAA2_HLSL__

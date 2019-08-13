@@ -29,7 +29,7 @@
 
 namespace VertexAsylum
 {
-    class vaAssetImporter : public vaImguiHierarchyObject
+    class vaAssetImporter : public vaUIPanel
     {
     public:
 
@@ -107,8 +107,8 @@ namespace VertexAsylum
         void                                                Clear( );
 
     protected:
-        virtual string                                      IHO_GetInstanceName( ) const override   { return "Asset importer"; }
-        virtual void                                        IHO_Draw( ) override;
+        virtual string                                      UIPanelGetDisplayName( ) const override   { return "Asset Importer"; }
+        virtual void                                        UIPanelDraw( ) override;
 
     public:
         static bool                                         LoadFileContents( const wstring & path, ImporterContext & parameters, LoadedContent * outContent = nullptr );

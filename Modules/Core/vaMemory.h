@@ -24,38 +24,86 @@
 
 namespace VertexAsylum
 {
-   ////////////////////////////////////////////////////////////////////////////////////////////////
-   // vaMemory
-   class vaMemory
-   {
-   private:
-      friend class vaCore;
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // vaMemory
+    class vaMemory
+    {
+    private:
+       friend class vaCore;
 
-      static void						Initialize( );
-      static void						Deinitialize( );
+       static void						Initialize( );
+       static void						Deinitialize( );
+    };
 
+    // Just a simple generic self-contained memory buffer helper class, for passing data as argument, etc.
+    class vaMemoryBuffer
+    {
+        uint8 *                 m_buffer;
+        int64                   m_bufferSize;
+        bool                    m_hasOwnership;     // if it has ownership, will delete[] and expect it to be of uint8[] type - could expand with custom deallocator if needed
 
-   public:
+    public:
+        enum class InitType
+        {
+            Copy,               // copy buffer (caller is free to release/modify the memory pointer after this call)
+            TakeOwnership,      // take buffer pointer and delete[] when object is destroyed (caller should not ever use the memory after this call)
+            View,               // take buffer pointer but don't delete[] when object is destroyed (caller should not ever use the memory after this call)
+        };
 
-      // NOT THREAD SAFE AT THE MOMENT!!
-      // (completely ad-hoc, needs work)
-      static void *					    AllocTempBuffer( int size );
-      static void						FreeTempBuffer( void * buffer );
-   };
+    public:
+        vaMemoryBuffer( ) : m_buffer( nullptr ), m_bufferSize( 0 ), m_hasOwnership( false ) { }
+        vaMemoryBuffer( int64 bufferSize ) : m_buffer( new uint8[bufferSize] ), m_bufferSize( bufferSize ), m_hasOwnership( true ) { }
+        vaMemoryBuffer( uint8 * buffer, int64 bufferSize, InitType initType = InitType::Copy ) : m_buffer( (initType != InitType::Copy)?(buffer):(new uint8[bufferSize]) ), m_bufferSize( bufferSize ), m_hasOwnership( initType != InitType::View )
+        { 
+            if( initType == InitType::Copy )
+                memcpy( m_buffer, buffer, bufferSize );
+            else
+            {
+                // if taking ownership, must have been allocated with new uint8[]
+                assert( typeid(m_buffer) == typeid(buffer) );
+            }
+        }
+        vaMemoryBuffer( const vaMemoryBuffer & copySrc ) : m_buffer( new uint8[copySrc.GetSize()] ), m_bufferSize( copySrc.GetSize() ), m_hasOwnership( true )
+        {
+            memcpy( m_buffer, copySrc.GetData(), m_bufferSize );
+        }
+        vaMemoryBuffer( vaMemoryBuffer && moveSrc ) : m_buffer( moveSrc.GetData() ), m_bufferSize( moveSrc.GetSize() ), m_hasOwnership( moveSrc.m_hasOwnership )
+        {
+            assert( moveSrc.m_hasOwnership );   // it's really not that safe and supported (or at least tricky to make safe) using 'move' for buffers with no ownership
+            moveSrc.m_buffer        = nullptr;
+            moveSrc.m_bufferSize    = 0;
+            moveSrc.m_hasOwnership  = false;
+        }
 
-   // Just a generic static size buffer class - for passing data as argument, etc.
-   class vaMemoryBuffer
-   {
-   private:
-      byte *		m_data;
-      int64			m_size;
+        ~vaMemoryBuffer( )
+        {
+            Clear( );
+        }
 
-   public:
-      explicit vaMemoryBuffer( int64 size )        { VA_ASSERT( size > 0, L"size parameter incorrect" ); m_data = new byte[(int)size]; m_size = (int)size; }
-      vaMemoryBuffer( const vaMemoryBuffer & ) = delete;
-      ~vaMemoryBuffer( )                  { delete[] m_data; }
+        vaMemoryBuffer & operator = ( const vaMemoryBuffer & copySrc )
+        {
+            Clear( );
 
-      byte *      GetData( ) const        { return m_data; }
-      int64       GetSize( ) const        { return m_size; }
-   };
+            m_buffer = new uint8[copySrc.GetSize()];
+            m_bufferSize = copySrc.GetSize();
+            m_hasOwnership = true;
+            memcpy( m_buffer, copySrc.GetData(), m_bufferSize );
+
+            return *this;
+        }
+
+        void Clear( )
+        {
+            if( m_buffer != nullptr && m_hasOwnership )
+                delete[] m_buffer;
+            m_buffer = nullptr;
+            m_bufferSize = 0;
+            m_hasOwnership = false;
+        }
+
+    public:
+        uint8 *     GetData( ) const        { return m_buffer; }
+        int64       GetSize( ) const        { return m_bufferSize; }
+    };
+
 }

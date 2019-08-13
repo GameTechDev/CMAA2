@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -29,28 +29,20 @@
 
 #include "Core/Misc/vaProfiler.h"
 
-//#include <windows.h>
+#include "Core/vaUI.h"
+
+#include "IntegratedExternals/vaImguiIntegration.h"
 
 using namespace VertexAsylum;
 
-// class Test1 : public vaDevGUIWindow
-// {
-// public:
-//     virtual string                                          GUI_GetWindowName( ) const override     { return "Test1"; }
-// };
-// 
-// class Test2 : public vaDevGUIWindow
-// {
-//     virtual string                                          GUI_GetWindowName( ) const override     { return "Test2"; }
-// };
-
-vaApplicationBase::vaApplicationBase( Settings & settings, const std::shared_ptr<vaRenderDevice> &  renderDevice, const wstring & cmdLine )
-    : m_settings( settings ), m_renderDevice( renderDevice )
+vaApplicationBase::vaApplicationBase( const Settings & settings, const std::shared_ptr<vaRenderDevice> & renderDevice )
+    : m_settings( settings ), m_renderDevice( renderDevice ), vaUIPanel( "System & Performance", -10, true, vaUIPanel::DockLocation::DockedRight, "", vaVector2( 500, 550 ) )
 {
     m_initialized = false;
 
     m_currentWindowPosition = vaVector2i( -1, -1 );
     m_currentWindowClientSize = vaVector2i( -1, -1 );
+    m_lastNonFullscreenWindowClientSize = vaVector2i( -1, -1 );
 
     for( int i = 0; i < _countof( m_frametimeHistory ); i++ ) m_frametimeHistory[i] = 0.0f;
     m_frametimeHistoryLast = 0;
@@ -61,35 +53,20 @@ vaApplicationBase::vaApplicationBase( Settings & settings, const std::shared_ptr
     m_shouldQuit = false;
     m_running = false;
 
-    if( !m_settings.AllowFullscreen && m_settings.StartFullscreen )
-    {
-        VA_ASSERT_ALWAYS( L"Incompatible vaApplicationBase::Settings" );
-    }
-
     m_hasFocus = false;
 
     m_blockInput    = false;
 
-    m_cmdLineParams = vaStringTools::SplitCmdLineParams( cmdLine );
+    m_cmdLineParams = vaStringTools::SplitCmdLineParams( m_settings.CmdLine );
 
-    m_toggleFullscreenNextFrame = false;
     m_setWindowSizeNextFrame = vaVector2i( 0, 0 );
 
     m_vsync             = m_settings.Vsync;
     m_framerateLimit    = m_settings.FramerateLimit;
-
-    // assert( vaDevGUI::GetInstancePtr() == nullptr );
-    // new vaDevGUI();
-
-    // new Test1( );
-    // new Test2( );
 }
 
 vaApplicationBase::~vaApplicationBase( )
 {
-    // assert( vaDevGUI::GetInstancePtr() != nullptr );
- //   delete vaDevGUI::GetInstancePtr();
-
     assert( !m_running );
 }
 
@@ -105,59 +82,77 @@ void vaApplicationBase::Initialize( )
     m_initialized = true;
 }
 
-void vaApplicationBase::SerializeSettings( vaXMLSerializer & serializer )
+void vaApplicationBase::NamedSerializeSettings( vaXMLSerializer & serializer )
 {
-    if( serializer.SerializeOpenChildElement( "RootSettings" ) )
+    if( serializer.IsReading( ) )
     {
-        if( serializer.IsReading( ) )
+        vaVector2i windowPos( -1, -1 );
+        serializer.Serialize<int>( "WindowPositionX", windowPos.x );
+        serializer.Serialize<int>( "WindowPositionY", windowPos.y );
+        if( windowPos.x != -1 && windowPos.y != -1 )
         {
-            vaVector2i windowPos( -1, -1 );
-            serializer.SerializeValue( "WindowPositionX", windowPos.x );
-            serializer.SerializeValue( "WindowPositionY", windowPos.y );
-            if( windowPos.x != -1 && windowPos.y != -1 )
-            {
-                SetWindowPosition( windowPos );
-            }
+            SetWindowPosition( windowPos );
         }
-        else
-        {
-            vaVector2i windowPos = GetWindowPosition();
-            serializer.SerializeValue( "WindowPositionX", windowPos.x );
-            serializer.SerializeValue( "WindowPositionY", windowPos.y );
-        }
+    }
+    else
+    {
+        vaVector2i windowPos = GetWindowPosition();
+        serializer.Serialize<int>( "WindowPositionX", windowPos.x );
+        serializer.Serialize<int>( "WindowPositionY", windowPos.y );
+    }
 
-        if( serializer.IsReading( ) )
-        {
-            vaVector2i windowSize;
-            serializer.SerializeValue( "WindowClientSizeX", windowSize.x );
-            serializer.SerializeValue( "WindowClientSizeY", windowSize.y );
-            if( windowSize.x > 0 && windowSize.y > 0 )
-                SetWindowClientAreaSize( windowSize );
-        }
-        else
-        {
-            vaVector2i windowSize = GetWindowClientAreaSize();
-            serializer.SerializeValue( "WindowClientSizeX", windowSize.x );
-            serializer.SerializeValue( "WindowClientSizeY", windowSize.y );
-        }
+    if( serializer.IsReading( ) )
+    {
+        assert( !IsFullscreen() ); // expecting it to not be fullscreen here
+        vaVector2i windowSize;
+        serializer.Serialize<int>( "WindowClientSizeX", windowSize.x );
+        serializer.Serialize<int>( "WindowClientSizeY", windowSize.y );
+        if( windowSize.x > 0 && windowSize.y > 0 )
+            m_setWindowSizeNextFrame = windowSize;
+            //SetWindowClientAreaSize( windowSize );
+        if( !IsFullscreen() )
+            m_lastNonFullscreenWindowClientSize = windowSize;
+    }
+    else
+    {
+        vaVector2i windowSize = GetWindowClientAreaSize();
+        if( IsFullscreen() )
+            windowSize = m_lastNonFullscreenWindowClientSize;
+        serializer.Serialize<int>( "WindowClientSizeX", windowSize.x );
+        serializer.Serialize<int>( "WindowClientSizeY", windowSize.y );
+    }
 
-        if( serializer.SerializeOpenChildElement( "ApplicationSettings" ) )
-        {
-            Event_SerializeSettings.Invoke( serializer );
+    vaFullscreenState fullscreenState = m_currentFullscreenState;
 
-            bool ok = serializer.SerializePopToParentElement( "ApplicationSettings" );
-            assert( ok ); ok;
-        }
+    serializer.Serialize<int>( "FullscreenState", reinterpret_cast<int&>(fullscreenState), reinterpret_cast<int const &>(m_settings.StartFullscreenState) );
 
-        bool ok = serializer.SerializePopToParentElement( "RootSettings" );
+    if( serializer.IsReading( ) )
+    {
+        if( GetFullscreenState() != fullscreenState )
+            SetFullscreenState( fullscreenState );
+    }
+
+    if( serializer.SerializeOpenChildElement( "ApplicationSettings" ) )
+    {
+        Event_SerializeSettings.Invoke( serializer );
+
+        bool ok = serializer.SerializePopToParentElement( "ApplicationSettings" );
         assert( ok ); ok;
     }
 
+    if( serializer.SerializeOpenChildElement( "UISettings" ) )
+    {
+        vaUIManager::GetInstance().SerializeSettings( serializer );
+        bool ok = serializer.SerializePopToParentElement( "UISettings" );
+        assert( ok ); ok;
+    }
 }
 
 
 void vaApplicationBase::Tick( float deltaTime )
 {
+    VA_SCOPE_CPU_TIMER( vaApplicationBase_Tick );
+
     if( m_blockInput && IsMouseCaptured() )
         this->ReleaseMouse();
 
@@ -187,21 +182,12 @@ void vaApplicationBase::Tick( float deltaTime )
             this->CaptureMouse( );
     }
 
-    if( m_hasFocus )
+    TickUI( );
+
     {
-        // recompile shaders if needed - not sure if this should be here...
-        if( ( vaInputKeyboardBase::GetCurrent( ) != NULL ) && vaInputKeyboardBase::GetCurrent( )->IsKeyDown( KK_CONTROL ) )
-        {
-            if( vaInputKeyboardBase::GetCurrent( )->IsKeyClicked( ( vaKeyboardKeys )'R' ) )
-                vaShader::ReloadAll( );
-        }
-
-        // I guess this is good place as any... it must not happen between ImGuiNewFrame and Draw though!
-        if( vaInputKeyboardBase::GetCurrent( )->IsKeyClicked( KK_F1 ) )
-            GetRenderDevice().ImGuiSetVisible( !GetRenderDevice().ImGuiIsVisible( ) );
+        VA_SCOPE_CPU_TIMER( Event_Tick );
+        Event_Tick.Invoke( deltaTime );
     }
-
-    Event_Tick.Invoke( deltaTime );
 
     vaInputMouse::GetInstance( ).ResetWheelDelta( );
 
@@ -214,16 +200,10 @@ bool vaApplicationBase::IsMouseCaptured( ) const
     return vaInputMouse::GetInstance( ).IsCaptured( );
 }
 
-void vaApplicationBase::OnResized( int width, int height, bool windowed )
-{
-    assert( width == m_currentWindowClientSize.x );
-    assert( height == m_currentWindowClientSize.y );
-
-    Event_WindowResized.Invoke( width, height, windowed );
-}
-
 void vaApplicationBase::UpdateFramerateStats( float deltaTime )
 {
+    VA_SCOPE_CPU_TIMER( vaApplicationBase_UpdateFramerateStats );
+
     m_frametimeHistoryLast = ( m_frametimeHistoryLast + 1 ) % _countof( m_frametimeHistory );
 
     // add this frame's time to the accumulated frame time
@@ -261,183 +241,268 @@ void vaApplicationBase::OnLostFocus( )
     m_hasFocus = false;
 }
 
-
-void vaApplicationBase::InsertImGuiWindow( )
+void vaApplicationBase::TickUI( )
 {
-    if( !m_renderDevice->ImGuiIsVisible() )
-        return;
+    VA_SCOPE_CPU_TIMER( vaApplicationBase_TickUI );
+    vaUIManager::GetInstance().UpdateUI( m_hasFocus );
+    vaUIManager::GetInstance().DrawUI( );
+}
 
-//    if( vaDevGUI::GetInstancePtr() != nullptr )
-//        vaDevGUI::GetInstance().Draw();
-
+void vaApplicationBase::UIPanelStandaloneMenu( )
+{
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
-
-    HelperUIFlags uiFlags = m_helperUISettings.Flags;
-
-    if( HasFocus( ) && !vaInputMouseBase::GetCurrent( )->IsCaptured( ) )
+    if( ImGui::BeginMenu("System") )
     {
-        vaInputKeyboardBase & keyboard = *vaInputKeyboardBase::GetCurrent( );
-        if( keyboard.IsKeyClicked( KK_OEM_3 ) )
+        if( ImGui::MenuItem("Recompile shaders", "CTRL+R") )
         {
-            // m_helperUISettings.ConsoleLogOpen = !m_helperUISettings.ConsoleLogOpen;
-            vaConsole::GetInstance().SetConsoleOpen( !vaConsole::GetInstance().IsConsoleOpen() );
+            vaShader::ReloadAll();
         }
-    }
-
-    bool rightWindow = ( ((int)HelperUIFlags::ShowStatsGraph | (int)HelperUIFlags::ShowResolutionOptions |  (int)HelperUIFlags::ShowGPUProfiling | (int)HelperUIFlags::ShowCPUProfiling | (int)HelperUIFlags::ShowAssetPackManager ) & (int)uiFlags ) != 0;
-    // info stuff on the right
-    if( rightWindow )
-    {
-        int sizeX = 500;
-        int sizeY = 550;
-        float appWindowLeft = (float)( m_currentWindowClientSize.x - sizeX - 6.0f );
-        float appWindowTop = 6.0f;
-        float appWindowBottom = appWindowTop;
-
-        ImGui::SetNextWindowPos( ImVec2( appWindowLeft, appWindowTop ), ImGuiCond_Always );     // Normally user code doesn't need/want to call it because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!
-        ImGui::SetNextWindowSize( ImVec2( (float)sizeX, (float)sizeY ), ImGuiCond_Once );
-        ImGui::SetNextWindowCollapsed( !m_settings.ApplicationInfoWindowOpenByDefault, ImGuiCond_FirstUseEver );
-        if( ImGui::Begin( "Application", 0, ImVec2(0.f, 0.f), 0.7f, 0 ) )
+        bool fpsLimited = m_framerateLimit != 0;
+        if( ImGui::MenuItem("Enable 10FPS limiter", "", &fpsLimited ) )
         {
-            ImVec4 fpsInfoColor = ImVec4( 1.0f, 1.0f, 0.0f, 1.0f );
-
-            // Adopting David Bregman's FPS info style
-            //ImGui::TextColored( fpsInfoColor, frameInfo.c_str( ) );
-
-            string frameInfo = vaStringTools::SimpleNarrow( GetBasicFrameInfoText() );
-
-            // graph (there is some CPU/drawing cost to this)
-            if( (int)HelperUIFlags::ShowStatsGraph & (int)uiFlags )
-            {
-                float frameTimeMax = 0.0f;
-                float frameTimeMin = VA_FLOAT_HIGHEST;
-                float frameTimesMS[_countof( m_frametimeHistory )];
-                float frameTimeAvg = 0.0f;
-                for( int i = 0; i < _countof( m_frametimeHistory ); i++ )
-                {
-                    frameTimesMS[i] = m_frametimeHistory[(i+m_frametimeHistoryLast+1) % _countof( m_frametimeHistory )] * 1000.0f;
-                    frameTimeMax = vaMath::Max( frameTimeMax, frameTimesMS[i] );
-                    frameTimeMin = vaMath::Min( frameTimeMin, frameTimesMS[i] );
-                    frameTimeAvg += frameTimesMS[i];
-                }
-                frameTimeAvg /= (float)_countof( m_frametimeHistory );
-
-                static float avgFrametimeGraphMax = 1.0f;
-                avgFrametimeGraphMax = vaMath::Lerp( avgFrametimeGraphMax, frameTimeMax * 1.5f, 0.05f );
-                avgFrametimeGraphMax = vaMath::Min( 1000.0f, vaMath::Max( avgFrametimeGraphMax, frameTimeMax * 1.1f ) );
-
-                float graphWidth = sizeX - 110.0f;
-
-                ImGui::PushStyleColor( ImGuiCol_Text, fpsInfoColor );
-                ImGui::PushStyleColor( ImGuiCol_PlotLines, ImVec4( 1.0f, 1.0f, 1.0f, 1.0f ) );
-                ImGui::PlotLines( "", frameTimesMS, _countof(frameTimesMS), 0, frameInfo.c_str(), 0.0f, avgFrametimeGraphMax, ImVec2( graphWidth, 100.0f ) );
-                ImGui::PopStyleColor( 2 );
-
-                ImGui::SameLine( );
-                
-                ImGui::BeginGroup( );
-                {
-                    ImGui::Text( "\nmin: %.2f", frameTimeMin );
-                    ImGui::Text( "\nmax: %.2f", frameTimeMax );
-                    ImGui::Text( "\navg: %.2f", frameTimeAvg );
-                }
-                ImGui::EndGroup( );
-            }
-
-            if( (int)HelperUIFlags::ShowResolutionOptions & (int)uiFlags )
-            {
-                ImGui::Separator( );
-
-                {
-                    bool fullscreen = IsFullscreen( );
-
-                    int ws[2] = { m_currentWindowClientSize.x, m_currentWindowClientSize.y };
-                    if( ImGui::InputInt2( "Window size", ws, ImGuiInputTextFlags_EnterReturnsTrue | ( ( IsFullscreen( ) ) ? ( ImGuiInputTextFlags_ReadOnly ) : ( 0 ) ) ) )
-                    {
-                        if( ( ws[0] != m_currentWindowClientSize.x ) || ( ws[1] != m_currentWindowClientSize.y ) )
-                        {
-                            m_setWindowSizeNextFrame = vaVector2i( ws[0], ws[1] );
-                        }
-                    }
-
-                    bool wasFullscreen = fullscreen;
-                    ImGui::Checkbox( "Fullscreen (borderless windowed)", &fullscreen );
-                    if( wasFullscreen != fullscreen )
-                        ToggleFullscreen( );
-                    ImGui::SameLine();
-                    ImGui::Checkbox( "Vsync", &m_vsync );
-                    if( ImGui::Button( "Recompile modified shaders (Ctrl+R)" ) )
-                    {
-                        vaShader::ReloadAll();
-                    }
-
-
-#ifdef VA_REMOTERY_INTEGRATION_ENABLED
-                    if( ImGui::Button( "Launch Remotery profiler" ) )
-                    {
-                        wstring remoteryPath = vaCore::GetExecutableDirectory() + L"../../Modules/IntegratedExternals/remotery/vis/index.html";
-                        if( !vaFileTools::FileExists( remoteryPath ) )
-                            remoteryPath = vaCore::GetExecutableDirectory() + L"remotery/vis/index.html";
-                        if( vaFileTools::FileExists( remoteryPath ) )
-                        {
-                            std::thread([remoteryPath](){ system( vaStringTools::SimpleNarrow( remoteryPath ).c_str() ); }).detach();
-                        }
-                        else
-                        {
-                            VA_LOG_WARNING( "Cannot find Remotery html interface on '%s'", remoteryPath.c_str() );
-                        }
-                    }
-#endif
-                }
-            }
-
-            if( (int)HelperUIFlags::ShowGPUProfiling & (int)uiFlags )
-            {
-                ImGui::Separator( );
-
-                if( ImGui::CollapsingHeader( "GPU Profiling", ImGuiTreeNodeFlags_Framed | ((m_helperUISettings.GPUProfilerDefaultOpen)?(ImGuiTreeNodeFlags_DefaultOpen):(0)) ) )
-                {
-                    ImGui::Text( "Note: numbers below based on D3D timestamp queries" );
-                    ImGui::Text( "and might not be entirely correct/realistic on all HW." );
-                    vaProfiler::GetInstance( ).InsertImGuiContent( false );
-                }
-            }
-            if( (int)HelperUIFlags::ShowCPUProfiling & (int)uiFlags )
-            {
-                ImGui::Separator( );
-
-                if( ImGui::CollapsingHeader( "CPU Profiling", ImGuiTreeNodeFlags_Framed | ((m_helperUISettings.CPUProfilerDefaultOpen)?(ImGuiTreeNodeFlags_DefaultOpen):(0)) ) )
-                {
-                    vaProfiler::GetInstance( ).InsertImGuiContent( true );
-                }
-            }
+            m_framerateLimit = (fpsLimited)?(10):(0);
         }
-        appWindowBottom = appWindowTop + ImGui::GetWindowSize().y;
-        ImGui::End( );
-
-        if( (int)HelperUIFlags::ShowAssetPackManager & (int)uiFlags )
-        {
-            ImGui::SetNextWindowPos( ImVec2( appWindowLeft, appWindowBottom + 6.0f ), ImGuiCond_Always );     // Normally user code doesn't need/want to call it because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!
-            ImGui::SetNextWindowSize( ImVec2( (float)sizeX, (float)sizeY ), ImGuiCond_Once );
-            ImGui::SetNextWindowCollapsed( true, ImGuiCond_FirstUseEver );
-            if( ImGui::Begin( "Assets", 0, ImVec2(0.f, 0.f), 0.7f, 0 ) )
-            {
-                m_renderDevice->GetAssetPackManager().IHO_Draw();
-                //vaImguiHierarchyObject::DrawCollapsable( vaAssetPackManager::GetInstance(), false, false, false );
-                ImGui::Separator();
-                ((vaImguiHierarchyObject&)m_renderDevice->GetAssetPackManager().GetImporter()).IHO_Draw();
-                //vaImguiHierarchyObject::DrawCollapsable( m_assetImporter, false, false );
-            }
-            ImGui::End( );
-        }
+        ImGui::EndMenu();
     }
-
-    // console & log at the bottom
-    if( (int)HelperUIFlags::ShowConsoleWindow & (int)uiFlags )
-    {
-        vaConsole::GetInstance().Draw( m_currentWindowClientSize.x, m_currentWindowClientSize.y );
-    }
-
 #endif
 }
 
+
+void vaApplicationBase::UIPanelDraw( )
+{
+    assert( vaUIManager::GetInstance().IsVisible() );
+
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
+
+    // if( rightWindow )
+    {
+        ImVec4 infoColor = ImVec4( 1.0f, 1.0f, 0.0f, 1.0f );
+
+        string frameInfo = vaStringTools::SimpleNarrow( GetBasicFrameInfoText() );
+
+        // graph (there is some CPU/drawing cost to this)
+        //if( (int)HelperUIFlags::ShowStatsGraph & (int)uiFlags )
+        {
+            float frameTimeMax = 0.0f;
+            float frameTimeMin = VA_FLOAT_HIGHEST;
+            float frameTimesMS[_countof( m_frametimeHistory )];
+            float frameTimeAvg = 0.0f;
+            for( int i = 0; i < _countof( m_frametimeHistory ); i++ )
+            {
+                frameTimesMS[i] = m_frametimeHistory[(i+m_frametimeHistoryLast+1) % _countof( m_frametimeHistory )] * 1000.0f;
+                frameTimeMax = vaMath::Max( frameTimeMax, frameTimesMS[i] );
+                frameTimeMin = vaMath::Min( frameTimeMin, frameTimesMS[i] );
+                frameTimeAvg += frameTimesMS[i];
+            }
+            frameTimeAvg /= (float)_countof( m_frametimeHistory );
+
+            static float avgFrametimeGraphMax = 1.0f;
+            avgFrametimeGraphMax = vaMath::Lerp( avgFrametimeGraphMax, frameTimeMax * 1.5f, 0.05f );
+            avgFrametimeGraphMax = vaMath::Min( 1000.0f, vaMath::Max( avgFrametimeGraphMax, frameTimeMax * 1.1f ) );
+
+            float graphWidth = ImGui::GetContentRegionAvailWidth() - 75.0f;
+
+            ImGui::PushStyleColor( ImGuiCol_Text, infoColor );
+            ImGui::PushStyleColor( ImGuiCol_PlotLines, ImVec4( 1.0f, 1.0f, 1.0f, 1.0f ) );
+            ImGui::PlotLines( "", frameTimesMS, _countof(frameTimesMS), 0, frameInfo.c_str(), 0.0f, avgFrametimeGraphMax, ImVec2( graphWidth, 100.0f ) );
+            ImGui::PopStyleColor( 2 );
+
+            ImGui::SameLine( );
+                
+            ImGui::BeginGroup( );
+            {
+                ImGui::Text( "\nmin: %.2f", frameTimeMin );
+                ImGui::Text( "\nmax: %.2f", frameTimeMax );
+                ImGui::Text( "\navg: %.2f", frameTimeAvg );
+            }
+            ImGui::EndGroup( );
+        }
+
+        //if( (int)HelperUIFlags::ShowResolutionOptions & (int)uiFlags )
+        {
+            ImGui::Separator( );
+
+            {
+                bool fullscreen = IsFullscreen( );
+
+                ImGui::PushItemWidth( ImGui::GetFontSize() * 8.0f );
+
+                int ws[2] = { m_currentWindowClientSize.x, m_currentWindowClientSize.y };
+                if( ImGui::InputInt2( "Resolution", ws, ImGuiInputTextFlags_EnterReturnsTrue | ( ( IsFullscreen( ) ) ? ( ImGuiInputTextFlags_ReadOnly ) : ( 0 ) ) ) )
+                {
+                    if( ( ws[0] != m_currentWindowClientSize.x ) || ( ws[1] != m_currentWindowClientSize.y ) )
+                    {
+                        m_setWindowSizeNextFrame = vaVector2i( ws[0], ws[1] );
+                    }
+                }
+                if( ImGui::IsItemHovered( ) ) ImGui::SetTooltip( "Edit and press enter to change resolution. Works only in Windowed, Fullscreen modes currently can only use desktop resolution." );
+                ImGui::PopItemWidth( );
+                ImGui::SameLine();
+                ImGui::VerticalSeparator();
+                ImGui::SameLine();
+
+                bool wasFullscreen = fullscreen;
+
+                if( GetFullscreenState( ) == vaFullscreenState::FullscreenBorderless )
+                    ImGui::PushStyleColor( ImGuiCol_Text, ImVec4( 1.0f, 1.0f, 0.0f, 1.0f ) );
+                ImGui::Checkbox( "Fullscreen", &fullscreen );
+                if( GetFullscreenState( ) == vaFullscreenState::FullscreenBorderless )
+                    ImGui::PopStyleColor( );
+
+                if( ImGui::IsItemHovered( ) ) 
+                {
+                    if( GetFullscreenState( ) == vaFullscreenState::FullscreenBorderless )
+                        ImGui::SetTooltip( "Currently in Fullscreen Borderless. Click to switch to Windowed." );
+                    else if( GetFullscreenState( ) == vaFullscreenState::Fullscreen )
+                        ImGui::SetTooltip( "Currently in Fullscreen. Click to switch to Windowed." );
+                    else if( GetFullscreenState( ) == vaFullscreenState::Windowed )
+                        ImGui::SetTooltip( "Currently in Windowed. Click to switch to Fullscreen or hold Shift and click to switch to Fullscreen Borderless." );
+                }
+
+
+                if( wasFullscreen != fullscreen )
+                {
+                    if( vaInputKeyboard::GetInstance().IsKeyDown( KK_SHIFT ) )
+                        SetFullscreenState( ( fullscreen ) ? ( vaFullscreenState::FullscreenBorderless ) : ( vaFullscreenState::Windowed ) );
+                    else
+                        SetFullscreenState( ( fullscreen ) ? ( vaFullscreenState::Fullscreen ) : ( vaFullscreenState::Windowed ) );
+                }
+
+                ImGui::SameLine();
+                ImGui::VerticalSeparator();
+                ImGui::SameLine();
+                ImGui::Checkbox( "Vsync", &m_vsync );
+                if( ImGui::IsItemHovered( ) ) ImGui::SetTooltip( "Enable/disable vsync. Even with vsync off there can be a sync in some API/driver/mode combinations." );
+                ImGui::Separator();
+                {
+                    char buff1[256]; strcpy_s( buff1, _countof(buff1), m_renderDevice->GetAPIName().c_str() );
+                    char buff2[256]; strcpy_s( buff2, _countof(buff2), m_renderDevice->GetAdapterNameID().c_str() );
+
+                    string buttonInfo = vaStringTools::Format( "%s, %s (click to change)", m_renderDevice->GetAPIName().c_str(), m_renderDevice->GetAdapterNameID().c_str() );
+                    static int aaSelection = -1;
+                    if( ImGui::Button( buttonInfo.c_str() ) )
+                    {
+                        ImGui::OpenPopup( "Select API and Adapter" );
+                    }
+                    if( ImGui::BeginPopupModal( "Select API and Adapter", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse ) )
+                    {
+                        vector<string> arr;
+                        for( int i = 0; i < m_enumeratedAPIsAdapters.size(); i++ )
+                        {
+                            auto & aa = m_enumeratedAPIsAdapters[i];
+                            arr.push_back( aa.first + " : " + aa.second );
+                            if( aaSelection == -1 && aa.first == m_renderDevice->GetAPIName() && aa.second == m_renderDevice->GetAdapterNameID() )
+                                aaSelection = i;
+                        }
+                        ImGui::PushItemWidth( -1 );
+                        ImGuiEx_ListBox( "###APIAdapter", aaSelection, arr );
+                        ImGui::PopItemWidth( );
+
+                        ImGui::InvisibleButton( "spacer", ImVec2(ImGui::GetFontSize() * 12.0f, 0.1f) );
+                        ImGui::SameLine();
+                        if( ImGui::Button( "Select and restart", ImVec2(ImGui::GetFontSize() * 12.0f, 0) ) )
+                        {
+                            SaveDefaultGraphicsAPIAdapter( m_enumeratedAPIsAdapters[aaSelection] );
+                            vaCore::SetAppQuitFlag( true, true );
+                            ImGui::CloseCurrentPopup();
+                        }
+                        ImGui::SameLine();
+                        ImGui::SetItemDefaultFocus();
+                        if( ImGui::Button( "Cancel", ImVec2(ImGui::GetFontSize() * 12.0f, 0) ) )
+                        {
+                            ImGui::CloseCurrentPopup();
+                        }
+                        ImGui::EndPopup();
+                    }
+                    else
+                        aaSelection = -1;
+                }
+
+
+#ifdef VA_REMOTERY_INTEGRATION_ENABLED
+                if( ImGui::Button( "Launch Remotery profiler" ) )
+                {
+                    wstring remoteryPath = vaCore::GetExecutableDirectory() + L"../../Modules/IntegratedExternals/remotery/vis/index.html";
+                    if( !vaFileTools::FileExists( remoteryPath ) )
+                        remoteryPath = vaCore::GetExecutableDirectory() + L"remotery/vis/index.html";
+                    if( vaFileTools::FileExists( remoteryPath ) )
+                    {
+                        std::thread([remoteryPath](){ system( vaStringTools::SimpleNarrow( remoteryPath ).c_str() ); }).detach();
+                    }
+                    else
+                    {
+                        VA_LOG_WARNING( "Cannot find Remotery html interface on '%s'", remoteryPath.c_str() );
+                    }
+                }
+#endif
+            }
+        }
+
+        //if( (int)HelperUIFlags::ShowGPUProfiling & (int)uiFlags )
+        {
+            ImGui::Separator( );
+
+            if( ImGui::CollapsingHeader( "GPU Profiling", ImGuiTreeNodeFlags_Framed | ((/*m_helperUISettings.GPUProfilerDefaultOpen*/true)?(ImGuiTreeNodeFlags_DefaultOpen):(0)) ) )
+            {
+                ImGui::Text( "Note: numbers below based on GPU timestamp queries" );
+                vaProfiler::GetInstance( ).InsertImGuiContent( false );
+            }
+        }
+        //if( (int)HelperUIFlags::ShowCPUProfiling & (int)uiFlags )
+        //
+        //{
+        //    ImGui::Separator( );
+        //
+        //    if( ImGui::CollapsingHeader( "CPU Profiling", ImGuiTreeNodeFlags_Framed | ((/*m_helperUISettings.CPUProfilerDefaultOpen*/false)?(ImGuiTreeNodeFlags_DefaultOpen):(0)) ) )
+        //    {
+        //        vaProfiler::GetInstance( ).InsertImGuiContent( true );
+        //    }
+        //}
+    }
+
+#endif
+
+}
+
+void vaApplicationBase::SaveDefaultGraphicsAPIAdapter( pair<string, string> apiAdapter )
+{
+    const wstring settingsFileName = GetDefaultGraphicsAPIAdapterInfoFileName( );
+
+    vaFileStream settingsFile;
+    if( settingsFile.Open( settingsFileName, FileCreationMode::Create ) )
+    {
+        settingsFile.WriteValue<int64>(42);
+        settingsFile.WriteString( apiAdapter.first );
+        settingsFile.WriteString( " - " );
+        settingsFile.WriteString( apiAdapter.second );
+    }
+    else
+    {
+        VA_WARN( "Unable to open '%s'", settingsFileName.c_str() );
+    }
+    settingsFile.Close();
+
+    assert( apiAdapter == LoadDefaultGraphicsAPIAdapter() );
+}
+
+pair<string, string> vaApplicationBase::LoadDefaultGraphicsAPIAdapter( )
+{
+    const wstring settingsFileName = GetDefaultGraphicsAPIAdapterInfoFileName( );
+
+    vaFileStream settingsFile;
+    if( settingsFile.Open( settingsFileName, FileCreationMode::Open ) )
+    {
+        int64 header; string a, b, c;
+
+        if( settingsFile.ReadValue<int64>( header ) && header == 42 &&
+            settingsFile.ReadString( a ) &&
+            settingsFile.ReadString( b ) &&
+            settingsFile.ReadString( c ) )
+            return make_pair(a, c);
+        else
+            VA_WARN( "Unable to read '%s'", settingsFileName.c_str() );
+    }
+    else
+        VA_WARN( "Unable to open '%s'", settingsFileName.c_str() );
+    return make_pair(string(""), string(""));
+}

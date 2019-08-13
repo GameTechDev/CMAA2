@@ -23,9 +23,9 @@
 
 #include "Rendering/DirectX/vaDirectXIncludes.h"
 
-#define LIGHTING_SLOT0   0
-#define LIGHTING_SLOT1   1
-#define LIGHTING_SLOT2   2
+//#define LIGHTING_SLOT0   0
+//#define LIGHTING_SLOT1   1
+//#define LIGHTING_SLOT2   2
 
 namespace VertexAsylum
 {

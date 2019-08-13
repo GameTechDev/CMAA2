@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -300,7 +300,11 @@ namespace VertexAsylum
         virtual vaVector2i          GetCursorPos( ) const                               = 0;     
         virtual vaVector2i          GetCursorClientPos( ) const                         = 0;
         virtual vaVector2           GetCursorClientNormalizedPos( ) const               = 0;
-        virtual vaVector2i          GetCursorDelta( ) const                             = 0;    
+        virtual vaVector2i          GetCursorDelta( ) const                             = 0;
+        //
+        virtual vaVector2i          GetCursorPosDirect( ) const                         = 0;     
+        virtual vaVector2i          GetCursorClientPosDirect( ) const                   = 0;
+        virtual vaVector2           GetCursorClientNormalizedPosDirect( ) const         = 0;
         //
         virtual float               GetWheelDelta( ) const                              = 0;
         //

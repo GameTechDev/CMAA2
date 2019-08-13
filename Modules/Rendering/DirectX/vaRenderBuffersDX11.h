@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -18,14 +18,14 @@
 #include "Core/vaCoreIncludes.h"
 
 #include "Rendering/DirectX/vaDirectXIncludes.h"
-#include "Rendering/DirectX/vaResourceFormatsDX11.h"
+#include "Rendering/DirectX/vaDirectXTools.h"
 
 #include "Rendering/vaRenderingIncludes.h"
 
 
 namespace VertexAsylum
 {
-    class vaConstantBufferDX11 : public vaConstantBuffer, public vaShaderResourceSRVDX11
+    class vaConstantBufferDX11 : public vaConstantBuffer, public virtual vaShaderResourceDX11
     {
         VA_RENDERING_MODULE_MAKE_FRIENDS( );
 
@@ -37,25 +37,27 @@ namespace VertexAsylum
         explicit                            vaConstantBufferDX11( const vaRenderingModuleParams & params );
         virtual                             ~vaConstantBufferDX11( );
 
-        virtual void                        Update( vaRenderDeviceContext & apiContext, const void * data, uint32 dataSize ) override;
-        virtual void                        Create( int bufferSize, const void * initialData ) override;
+        virtual void                        Update( vaRenderDeviceContext & renderContext, const void * data, uint32 dataSize ) override;
+        virtual void                        Create( int bufferSize, const void * initialData, bool dynamicUpload ) override;
         virtual void                        Destroy( ) override;
 
     public:
-        void                                SetToAPISlot( vaRenderDeviceContext & apiContext, int slot, bool assertOnOverwrite = true );
-        void                                UnsetFromAPISlot( vaRenderDeviceContext & apiContext, int slot, bool assertOnNotSet = true );
+        // this needs to go out probably
+        void                                SetToAPISlot( vaRenderDeviceContext & renderContext, int slot, bool assertOnOverwrite = true );
+        void                                UnsetFromAPISlot( vaRenderDeviceContext & renderContext, int slot, bool assertOnNotSet = true );
 
     public:
         void                                Update( ID3D11DeviceContext * dx11Context, const void * data, uint32 dataSize );
 
     public:
+        virtual vaResourceBindSupportFlags  GetBindSupportFlags( ) const override                           { return vaResourceBindSupportFlags::ConstantBuffer; }
         virtual ID3D11Buffer *              GetBuffer( ) const override { return m_buffer; }
         virtual ID3D11UnorderedAccessView * GetUAV( ) const override    { return nullptr; }
         virtual ID3D11ShaderResourceView *  GetSRV( ) const override    { return nullptr; }
     };
 
 
-    class vaIndexBufferDX11 : public vaIndexBuffer, public vaShaderResourceSRVDX11
+    class vaIndexBufferDX11 : public vaIndexBuffer, public virtual vaShaderResourceDX11
     {
         VA_RENDERING_MODULE_MAKE_FRIENDS( );
 
@@ -67,18 +69,20 @@ namespace VertexAsylum
         explicit                            vaIndexBufferDX11( const vaRenderingModuleParams & params );
         virtual                             ~vaIndexBufferDX11( );
 
-        virtual void                        Update( vaRenderDeviceContext & apiContext, const void * data, uint32 dataSize ) override;
+        virtual void                        Update( vaRenderDeviceContext & renderContext, const void * data, uint32 dataSize ) override;
         virtual void                        Create( int indexCount, const void * initialData ) override;
         virtual void                        Destroy( ) override;
+        virtual bool                        IsCreated( ) const override     { return m_buffer != nullptr; }
 
     public:
+        virtual vaResourceBindSupportFlags  GetBindSupportFlags( ) const override                           { return vaResourceBindSupportFlags::IndexBuffer; }
         virtual ID3D11Buffer *              GetBuffer( ) const override { return m_buffer; }
         virtual ID3D11UnorderedAccessView * GetUAV( ) const override    { return nullptr; }
         virtual ID3D11ShaderResourceView *  GetSRV( ) const override    { return nullptr; }
     };
 
 
-    class vaVertexBufferDX11 : public vaVertexBuffer, public vaShaderResourceSRVDX11
+    class vaVertexBufferDX11 : public vaVertexBuffer, public virtual vaShaderResourceDX11
     {
         VA_RENDERING_MODULE_MAKE_FRIENDS( );
 
@@ -90,21 +94,23 @@ namespace VertexAsylum
         explicit                            vaVertexBufferDX11( const vaRenderingModuleParams & params );
         virtual                             ~vaVertexBufferDX11( );
 
-        virtual void                        Update( vaRenderDeviceContext & apiContext, const void * data, uint32 dataSize ) override;
-        virtual void                        Create( int vertexCount, int vertexSize, const void * initialData, bool dynamic ) override;
+        virtual void                        Update( vaRenderDeviceContext & renderContext, const void * data, uint32 dataSize ) override;
+        virtual void                        Create( int vertexCount, int vertexSize, const void * initialData, bool dynamicUpload ) override;
         virtual void                        Destroy( ) override;
+        virtual bool                        IsCreated( ) const override     { return m_buffer != nullptr; }
 
-        virtual bool                        TryMap( vaRenderDeviceContext & apiContext, vaResourceMapType mapType, bool doNotWait );
-        virtual void                        Unmap( vaRenderDeviceContext & apiContext );
+        virtual bool                        Map( vaRenderDeviceContext & renderContext, vaResourceMapType mapType );
+        virtual void                        Unmap( vaRenderDeviceContext & renderContext );
 
     public:
+        virtual vaResourceBindSupportFlags  GetBindSupportFlags( ) const override                           { return vaResourceBindSupportFlags::VertexBuffer; }
         virtual ID3D11Buffer *              GetBuffer( ) const override { return m_buffer; }
         virtual ID3D11UnorderedAccessView * GetUAV( ) const override    { return nullptr; }
         virtual ID3D11ShaderResourceView *  GetSRV( ) const override    { return nullptr; }
 
     };
     
-    class vaStructuredBufferDX11 : public vaStructuredBuffer, public vaShaderResourceSRVDX11
+    class vaStructuredBufferDX11 : public vaStructuredBuffer, public virtual vaShaderResourceDX11
     {
         VA_RENDERING_MODULE_MAKE_FRIENDS( );
 
@@ -118,11 +124,12 @@ namespace VertexAsylum
         explicit                            vaStructuredBufferDX11( const vaRenderingModuleParams & params );
         virtual                             ~vaStructuredBufferDX11( );
 
-        virtual void                        Update( vaRenderDeviceContext & apiContext, const void * data, uint32 dataSize ) override;
+        virtual void                        Update( vaRenderDeviceContext & renderContext, const void * data, uint32 dataSize ) override;
         virtual bool                        Create( int elementCount, int structureByteSize, bool hasCounter, const void * initialData ) override;
         virtual void                        Destroy( ) override;
 
     public:
+        virtual vaResourceBindSupportFlags  GetBindSupportFlags( ) const override                           { return vaResourceBindSupportFlags::ShaderResource | vaResourceBindSupportFlags::UnorderedAccess; }
         virtual ID3D11Buffer *              GetBuffer( ) const override { return m_buffer; }
         virtual ID3D11UnorderedAccessView * GetUAV( ) const override    { return m_bufferUAV; }
         virtual ID3D11ShaderResourceView *  GetSRV( ) const override    { return m_bufferSRV; }

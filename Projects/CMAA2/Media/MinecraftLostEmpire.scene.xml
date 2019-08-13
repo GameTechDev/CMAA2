@@ -1,198 +1,676 @@
-<VertexAsylumScene Name="MinecraftLostEmpire">
-    <Lights count="4">
-        <a0>
-            <Light Name="Sun" Type="1" Intensity="{1.000000,1.000000,0.800000}" Position="{0.000000,0.000000,9.000000}" Direction="{0.408248,0.408248,-0.816497}" Up="{0.000000,0.000000,0.000000}" Size="0.20000000298023224" SpotInnerAngle="0" SpotOuterAngle="0"/>
-        </a0>
-        <a1>
-            <Light Name="Ambient" Type="0" Intensity="{0.200000,0.200000,0.200000}" Position="{0.000000,0.000000,10.000000}" Direction="{0.000000,0.000000,0.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.20000000298023224" SpotInnerAngle="0" SpotOuterAngle="0"/>
-        </a1>
-        <a2>
-            <Light Name="EyeLightL" Type="2" Intensity="{50.000000,0.000000,0.000000}" Position="{9.000000,49.000000,0.000000}" Direction="{0.000000,0.000000,0.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.20000000298023224" SpotInnerAngle="0" SpotOuterAngle="0"/>
-        </a2>
-        <a3>
-            <Light Name="EyeLightR" Type="2" Intensity="{50.000000,0.000000,0.000000}" Position="{15.000000,49.000000,0.000000}" Direction="{0.000000,0.000000,0.000000}" Up="{0.000000,0.000000,0.000000}" Size="0.20000000298023224" SpotInnerAngle="0" SpotOuterAngle="0"/>
-        </a3>
+<vaXMLSerializer>1</vaXMLSerializer>
+<VertexAsylumScene>
+    <Name>MinecraftLostEmpire</Name>
+    <Lights array="true">
+        <Light>
+            <Name>Sun</Name>
+            <Type>1</Type>
+            <Intensity>{1.000000,1.000000,0.800000}</Intensity>
+            <Position>{0.000000,0.000000,9.000000}</Position>
+            <Direction>{0.408248,0.408248,-0.816497}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.2</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>Ambient</Name>
+            <Type>0</Type>
+            <Intensity>{0.200000,0.200000,0.200000}</Intensity>
+            <Position>{0.000000,0.000000,10.000000}</Position>
+            <Direction>{0.000000,0.000000,0.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.2</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>EyeLightL</Name>
+            <Type>2</Type>
+            <Intensity>{50.000000,0.000000,0.000000}</Intensity>
+            <Position>{9.000000,49.000000,0.000000}</Position>
+            <Direction>{0.000000,0.000000,0.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.2</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>EyeLightR</Name>
+            <Type>2</Type>
+            <Intensity>{50.000000,0.000000,0.000000}</Intensity>
+            <Position>{15.000000,49.000000,0.000000}</Position>
+            <Direction>{0.000000,0.000000,0.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0.2</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>Ambient</Name>
+            <Type>0</Type>
+            <Intensity>{0.100000,0.100000,0.100000}</Intensity>
+            <Position>{0.000000,0.000000,0.000000}</Position>
+            <Direction>{0.000000,0.000000,0.000000}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
+        <Light>
+            <Name>Sun</Name>
+            <Type>1</Type>
+            <Intensity>{1.000000,1.000000,0.800000}</Intensity>
+            <Position>{0.000000,0.000000,0.000000}</Position>
+            <Direction>{0.408248,0.408248,-0.816497}</Direction>
+            <Up>{0.000000,0.000000,0.000000}</Up>
+            <Size>0</Size>
+            <SpotInnerAngle>0</SpotInnerAngle>
+            <SpotOuterAngle>0</SpotOuterAngle>
+            <CastShadows>false</CastShadows>
+        </Light>
     </Lights>
-    <RootObjects count="45">
-        <RootObjects_0 Name="obj__bed" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="7c69e0e8-4a60-4acb-9a01-3ad51d22324f"/>
-            <ChildObjects count="0"/>
+    <RootObjects>
+        <count>45</count>
+        <RootObjects_0>
+            <Name>obj__bed</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>7c69e0e8-4a60-4acb-9a01-3ad51d22324f</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_0>
-        <RootObjects_1 Name="obj__brown_mushroom" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="c2436b80-5d47-4743-970b-94fa1fd252d9"/>
-            <ChildObjects count="0"/>
+        <RootObjects_1>
+            <Name>obj__brown_mushroom</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>c2436b80-5d47-4743-970b-94fa1fd252d9</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_1>
-        <RootObjects_2 Name="obj__chest" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="3ca7f3b6-a610-467b-98c5-979e8f0c3373"/>
-            <ChildObjects count="0"/>
+        <RootObjects_2>
+            <Name>obj__chest</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>3ca7f3b6-a610-467b-98c5-979e8f0c3373</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_2>
-        <RootObjects_3 Name="obj__coal_ore" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="9481cb1a-317c-46c7-91fd-10a71cb2490d"/>
-            <ChildObjects count="0"/>
+        <RootObjects_3>
+            <Name>obj__coal_ore</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>9481cb1a-317c-46c7-91fd-10a71cb2490d</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_3>
-        <RootObjects_4 Name="obj__cobblestone" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="99b2a69e-64ea-4de6-94df-85899255929e"/>
-            <ChildObjects count="0"/>
+        <RootObjects_4>
+            <Name>obj__cobblestone</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>99b2a69e-64ea-4de6-94df-85899255929e</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_4>
-        <RootObjects_5 Name="obj__cobblestone_stairs" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="7899ab46-3bee-45aa-b58d-bbcfb70a7365"/>
-            <ChildObjects count="0"/>
+        <RootObjects_5>
+            <Name>obj__cobblestone_stairs</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>7899ab46-3bee-45aa-b58d-bbcfb70a7365</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_5>
-        <RootObjects_6 Name="obj__crafting_table" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="b7504f4b-531f-4897-ad2e-a02a5201b806"/>
-            <ChildObjects count="0"/>
+        <RootObjects_6>
+            <Name>obj__crafting_table</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>b7504f4b-531f-4897-ad2e-a02a5201b806</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_6>
-        <RootObjects_7 Name="obj__dandelion" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="0a20d999-2a16-46f5-a409-8c6e08b00059"/>
-            <ChildObjects count="0"/>
+        <RootObjects_7>
+            <Name>obj__dandelion</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>0a20d999-2a16-46f5-a409-8c6e08b00059</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_7>
-        <RootObjects_8 Name="obj__detector_rail" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="ddf59ebb-9cfc-4948-8088-fdfb3fe6cae4"/>
-            <ChildObjects count="0"/>
+        <RootObjects_8>
+            <Name>obj__detector_rail</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>ddf59ebb-9cfc-4948-8088-fdfb3fe6cae4</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_8>
-        <RootObjects_9 Name="obj__diamond_block" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="c9cbacc0-2c0d-444c-a191-fb58d79b0339"/>
-            <ChildObjects count="0"/>
+        <RootObjects_9>
+            <Name>obj__diamond_block</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>c9cbacc0-2c0d-444c-a191-fb58d79b0339</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_9>
-        <RootObjects_10 Name="obj__dirt" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="95ca7c4d-ecaf-4c27-91b8-c937fd9a0b7a"/>
-            <ChildObjects count="0"/>
+        <RootObjects_10>
+            <Name>obj__dirt</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>95ca7c4d-ecaf-4c27-91b8-c937fd9a0b7a</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_10>
-        <RootObjects_11 Name="obj__double_slab" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="cd1875c4-c020-4e59-9b2d-7ff454ebd193"/>
-            <ChildObjects count="0"/>
+        <RootObjects_11>
+            <Name>obj__double_slab</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>cd1875c4-c020-4e59-9b2d-7ff454ebd193</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_11>
-        <RootObjects_12 Name="obj__fence" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="97535fd5-8ecc-44e7-a301-64f178c63b32"/>
-            <ChildObjects count="0"/>
+        <RootObjects_12>
+            <Name>obj__fence</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>97535fd5-8ecc-44e7-a301-64f178c63b32</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_12>
-        <RootObjects_13 Name="obj__furnace" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="e61b1265-1d7d-4594-ba59-5b7d840b1cc5"/>
-            <ChildObjects count="0"/>
+        <RootObjects_13>
+            <Name>obj__furnace</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>e61b1265-1d7d-4594-ba59-5b7d840b1cc5</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_13>
-        <RootObjects_14 Name="obj__grass" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="ede534b6-ff06-4802-923b-ff90ce6eb437"/>
-            <ChildObjects count="0"/>
+        <RootObjects_14>
+            <Name>obj__grass</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>ede534b6-ff06-4802-923b-ff90ce6eb437</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_14>
-        <RootObjects_15 Name="obj__gravel" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="60b0738d-9ece-418d-81eb-8a34fba7f18d"/>
-            <ChildObjects count="0"/>
+        <RootObjects_15>
+            <Name>obj__gravel</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>60b0738d-9ece-418d-81eb-8a34fba7f18d</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_15>
-        <RootObjects_16 Name="obj__iron_door" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="c7bc3bdd-0d6b-41f2-bf00-10d7ad8f53e5"/>
-            <ChildObjects count="0"/>
+        <RootObjects_16>
+            <Name>obj__iron_door</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>c7bc3bdd-0d6b-41f2-bf00-10d7ad8f53e5</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_16>
-        <RootObjects_17 Name="obj__iron_ore" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="fd49f956-262c-4f73-b7bd-14a36557fed3"/>
-            <ChildObjects count="0"/>
+        <RootObjects_17>
+            <Name>obj__iron_ore</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>fd49f956-262c-4f73-b7bd-14a36557fed3</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_17>
-        <RootObjects_18 Name="obj__ladder" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="bbbdac72-7d76-4224-b496-8fda2ec7794a"/>
-            <ChildObjects count="0"/>
+        <RootObjects_18>
+            <Name>obj__ladder</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>bbbdac72-7d76-4224-b496-8fda2ec7794a</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_18>
-        <RootObjects_19 Name="obj__leaves" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="391e87d7-831e-4965-9e66-af0102f8b05d"/>
-            <ChildObjects count="0"/>
+        <RootObjects_19>
+            <Name>obj__leaves</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>391e87d7-831e-4965-9e66-af0102f8b05d</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_19>
-        <RootObjects_20 Name="obj__lever" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="ef52e773-9ff2-4f3a-a08c-26ea8306a5f6"/>
-            <ChildObjects count="0"/>
+        <RootObjects_20>
+            <Name>obj__lever</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>ef52e773-9ff2-4f3a-a08c-26ea8306a5f6</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_20>
-        <RootObjects_21 Name="obj__log" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="a511ffa4-357b-4c92-bf01-e2b0ba366dca"/>
-            <ChildObjects count="0"/>
+        <RootObjects_21>
+            <Name>obj__log</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>a511ffa4-357b-4c92-bf01-e2b0ba366dca</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_21>
-        <RootObjects_22 Name="obj__obsidian" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="18be4e76-bb56-481c-9b6d-4bee92e7e923"/>
-            <ChildObjects count="0"/>
+        <RootObjects_22>
+            <Name>obj__obsidian</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>18be4e76-bb56-481c-9b6d-4bee92e7e923</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_22>
-        <RootObjects_23 Name="obj__portal" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="34746d8f-c049-4e31-9e97-22345bf4aa8d"/>
-            <ChildObjects count="0"/>
+        <RootObjects_23>
+            <Name>obj__portal</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>34746d8f-c049-4e31-9e97-22345bf4aa8d</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_23>
-        <RootObjects_24 Name="obj__powered_rail" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="b57dc559-c0cd-45bc-82b3-130e92a5ca88"/>
-            <ChildObjects count="0"/>
+        <RootObjects_24>
+            <Name>obj__powered_rail</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>b57dc559-c0cd-45bc-82b3-130e92a5ca88</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_24>
-        <RootObjects_25 Name="obj__rail" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="d08879d2-0439-4472-8c3c-0a8714c66d53"/>
-            <ChildObjects count="0"/>
+        <RootObjects_25>
+            <Name>obj__rail</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>d08879d2-0439-4472-8c3c-0a8714c66d53</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_25>
-        <RootObjects_26 Name="obj__redstone_torch_(off)" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="34a17296-de29-4abd-9436-286532ac4768"/>
-            <ChildObjects count="0"/>
+        <RootObjects_26>
+            <Name>obj__redstone_torch_(off)</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>34a17296-de29-4abd-9436-286532ac4768</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_26>
-        <RootObjects_27 Name="obj__redstone_torch_(on)" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="af879826-d5e7-4344-810f-249089626120"/>
-            <ChildObjects count="0"/>
+        <RootObjects_27>
+            <Name>obj__redstone_torch_(on)</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>af879826-d5e7-4344-810f-249089626120</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_27>
-        <RootObjects_28 Name="obj__redstone_wire" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="7d08178b-8229-426b-83e1-5e65811dbe7b"/>
-            <ChildObjects count="0"/>
+        <RootObjects_28>
+            <Name>obj__redstone_wire</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>7d08178b-8229-426b-83e1-5e65811dbe7b</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_28>
-        <RootObjects_29 Name="obj__repeater_(off)" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="de6ae93c-57cd-4ea2-a15f-04ba942ba1ed"/>
-            <ChildObjects count="0"/>
+        <RootObjects_29>
+            <Name>obj__repeater_(off)</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>de6ae93c-57cd-4ea2-a15f-04ba942ba1ed</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_29>
-        <RootObjects_30 Name="obj__repeater_(on)" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="1c80b6bd-195e-45d2-8c79-c84c13cce603"/>
-            <ChildObjects count="0"/>
+        <RootObjects_30>
+            <Name>obj__repeater_(on)</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>1c80b6bd-195e-45d2-8c79-c84c13cce603</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_30>
-        <RootObjects_31 Name="obj__rose" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="7ff0c43a-683e-48f6-8dcd-a04a92b9f707"/>
-            <ChildObjects count="0"/>
+        <RootObjects_31>
+            <Name>obj__rose</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>7ff0c43a-683e-48f6-8dcd-a04a92b9f707</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_31>
-        <RootObjects_32 Name="obj__sand" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="70e9f881-ca3d-434a-970f-0d4439616067"/>
-            <ChildObjects count="0"/>
+        <RootObjects_32>
+            <Name>obj__sand</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>70e9f881-ca3d-434a-970f-0d4439616067</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_32>
-        <RootObjects_33 Name="obj__sign_post" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="1c443b96-57c7-4e61-b85b-e39fa4309001"/>
-            <ChildObjects count="0"/>
+        <RootObjects_33>
+            <Name>obj__sign_post</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>1c443b96-57c7-4e61-b85b-e39fa4309001</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_33>
-        <RootObjects_34 Name="obj__stationary_lava" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="4dcd48bc-d6a6-48d4-8113-ba420c202e73"/>
-            <ChildObjects count="0"/>
+        <RootObjects_34>
+            <Name>obj__stationary_lava</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>4dcd48bc-d6a6-48d4-8113-ba420c202e73</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_34>
-        <RootObjects_35 Name="obj__stationary_water" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="3fbf81ae-67f1-4ca7-a15a-8ef797508cf9"/>
-            <ChildObjects count="0"/>
+        <RootObjects_35>
+            <Name>obj__stationary_water</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>3fbf81ae-67f1-4ca7-a15a-8ef797508cf9</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_35>
-        <RootObjects_36 Name="obj__sticky_piston" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="173c12df-891e-4d5d-a45f-9d074f93f5b5"/>
-            <ChildObjects count="0"/>
+        <RootObjects_36>
+            <Name>obj__sticky_piston</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>173c12df-891e-4d5d-a45f-9d074f93f5b5</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_36>
-        <RootObjects_37 Name="obj__stone" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="4644ca8d-2371-419c-ae41-5fcfb3de2356"/>
-            <ChildObjects count="0"/>
+        <RootObjects_37>
+            <Name>obj__stone</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>4644ca8d-2371-419c-ae41-5fcfb3de2356</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_37>
-        <RootObjects_38 Name="obj__stone_button" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="03f73589-7489-40c5-bca7-5cdc785c960e"/>
-            <ChildObjects count="0"/>
+        <RootObjects_38>
+            <Name>obj__stone_button</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>03f73589-7489-40c5-bca7-5cdc785c960e</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_38>
-        <RootObjects_39 Name="obj__stone_slab" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="2d4d0934-462d-4697-aa51-f0ba26c4b123"/>
-            <ChildObjects count="0"/>
+        <RootObjects_39>
+            <Name>obj__stone_slab</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>2d4d0934-462d-4697-aa51-f0ba26c4b123</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_39>
-        <RootObjects_40 Name="obj__torch" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="fe4fdc14-a5e6-4356-a7ee-9767bf5d341f"/>
-            <ChildObjects count="0"/>
+        <RootObjects_40>
+            <Name>obj__torch</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>fe4fdc14-a5e6-4356-a7ee-9767bf5d341f</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_40>
-        <RootObjects_41 Name="obj__wall_sign" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="fa44ecbc-27c3-4cfb-8147-5818bf93495b"/>
-            <ChildObjects count="0"/>
+        <RootObjects_41>
+            <Name>obj__wall_sign</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>fa44ecbc-27c3-4cfb-8147-5818bf93495b</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_41>
-        <RootObjects_42 Name="obj__white_wool" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="ebb318da-9dba-4bc9-b74b-12c131cd2b4e"/>
-            <ChildObjects count="0"/>
+        <RootObjects_42>
+            <Name>obj__white_wool</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>ebb318da-9dba-4bc9-b74b-12c131cd2b4e</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_42>
-        <RootObjects_43 Name="obj__wooden_plank" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="f606e0fb-da16-4170-b745-72290e56da44"/>
-            <ChildObjects count="0"/>
+        <RootObjects_43>
+            <Name>obj__wooden_plank</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>f606e0fb-da16-4170-b745-72290e56da44</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_43>
-        <RootObjects_44 Name="obj__wooden_stairs" TransformR0="{1.000000,0.000000,0.000000,0.000000}" TransformR1="{0.000000,1.000000,0.000000,0.000000}" TransformR2="{0.000000,0.000000,1.000000,0.000000}" TransformR3="{0.000000,0.000000,-20.000000,1.000000}">
-            <RenderMeshes count="1" a0="d53ef5fd-b96c-4725-ab02-b88913260dec"/>
-            <ChildObjects count="0"/>
+        <RootObjects_44>
+            <Name>obj__wooden_stairs</Name>
+            <TransformR0>{1.000000,0.000000,0.000000,0.000000}</TransformR0>
+            <TransformR1>{0.000000,1.000000,0.000000,0.000000}</TransformR1>
+            <TransformR2>{0.000000,0.000000,1.000000,0.000000}</TransformR2>
+            <TransformR3>{0.000000,0.000000,-20.000000,1.000000}</TransformR3>
+            <RenderMeshes array="true">
+                <RenderMesh>d53ef5fd-b96c-4725-ab02-b88913260dec</RenderMesh>
+            </RenderMeshes>
+            <ChildObjects>
+                <count>0</count>
+            </ChildObjects>
         </RootObjects_44>
     </RootObjects>
+    <FogSphere>
+        <Enabled>false</Enabled>
+        <UseCustomCenter>false</UseCustomCenter>
+        <Center>{0.000000,0.000000,0.000000}</Center>
+        <Color>{0.000000,0.000000,0.200000}</Color>
+        <RadiusInner>1</RadiusInner>
+        <RadiusOuter>100</RadiusOuter>
+        <BlendCurvePow>0.5</BlendCurvePow>
+        <BlendMultiplier>0.1</BlendMultiplier>
+    </FogSphere>
 </VertexAsylumScene>

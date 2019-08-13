@@ -29,7 +29,7 @@
 
 #include "Core/System/vaFileTools.h"
 
-// #include "Core/System/vaThreadPool.h"
+#include "Core/vaUI.h"
 
 #include "Core/vaUIDObject.h"
 
@@ -45,6 +45,7 @@ using namespace VertexAsylum;
 bool vaCore::s_initialized = false;
 
 bool vaCore::s_appQuitFlag = false;
+bool vaCore::s_appQuitButRestartFlag = false;
 
 bool                vaCore::s_currentlyInitializing = false;
 bool                vaCore::s_currentlyDeinitializing = false;
@@ -57,33 +58,37 @@ bool                vaCore::s_currentlyDeinitializing = false;
 //     return n;
 // }
 
-void vaCore::Initialize( )
+void vaCore::Initialize( bool liveRestart )
 {
     // Initializing more than once?
     assert( !s_initialized );
 
-    vaThreading::SetMainThread( );
+    if( liveRestart )
+    { assert( vaThreading::IsMainThread() ); }
 
-    vaMemory::Initialize( );
+    if( !liveRestart )
+    {
+        vaThreading::SetMainThread( );
 
-    new vaUIDObjectRegistrar( );
+        vaMemory::Initialize( );
 
-    vaMath::Initialize( );
+        new vaUIDObjectRegistrar( );
 
-    vaPlatformBase::Initialize( );
+        vaMath::Initialize( );
+
+        vaPlatformBase::Initialize( );
+
+        new vaLog( );
+
+        new vaRenderingModuleRegistrar( );
+    }
 
     vaFileTools::Initialize( );
 
-    new vaLog( );
-    new vaConsole( );
+    new vaUIManager( );
+    new vaUIConsole( );
 
-    new vaProfiler( );
-
-    new vaRenderingModuleRegistrar( );
-
-    VA_NAME_THREAD( "Main" );
-
-    VA_SCOPE_CPU_TIMER( Initialize );
+    // VA_SCOPE_CPU_TIMER( Initialize );
 
     // using namespace std::chrono_literals;
     // std::this_thread::sleep_for( 100ms );
@@ -98,6 +103,7 @@ void vaCore::Initialize( )
     new vaEnkiTS( threadsToUse );
     new vaBackgroundTaskManager( );
 
+
     //   InitializeSubsystemManagers( );
        // hmm not needed at the moment
        // new vaTelemetryServer();
@@ -110,7 +116,7 @@ void vaCore::Initialize( )
     s_initialized = true;
 }
 
-void vaCore::Deinitialize( )
+void vaCore::Deinitialize( bool liveRestart )
 {
     assert( s_initialized );
 
@@ -122,23 +128,25 @@ void vaCore::Deinitialize( )
 
     delete vaBackgroundTaskManager::GetInstancePtr( );
     delete vaEnkiTS::GetInstancePtr( );
-
-    delete vaRenderingModuleRegistrar::GetInstancePtr( );
-
-    delete vaProfiler::GetInstancePtr( );
-
-    delete vaConsole::GetInstancePtr( );
-    delete vaLog::GetInstancePtr( );
-
+    delete vaUIConsole::GetInstancePtr( );
+    delete vaUIManager::GetInstancePtr( );
+    
     vaFileTools::Deinitialize( );
 
-    vaPlatformBase::Deinitialize( );
+    if( !liveRestart )
+    {
+        delete vaRenderingModuleRegistrar::GetInstancePtr( );
 
-    vaMath::Deinitialize( );
+        delete vaLog::GetInstancePtr( );
 
-    delete vaUIDObjectRegistrar::GetInstancePtr( );
+        vaPlatformBase::Deinitialize( );
 
-    vaMemory::Deinitialize( );
+        vaMath::Deinitialize( );
+
+        delete vaUIDObjectRegistrar::GetInstancePtr( );
+
+        vaMemory::Deinitialize( );
+    }
 
     s_initialized = false;
 }

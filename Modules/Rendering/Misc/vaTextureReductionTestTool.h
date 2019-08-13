@@ -91,7 +91,7 @@ namespace VertexAsylum
         void                        ResetCamera( const shared_ptr<vaCameraBase> & camera );
 
         void                        TickCPU( const shared_ptr<vaCameraBase> & camera, const shared_ptr<vaPostProcessTonemap> & tonemapper );
-        void                        TickGPU( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorBuffer, shared_ptr<vaPostProcess> & postProcess );
+        void                        TickGPU( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorBuffer, shared_ptr<vaPostProcess> & postProcess );
 
         bool                        IsEnabled( ) const              { return m_enabled; }
 
@@ -102,10 +102,10 @@ namespace VertexAsylum
 
         void                        OverrideAllWithCurrentStates( );
 
-        void                        DownscaleAll( vaRenderDeviceContext & apiContext );
+        void                        DownscaleAll( vaRenderDeviceContext & renderContext );
 
     private:
-        void                        SaveAsReference( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & colorBuffer );
+        void                        SaveAsReference( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & colorBuffer );
 
         void                        ResetData( );
         void                        ResetTextureOverrides( );

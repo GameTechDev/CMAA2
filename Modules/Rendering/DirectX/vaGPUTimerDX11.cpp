@@ -79,11 +79,11 @@ void vaGPUTimerDX11::OnDeviceAndContextCreated( ID3D11Device* device )
         }
     }
 
-#ifdef VA_REMOTERY_INTEGRATION_ENABLED
-#ifdef VA_REMOTERY_INTEGRATION_USE_D3D11
-    rmt_BindD3D11( device , vaGPUTimerStaticPartDX11::GetInstance( ).s_immediateContext );
-#endif
-#endif
+// #ifdef VA_REMOTERY_INTEGRATION_ENABLED
+// #ifdef VA_REMOTERY_INTEGRATION_USE_D3D11
+//     rmt_BindD3D11( device , vaGPUTimerStaticPartDX11::GetInstance( ).s_immediateContext );
+// #endif
+// #endif
 
     vaGPUTimerStaticPartDX11::GetInstance( ).s_lastFrameID = 0;
     vaGPUTimerStaticPartDX11::GetInstance( ).s_frameActive = false;
@@ -94,11 +94,11 @@ void vaGPUTimerDX11::OnDeviceAboutToBeDestroyed( )
     if( vaGPUTimerStaticPartDX11::GetInstancePtr( ) == nullptr )
         return;
 
-#ifdef VA_REMOTERY_INTEGRATION_ENABLED
-#ifdef VA_REMOTERY_INTEGRATION_USE_D3D11
-    rmt_UnbindD3D11( );
-#endif
-#endif
+// #ifdef VA_REMOTERY_INTEGRATION_ENABLED
+// #ifdef VA_REMOTERY_INTEGRATION_USE_D3D11
+//     rmt_UnbindD3D11( );
+// #endif
+// #endif
 
     FrameFinishQueries( true );
 
@@ -241,6 +241,13 @@ vaGPUTimerDX11::~vaGPUTimerDX11( )
     SAFE_RELEASE( m_deviceContext );
     SAFE_RELEASE( m_deviceContext2 ); // but m_deviceContext2 is
 
+    for( int i = 0; i < c_historyLength; i++ )
+    {
+        assert( m_history[i].DisjointQuery == nullptr );
+        assert( m_history[i].StartQuery == nullptr );
+        assert( m_history[i].StopQuery == nullptr );
+    }
+
     if( vaGPUTimerStaticPartDX11::GetInstancePtr( ) == NULL )
     {
         assert( m_orphaned );
@@ -261,8 +268,9 @@ vaGPUTimerDX11::~vaGPUTimerDX11( )
     }
 }
 
-void vaGPUTimerDX11::Start( )
+void vaGPUTimerDX11::Start( vaRenderDeviceContext * renderDeviceContext )
 {
+    renderDeviceContext;
     assert( !m_orphaned );
     if( m_orphaned )
         return;
@@ -309,8 +317,9 @@ void vaGPUTimerDX11::Start( )
 
 }
 
-void vaGPUTimerDX11::Stop( )
+void vaGPUTimerDX11::Stop( vaRenderDeviceContext * renderDeviceContext )
 {
+    renderDeviceContext;
     assert( !m_orphaned );
     if( m_orphaned )
         return;

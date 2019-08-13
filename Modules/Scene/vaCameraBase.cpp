@@ -21,6 +21,8 @@
 
 #include "vaCameraControllers.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 //#define HACKY_FLYTHROUGH_RECORDER
 #ifdef HACKY_FLYTHROUGH_RECORDER
 #include "Core/vaInput.h"
@@ -31,7 +33,7 @@ using namespace VertexAsylum;
 #pragma warning( disable : 4996 )
 
 
-vaCameraBase::vaCameraBase( )
+vaCameraBase::vaCameraBase( bool visibleInUI ) : vaUIPanel( "Camera", 0, visibleInUI, vaUIPanel::DockLocation::DockedLeftBottom ), m_visibleInUI( visibleInUI )
 {
     m_YFOVMain          = true;
     m_YFOV              = 60.0f / 180.0f * VA_PIf;
@@ -58,7 +60,7 @@ vaCameraBase::~vaCameraBase( )
 {
 }
 //
-vaCameraBase::vaCameraBase( const vaCameraBase & other )
+vaCameraBase::vaCameraBase( const vaCameraBase & other ) : vaUIPanel( "CameraCopy", 0, false ), m_visibleInUI( false )
 {
     *this = other;
 }
@@ -69,7 +71,7 @@ vaCameraBase & vaCameraBase::operator = ( const vaCameraBase & other )
 
     // this assert is a reminder that you might have to update below if you have added new variables
     int dbgSizeOfSelf = sizeof(*this);
-    assert( dbgSizeOfSelf == 360 ); dbgSizeOfSelf;
+    assert( dbgSizeOfSelf == 416 ); dbgSizeOfSelf;
 
     m_YFOV              = other.m_YFOV;
     m_XFOV              = other.m_XFOV;
@@ -277,31 +279,37 @@ void vaCameraBase::SetOrientationLookAt( const vaVector3 & lookAtPos, const vaVe
     SetOrientation( vaQuaternion::FromRotationMatrix( lookAt ).Inversed( ) );
 }
 //
-string vaCameraBase::IHO_GetInstanceName( ) const                
-{ 
-    return vaStringTools::Format( "Camera (pos: %.2f, %.2f, %.2f, dir: %.3f, %.3f, %.3f)", m_position.x, m_position.y, m_position.z, m_direction.x, m_direction.y, m_direction.z );
-}
-//
-void vaCameraBase::IHO_Draw( )
+void vaCameraBase::UIPanelDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     //ImGui::PushStyleColor( ImGuiCol_Text, titleColor );
     //ImGui::Text( "Info:" );
     //ImGui::PopStyleColor( 1 );
+    ImGui::Text( vaStringTools::Format( "Camera (pos: %.2f, %.2f, %.2f, dir: %.3f, %.3f, %.3f)", m_position.x, m_position.y, m_position.z, m_direction.x, m_direction.y, m_direction.z ).c_str() );
 
     if( m_YFOVMain )
     {
         float yfov = m_YFOV / (VA_PIf) * 180.0f;
-        ImGui::InputFloat( "FOV Y", &yfov, 5.0f, 0.0f, 1 );
+        ImGui::InputFloat( "FOV Y", &yfov, 5.0f, 0.0f );
         m_YFOV = vaMath::Clamp( yfov, 20.0f, 140.0f ) * (VA_PIf) / 180.0f;
         if( ImGui::IsItemHovered( ) ) ImGui::SetTooltip( "Camera Y field of view" );
     }
     else
     {
         float xfov = m_XFOV / (VA_PIf) * 180.0f ;
-        ImGui::InputFloat( "FOV X", &xfov, 5.0f, 0.0f, 1 );
+        ImGui::InputFloat( "FOV X", &xfov, 5.0f, 0.0f );
         m_XFOV = vaMath::Clamp( xfov, 20.0f, 140.0f ) * (VA_PIf) / 180.0f;
         if( ImGui::IsItemHovered( ) ) ImGui::SetTooltip( "Camera X field of view" );
     }
+
+    if( m_controller == nullptr )
+        ImGui::Text( "No controller attached" );
+    else
+    {
+        ImGui::Text( "Attached controller: '%s'", m_controller->UIPropertiesItemGetDisplayName().c_str() );
+        m_controller->UIPropertiesItemDraw();
+    }
+#endif
 }
 
 /*

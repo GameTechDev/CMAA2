@@ -23,6 +23,8 @@
 
 #include "Core/vaMath.h"
 
+#include "Core/Misc/vaProfiler.h"
+
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
 #include "IntegratedExternals/vaImguiIntegration.h"
 #endif
@@ -33,6 +35,8 @@ std::atomic<std::thread::id> vaThreading::s_mainThreadID;
 
 void vaThreading::SetMainThread( )
 {
+    VA_NAME_THREAD( "Main" );
+
     // make sure this happens only once
     assert( s_mainThreadID == std::thread::id() );
 
@@ -56,8 +60,9 @@ vaBackgroundTaskManager::vaBackgroundTaskManager( )
     m_threadPoolSize = vaMath::Max( 2, ( physicalCores + logicalCores - 1 ) / 2 );
 }
 
-void vaBackgroundTaskManager::StopManager( )
+void vaBackgroundTaskManager::ClearAndRestart( )
 {
+    assert( !m_stopped );
     if( m_stopped )
         return;
 
@@ -88,6 +93,12 @@ void vaBackgroundTaskManager::StopManager( )
         }
     }
     assert( m_waitingPooledTasks.empty() );
+
+    // restart
+    {
+        std::unique_lock<mutex> spawnLock( m_spawnMutex );
+        m_stopped = false;
+    }
 }
 
 void vaBackgroundTaskManager::Run( const shared_ptr<TaskInternal> & _task )
@@ -222,11 +233,12 @@ void vaBackgroundTaskManager::ClearFinishedTasks( )
     }
 }
 
-void vaBackgroundTaskManager::InsertImGuiContentTask( const shared_ptr<Task> & _task )
+void vaBackgroundTaskManager::ImGuiTaskProgress( const shared_ptr<Task> & _task )
 {
     const shared_ptr<TaskInternal> task =  std::static_pointer_cast<TaskInternal>(_task);
     bool taskWaiting = task->PooledWaiting;
     taskWaiting;
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     if( taskWaiting )
     {
         ImGui::PushStyleColor( ImGuiCol_Text,           ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled) );
@@ -236,6 +248,7 @@ void vaBackgroundTaskManager::InsertImGuiContentTask( const shared_ptr<Task> & _
     {
         ImGui::PopStyleColor( 1 );
     }
+#endif
 }
 
 
@@ -245,7 +258,7 @@ void vaBackgroundTaskManager::InsertImGuiContentInternal( const vector<shared_pt
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
     for( const shared_ptr<TaskInternal> & task : tasks )
     {
-        InsertImGuiContentTask( task );
+        ImGuiTaskProgress( task );
     }
 #endif
 }
@@ -308,6 +321,8 @@ void vaBackgroundTaskManager::InsertImGuiWindow( const string & title )
     //windowFlags |= ImGuiWindowFlags_NoInputs                ;
     windowFlags |= ImGuiWindowFlags_NoFocusOnAppearing      ;
     //windowFlags |= ImGuiWindowFlags_NoBringToFrontOnFocus   ;
+    windowFlags |= ImGuiWindowFlags_NoDocking      ;
+    windowFlags |= ImGuiWindowFlags_NoSavedSettings      ;
 
     if( ImGui::Begin( title.c_str( ), nullptr, windowFlags ) )
     {

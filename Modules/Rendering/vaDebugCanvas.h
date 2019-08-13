@@ -113,7 +113,7 @@ namespace VertexAsylum
         void operator = ( const vaDebugCanvas2D & )    = delete; 
         //
         void                 CleanQueued( );
-        void                 Render( vaRenderDeviceContext & apiContext, int canvasWidth, int canvasHeight, bool bJustClearData = false );
+        void                 Render( vaRenderDeviceContext & renderContext, int canvasWidth, int canvasHeight, bool bJustClearData = false );
         //
     public:
         // would've used DrawText but thats #defined somewhere in windows.h or related headers :/

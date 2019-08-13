@@ -19,51 +19,54 @@
 
 #include "vaTextureDX11.h"
 
-#include "vaRenderingToolsDX11.h"
-
 #include "Rendering/DirectX/vaRenderDeviceContextDX11.h"
 
-#include "IntegratedExternals/DirectXTex/DirectXTex/DirectXTex.h"
 
 #include "Core/System/vaFileTools.h"
 
 #include "Core/Misc/vaProfiler.h"
 
+#if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY != WINAPI_FAMILY_PHONE_APP) || (_WIN32_WINNT > _WIN32_WINNT_WIN8)
+#include <wincodec.h>
+#endif
+#include "IntegratedExternals/DirectXTex/DirectXTex/DirectXTex.h"
+#include "IntegratedExternals/DirectXTex/ScreenGrab/ScreenGrab.h"
+
 using namespace VertexAsylum;
 
-static D3D11_USAGE DX11UsageFromVAAccessFlags( vaTextureAccessFlags flags )
+static D3D11_USAGE DX11UsageFromVAAccessFlags( vaResourceAccessFlags flags )
 {
-    if( ( ( flags & vaTextureAccessFlags::CPURead ) != 0 ) && ( ( flags & vaTextureAccessFlags::CPUWrite ) != 0 ) )
+    if( ( ( flags & vaResourceAccessFlags::CPURead ) != 0 ) && ( ( flags & vaResourceAccessFlags::CPUWrite ) != 0 ) )
     {
         // wrong combination - both read and write at the same time not supported by VA
         assert( false );
         return D3D11_USAGE_DEFAULT;
     }
-    if( ( flags & vaTextureAccessFlags::CPURead ) != 0 )
+    if( ( flags & vaResourceAccessFlags::CPURead ) != 0 )
         return D3D11_USAGE_STAGING;
-    else if( ( flags & vaTextureAccessFlags::CPUWrite ) != 0 )
+    else if( ( flags & vaResourceAccessFlags::CPUWrite ) != 0 )
         return D3D11_USAGE_DYNAMIC;
     else
         return D3D11_USAGE_DEFAULT;
 }
 
 #pragma warning( suppress : 4505 ) //  unreferenced local function has been removed
-static vaTextureAccessFlags CPUAccessFlagsVAFromDX( UINT accessFlags )
+static vaResourceAccessFlags CPUAccessFlagsVAFromDX( UINT accessFlags )
 {
-    vaTextureAccessFlags ret = vaTextureAccessFlags::None;
+    vaResourceAccessFlags ret = vaResourceAccessFlags::Default;
     if( ( accessFlags & D3D11_CPU_ACCESS_READ ) != 0 )
-        ret |= vaTextureAccessFlags::CPURead;
+        ret |= vaResourceAccessFlags::CPURead;
     if( ( accessFlags & D3D11_CPU_ACCESS_WRITE ) != 0 )
-        ret |= vaTextureAccessFlags::CPUWrite;
+        ret |= vaResourceAccessFlags::CPUWrite;
     return ret;
 }
 
-static UINT CPUAccessFlagsDXFromVA( vaTextureAccessFlags accessFlags )
+static UINT CPUAccessFlagsDXFromVA( vaResourceAccessFlags accessFlags )
 {
     UINT ret = 0;
-    if( ( accessFlags & vaTextureAccessFlags::CPURead ) != 0 )
+    if( ( accessFlags & vaResourceAccessFlags::CPURead ) != 0 )
         ret |= D3D11_CPU_ACCESS_READ;
-    if( ( accessFlags & vaTextureAccessFlags::CPUWrite ) != 0 )
+    if( ( accessFlags & vaResourceAccessFlags::CPUWrite ) != 0 )
         ret |= D3D11_CPU_ACCESS_WRITE;
     return ret;
 }
@@ -74,7 +77,7 @@ static D3D11_MAP MapTypeDXFromVA( vaResourceMapType mapType )
     {
     case VertexAsylum::vaResourceMapType::Read:              return D3D11_MAP_READ;
     case VertexAsylum::vaResourceMapType::Write:             return D3D11_MAP_WRITE;
-    case VertexAsylum::vaResourceMapType::ReadWrite:         return D3D11_MAP_READ_WRITE;
+    case VertexAsylum::vaResourceMapType::ReadWrite:         assert( false ); return D3D11_MAP_READ_WRITE;  // this is not actually supported and will probably be removed
     case VertexAsylum::vaResourceMapType::WriteDiscard:      return D3D11_MAP_WRITE_DISCARD;
     case VertexAsylum::vaResourceMapType::WriteNoOverwrite:  return D3D11_MAP_WRITE_NO_OVERWRITE;
     default:
@@ -98,7 +101,7 @@ shared_ptr<vaTexture> vaTextureDX11::CreateWrap( vaRenderDevice & renderDevice, 
     {
         case D3D11_RESOURCE_DIMENSION_BUFFER:
         {
-            ID3D11Buffer * buffer = vaDirectXTools::QueryResourceInterface<ID3D11Buffer>( resource, IID_ID3D11Buffer );        
+            ID3D11Buffer * buffer = vaDirectXTools11::QueryResourceInterface<ID3D11Buffer>( resource, IID_ID3D11Buffer );        
             assert( buffer != NULL ); if( buffer == NULL ) return NULL;
 
             D3D11_BUFFER_DESC desc; buffer->GetDesc( &desc ); SAFE_RELEASE( buffer );
@@ -106,30 +109,30 @@ shared_ptr<vaTexture> vaTextureDX11::CreateWrap( vaRenderDevice & renderDevice, 
         }  break;
         case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
         {
-            ID3D11Texture1D * tex = vaDirectXTools::QueryResourceInterface<ID3D11Texture1D>( resource, IID_ID3D11Texture1D );
+            ID3D11Texture1D * tex = vaDirectXTools11::QueryResourceInterface<ID3D11Texture1D>( resource, IID_ID3D11Texture1D );
             assert( tex != NULL );  if( tex == NULL ) return NULL;
 
             D3D11_TEXTURE1D_DESC desc; tex->GetDesc( &desc ); SAFE_RELEASE( tex );
             bindFlags       = desc.BindFlags;
-            resourceFormat  = (vaResourceFormat)desc.Format;
+            resourceFormat  = VAFormatFromDXGI(desc.Format);
         }  break;
         case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
         {
-            ID3D11Texture2D * tex = vaDirectXTools::QueryResourceInterface<ID3D11Texture2D>( resource, IID_ID3D11Texture2D );
+            ID3D11Texture2D * tex = vaDirectXTools11::QueryResourceInterface<ID3D11Texture2D>( resource, IID_ID3D11Texture2D );
             assert( tex != NULL );  if( tex == NULL ) return NULL;
 
             D3D11_TEXTURE2D_DESC desc; tex->GetDesc( &desc ); SAFE_RELEASE( tex );
             bindFlags       = desc.BindFlags;
-            resourceFormat  = (vaResourceFormat)desc.Format;
+            resourceFormat  = VAFormatFromDXGI(desc.Format);
         }  break;
         case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
         {
-            ID3D11Texture3D * tex = vaDirectXTools::QueryResourceInterface<ID3D11Texture3D>( resource, IID_ID3D11Texture3D );
+            ID3D11Texture3D * tex = vaDirectXTools11::QueryResourceInterface<ID3D11Texture3D>( resource, IID_ID3D11Texture3D );
             assert( tex != NULL );  if( tex == NULL ) return NULL;
 
             D3D11_TEXTURE3D_DESC desc; tex->GetDesc( &desc ); SAFE_RELEASE( tex );
             bindFlags       = desc.BindFlags;
-            resourceFormat  = (vaResourceFormat)desc.Format;
+            resourceFormat  = VAFormatFromDXGI(desc.Format);
         } break;
         default:
         {
@@ -140,7 +143,7 @@ shared_ptr<vaTexture> vaTextureDX11::CreateWrap( vaRenderDevice & renderDevice, 
     vaTextureFlags flags = vaTextureFlags::None; // this should be deduced from something probably, but not needed at the moment
 
     shared_ptr<vaTexture> newTexture = VA_RENDERING_MODULE_CREATE_SHARED( vaTexture, vaTextureConstructorParams( renderDevice, vaCore::GUIDCreate( ) ) );
-    newTexture->Initialize( BindFlagsVAFromDX(bindFlags), resourceFormat, srvFormat, rtvFormat, dsvFormat, uavFormat, flags, 0, -1, 0, -1, contentsType );
+    AsDX11(*newTexture).Initialize( BindFlagsVAFromDX11(bindFlags), vaResourceAccessFlags::Default, resourceFormat, srvFormat, rtvFormat, dsvFormat, uavFormat, flags, 0, -1, 0, -1, contentsType );
 
     vaTextureDX11 * newDX11Texture = newTexture->SafeCast<vaTextureDX11*>();
 
@@ -150,52 +153,6 @@ shared_ptr<vaTexture> vaTextureDX11::CreateWrap( vaRenderDevice & renderDevice, 
 
     return newTexture;
 }
-
-/*
-vaTexture * vaTexture::CreateCubeArrayView( vaTexture & texture )
-{
-    if( ( texture.GetFlags( ) & vaTextureFlags::Cubemap ) == 0 )
-    {
-        // this only works on cubemaps
-        assert( false );
-        return nullptr;
-    }
-
-    vaTextureDX11 * origDX11Texture = texture.SafeCast<vaTextureDX11*>( );
-
-    ID3D11Resource * resource = origDX11Texture->GetResource( );
-
-    if( resource == NULL )
-    {
-        assert( false );
-        return nullptr;
-    }
-
-    vaResourceBindSupportFlags bindFlags = vaResourceBindSupportFlags::ShaderResource;
-    vaResourceFormat srvFormat = texture.GetSRVFormat();
-
-    // Can't request additional binding flags that were not supported in the original texture
-    vaResourceBindSupportFlags origFlags = origDX11Texture->GetBindSupportFlags( );
-    assert( ( ( ~origFlags ) & bindFlags ) == 0 );
-    origFlags; // unreferenced in Release
-
-    vaTextureConstructorParams params( vaCore::GUIDCreate( ) );
-    vaTexture * newTexture = VA_RENDERING_MODULE_CREATE( vaTexture, &params );
-    newTexture->Initialize( bindFlags, texture.GetResourceFormat( ), srvFormat, vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaTextureFlags::None, 0, -1, 0, -1, texture.GetContentsType( ) );
-
-    // it is debatable whether this is needed since DX resources have reference counting and will stay alive, but it might be useful for DX12 or other API implementations so I'll leave it in (actually, I removed it later :P)
-    // newTexture->m_viewedOriginal = texture;
-    newTexture->m_isView = true;
-
-    vaTextureDX11 * newDX11Texture = vaSaferStaticCast<vaTextureDX11*>( newTexture );
-    resource->AddRef( );
-    newDX11Texture->SetResource( resource );
-    newDX11Texture->m_flags = vaTextureFlags::Cubemap | vaTextureFlags::CubemapButArraySRV;
-    newDX11Texture->ProcessResource( true, true );
-    return newTexture;
-}
-*/
-
 
 vaTextureDX11::vaTextureDX11( const vaRenderingModuleParams & params ) : vaTexture( params )
 { 
@@ -252,9 +209,9 @@ bool vaTextureDX11::Import( void * buffer, uint64 bufferSize, vaTextureLoadFlags
     bool isDDS = dwMagicNumber == DDS_MAGIC;
 
     if( isDDS )
-        m_resource = vaDirectXTools::LoadTextureDDS( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), buffer, bufferSize, loadFlags, binds );
+        m_resource = vaDirectXTools11::LoadTextureDDS( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), buffer, bufferSize, loadFlags, binds );
     else
-        m_resource = vaDirectXTools::LoadTextureWIC( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), buffer, bufferSize, loadFlags, binds );
+        m_resource = vaDirectXTools11::LoadTextureWIC( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), buffer, bufferSize, loadFlags, binds );
 
     if( m_resource == NULL )
     {
@@ -302,9 +259,9 @@ bool vaTextureDX11::Import( const wstring & storageFilePath, vaTextureLoadFlags 
     //if( fileContents.get( ) != NULL )
     {
         if( isDDS )
-            m_resource = vaDirectXTools::LoadTextureDDS( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), usedPath.c_str(), loadFlags, binds );
+            m_resource = vaDirectXTools11::LoadTextureDDS( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), usedPath.c_str(), loadFlags, binds );
         else
-            m_resource = vaDirectXTools::LoadTextureWIC( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), usedPath.c_str(), loadFlags, binds );
+            m_resource = vaDirectXTools11::LoadTextureWIC( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), usedPath.c_str(), loadFlags, binds );
     }
 
     if( m_resource == NULL )
@@ -314,9 +271,9 @@ bool vaTextureDX11::Import( const wstring & storageFilePath, vaTextureLoadFlags 
         if( embeddedFile.HasContents( ) )
         {
             if( isDDS )
-                m_resource = vaDirectXTools::LoadTextureDDS( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), embeddedFile.MemStream->GetBuffer( ), embeddedFile.MemStream->GetLength( ), loadFlags, binds );
+                m_resource = vaDirectXTools11::LoadTextureDDS( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), embeddedFile.MemStream->GetBuffer( ), embeddedFile.MemStream->GetLength( ), loadFlags, binds );
             else
-                m_resource = vaDirectXTools::LoadTextureWIC( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), embeddedFile.MemStream->GetBuffer( ), embeddedFile.MemStream->GetLength( ), loadFlags, binds );
+                m_resource = vaDirectXTools11::LoadTextureWIC( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), embeddedFile.MemStream->GetBuffer( ), embeddedFile.MemStream->GetLength( ), loadFlags, binds );
         }
     }
 
@@ -360,7 +317,7 @@ void vaTextureDX11::InternalUpdateFromRenderingCounterpart( bool notAllBindViews
         {
             assert( false ); // never debugged - just go through it and make sure it's true
 
-            dx11Texture->m_buffer = vaDirectXTools::QueryResourceInterface<ID3D11Buffer>( dx11Texture->GetResource(), IID_ID3D11Buffer );        
+            dx11Texture->m_buffer = vaDirectXTools11::QueryResourceInterface<ID3D11Buffer>( dx11Texture->GetResource(), IID_ID3D11Buffer );        
             assert( dx11Texture->m_buffer != NULL );
             if( dx11Texture->m_buffer == NULL )
             {
@@ -383,7 +340,7 @@ void vaTextureDX11::InternalUpdateFromRenderingCounterpart( bool notAllBindViews
         }  break;
         case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
         {
-            dx11Texture->m_texture1D = vaDirectXTools::QueryResourceInterface<ID3D11Texture1D>( dx11Texture->GetResource( ), IID_ID3D11Texture1D );
+            dx11Texture->m_texture1D = vaDirectXTools11::QueryResourceInterface<ID3D11Texture1D>( dx11Texture->GetResource( ), IID_ID3D11Texture1D );
             assert( dx11Texture->m_texture1D != NULL );
             if( dx11Texture->m_texture1D == NULL )
             {
@@ -394,17 +351,14 @@ void vaTextureDX11::InternalUpdateFromRenderingCounterpart( bool notAllBindViews
             D3D11_TEXTURE1D_DESC desc;
             dx11Texture->m_texture1D->GetDesc( &desc );
 
+            m_type              = vaTextureType::Texture1D;
             m_sizeX             = desc.Width;
             m_mipLevels         = desc.MipLevels;
             m_sizeY             = desc.ArraySize;
             m_sizeZ             = 1;
-            if( desc.ArraySize > 1 )
-                m_type = vaTextureType::Texture1DArray;
-            else
-                m_type = vaTextureType::Texture1D;
             if( m_resourceFormat != vaResourceFormat::Automatic )
-            { assert( m_resourceFormat == (vaResourceFormat)desc.Format ); }
-            m_resourceFormat = (vaResourceFormat)desc.Format;
+            { assert( m_resourceFormat == VAFormatFromDXGI(desc.Format) ); }
+            m_resourceFormat = VAFormatFromDXGI(desc.Format);
             m_sampleCount       = 1;
 
             Usage               = desc.Usage;
@@ -450,7 +404,7 @@ void vaTextureDX11::InternalUpdateFromRenderingCounterpart( bool notAllBindViews
         }  break;
         case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
         {
-            dx11Texture->m_texture2D = vaDirectXTools::QueryResourceInterface<ID3D11Texture2D>( dx11Texture->GetResource( ), IID_ID3D11Texture2D );
+            dx11Texture->m_texture2D = vaDirectXTools11::QueryResourceInterface<ID3D11Texture2D>( dx11Texture->GetResource( ), IID_ID3D11Texture2D );
             assert( dx11Texture->m_texture2D != NULL );
             if( dx11Texture->m_texture2D == NULL )
             {
@@ -461,30 +415,16 @@ void vaTextureDX11::InternalUpdateFromRenderingCounterpart( bool notAllBindViews
             D3D11_TEXTURE2D_DESC desc;
             dx11Texture->m_texture2D->GetDesc( &desc );
 
+            m_type              = vaTextureType::Texture2D;
             m_sizeX             = desc.Width;
             m_sizeY             = desc.Height;
             m_mipLevels         = desc.MipLevels;
             m_sizeZ             = desc.ArraySize;
             if( m_resourceFormat != vaResourceFormat::Automatic )
-            { assert( m_resourceFormat == (vaResourceFormat)desc.Format ); }
-            m_resourceFormat = (vaResourceFormat)desc.Format;
+            { assert( m_resourceFormat == VAFormatFromDXGI(desc.Format) ); }
+            m_resourceFormat = VAFormatFromDXGI(desc.Format);
             m_sampleCount       = desc.SampleDesc.Count;
             //                  = desc.SampleDesc.Quality;
-
-            if( desc.ArraySize > 1 )
-            {
-                if( desc.SampleDesc.Count > 1 )
-                    m_type = vaTextureType::Texture2DMSArray;
-                else
-                    m_type = vaTextureType::Texture2DArray;
-            }
-            else
-            {
-                if( desc.SampleDesc.Count > 1 )
-                    m_type = vaTextureType::Texture2DMS;
-                else
-                    m_type = vaTextureType::Texture2D;
-            }
 
             Usage               = desc.Usage;
             BindFlags           = desc.BindFlags;
@@ -528,7 +468,7 @@ void vaTextureDX11::InternalUpdateFromRenderingCounterpart( bool notAllBindViews
         }  break;
         case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
         {
-            dx11Texture->m_texture3D = vaDirectXTools::QueryResourceInterface<ID3D11Texture3D>( dx11Texture->GetResource( ), IID_ID3D11Texture3D );
+            dx11Texture->m_texture3D = vaDirectXTools11::QueryResourceInterface<ID3D11Texture3D>( dx11Texture->GetResource( ), IID_ID3D11Texture3D );
             assert( dx11Texture->m_texture3D != NULL );
             if( dx11Texture->m_texture3D == NULL )
             {
@@ -539,15 +479,15 @@ void vaTextureDX11::InternalUpdateFromRenderingCounterpart( bool notAllBindViews
             D3D11_TEXTURE3D_DESC desc;
             dx11Texture->m_texture3D->GetDesc( &desc );
 
+            m_type              = vaTextureType::Texture3D;
             m_sizeX             = desc.Width;
             m_sizeY             = desc.Height;
             m_sizeZ             = desc.Depth;
             m_mipLevels         = desc.MipLevels;
             if( m_resourceFormat != vaResourceFormat::Automatic )
-            { assert( m_resourceFormat == (vaResourceFormat)desc.Format ); }
-            m_resourceFormat = (vaResourceFormat)desc.Format;
+            { assert( m_resourceFormat == VAFormatFromDXGI(desc.Format) ); }
+            m_resourceFormat = VAFormatFromDXGI(desc.Format);
             m_sampleCount       = 1;
-            m_type              = vaTextureType::Texture3D;
 
             Usage               = desc.Usage;
             BindFlags           = desc.BindFlags;
@@ -596,11 +536,22 @@ void vaTextureDX11::InternalUpdateFromRenderingCounterpart( bool notAllBindViews
     if( (MiscFlags & D3D11_RESOURCE_MISC_TEXTURECUBE) != 0 )
         m_flags |= vaTextureFlags::Cubemap;
 
-    m_accessFlags = vaTextureAccessFlags::None;
-    if( (CPUAccessFlags & D3D11_CPU_ACCESS_WRITE ) != 0 )
-        m_accessFlags = m_accessFlags | vaTextureAccessFlags::CPUWrite;
-    if( ( CPUAccessFlags & D3D11_CPU_ACCESS_READ ) != 0 )
-        m_accessFlags = m_accessFlags | vaTextureAccessFlags::CPURead;
+    if( !dontResetFlags )
+    {   m_accessFlags = vaResourceAccessFlags::Default;
+        if( (CPUAccessFlags & D3D11_CPU_ACCESS_WRITE ) != 0 )
+            m_accessFlags = m_accessFlags | vaResourceAccessFlags::CPUWrite;
+        if( ( CPUAccessFlags & D3D11_CPU_ACCESS_READ ) != 0 )
+            m_accessFlags = m_accessFlags | vaResourceAccessFlags::CPURead;
+    }
+    else
+    {
+        if( (CPUAccessFlags & D3D11_CPU_ACCESS_WRITE ) != 0 )
+            { assert( ( m_accessFlags & vaResourceAccessFlags::CPUWrite) != 0 ); }
+        if( ( CPUAccessFlags & D3D11_CPU_ACCESS_READ ) != 0 )
+            { assert( (m_accessFlags & vaResourceAccessFlags::CPURead) != 0 ); }
+        if( ( (m_accessFlags & vaResourceAccessFlags::CPUReadManuallySynced) != 0 ) )
+            { assert( (m_accessFlags & vaResourceAccessFlags::CPURead) != 0 ); }
+    }
 
     // make sure bind flags were set up correctly
     if( !notAllBindViewsNeeded )
@@ -666,11 +617,11 @@ void vaTextureDX11::ProcessResource( bool notAllBindViewsNeeded, bool dontResetF
         
         if( ((m_flags & vaTextureFlags::Cubemap) != 0) && ((m_flags & vaTextureFlags::CubemapButArraySRV) == 0) )
         {
-            m_srv = vaDirectXTools::CreateShaderResourceViewCubemap( m_resource, DXGIFormatFromVA(GetSRVFormat( )), m_viewedMipSlice, m_viewedMipSliceCount, m_viewedArraySlice, m_viewedArraySliceCount );
+            m_srv = vaDirectXTools11::CreateShaderResourceViewCubemap( m_resource, DXGIFormatFromVA(GetSRVFormat( )), m_viewedMipSlice, m_viewedMipSliceCount, m_viewedArraySlice, m_viewedArraySliceCount );
         }
         else
         {
-            m_srv = vaDirectXTools::CreateShaderResourceView( m_resource, DXGIFormatFromVA(GetSRVFormat()), m_viewedMipSlice, m_viewedMipSliceCount, m_viewedArraySlice, m_viewedArraySliceCount );
+            m_srv = vaDirectXTools11::CreateShaderResourceView( m_resource, DXGIFormatFromVA(GetSRVFormat()), m_viewedMipSlice, m_viewedMipSliceCount, m_viewedArraySlice, m_viewedArraySliceCount );
         }
     }
 
@@ -681,7 +632,7 @@ void vaTextureDX11::ProcessResource( bool notAllBindViewsNeeded, bool dontResetF
         {
             m_rtvFormat = m_resourceFormat;
         }
-        m_rtv = vaDirectXTools::CreateRenderTargetView( m_resource, DXGIFormatFromVA(GetRTVFormat()), m_viewedMipSlice, m_viewedArraySlice, m_viewedArraySliceCount );
+        m_rtv = vaDirectXTools11::CreateRenderTargetView( m_resource, DXGIFormatFromVA(GetRTVFormat()), m_viewedMipSlice, m_viewedArraySlice, m_viewedArraySliceCount );
     }
 
     if( ( ( GetBindSupportFlags( ) & vaResourceBindSupportFlags::DepthStencil ) != 0 ) && (GetDSVFormat() != vaResourceFormat::Unknown) )
@@ -691,7 +642,7 @@ void vaTextureDX11::ProcessResource( bool notAllBindViewsNeeded, bool dontResetF
         {
             m_dsvFormat = m_resourceFormat;
         }
-        m_dsv = vaDirectXTools::CreateDepthStencilView( m_resource, DXGIFormatFromVA(GetDSVFormat()), m_viewedMipSlice, m_viewedArraySlice, m_viewedArraySliceCount );
+        m_dsv = vaDirectXTools11::CreateDepthStencilView( m_resource, DXGIFormatFromVA(GetDSVFormat()), m_viewedMipSlice, m_viewedArraySlice, m_viewedArraySliceCount );
     }
 
     if( ( ( GetBindSupportFlags( ) & vaResourceBindSupportFlags::UnorderedAccess ) != 0 ) && (GetUAVFormat() != vaResourceFormat::Unknown) )
@@ -701,7 +652,7 @@ void vaTextureDX11::ProcessResource( bool notAllBindViewsNeeded, bool dontResetF
         {
             m_uavFormat = m_resourceFormat;
         }
-        m_uav = vaDirectXTools::CreateUnorderedAccessView( m_resource, DXGIFormatFromVA(GetUAVFormat()), m_viewedMipSlice, m_viewedArraySlice, m_viewedArraySliceCount );
+        m_uav = vaDirectXTools11::CreateUnorderedAccessView( m_resource, DXGIFormatFromVA(GetUAVFormat()), m_viewedMipSlice, m_viewedArraySlice, m_viewedArraySliceCount );
     }
 }
 
@@ -754,17 +705,35 @@ void vaTextureDX11::CopyFrom( vaRenderDeviceContext & context, const shared_ptr<
     }
 }
 
+void vaTextureDX11::CopyTo( vaRenderDeviceContext & context, const shared_ptr<vaTexture> & dstTexture )
+{
+    ID3D11DeviceContext * dx11Context = vaSaferStaticCast< vaRenderDeviceContextDX11 * >( &context )->GetDXContext( );
+
+    ID3D11Resource * srcResourceDX11 = SafeCast<vaTextureDX11*>( )->GetResource();
+    ID3D11Resource * dstResourceDX11 = dstTexture->SafeCast<vaTextureDX11*>( )->GetResource();
+
+    if( GetSampleCount( ) > 1 && dstTexture->GetSampleCount( ) == 1 )
+    {
+        //m_resolvedSrcRadiance->SafeCast<vaTextureDX11*>( )->GetResource(), 0, srcRadiance->SafeCast<vaTextureDX11*>( )->GetResource(), 0, (DXGI_FORMAT)srcRadiance->GetSRVFormat() );
+        dx11Context->ResolveSubresource( dstResourceDX11, 0, srcResourceDX11, 0, DXGIFormatFromVA(GetSRVFormat()) );
+    }
+    else
+    {
+        dx11Context->CopyResource( dstResourceDX11, srcResourceDX11 );
+    }
+}
+
 bool vaTextureDX11::SaveAPACK( vaStream & outStream )
 {
-    // assert( m_viewedOriginal == nullptr );
-    // if( m_viewedOriginal != nullptr )
-    //     return false;
+    assert( m_viewedOriginal == nullptr );  // don't save a vaTexture that is a view, that's wrong
+    if( m_viewedOriginal != nullptr )
+         return false;
 
     VERIFY_TRUE_RETURN_ON_FALSE( outStream.WriteValue<int32>( c_fileVersion ) );
 
     VERIFY_TRUE_RETURN_ON_FALSE( outStream.WriteValue<vaTextureFlags            > ( m_flags ) );
 
-    VERIFY_TRUE_RETURN_ON_FALSE( outStream.WriteValue<vaTextureAccessFlags      >( m_accessFlags      ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( outStream.WriteValue<vaResourceAccessFlags      >( m_accessFlags      ) );
     VERIFY_TRUE_RETURN_ON_FALSE( outStream.WriteValue<vaTextureType             >( m_type             ) );
     VERIFY_TRUE_RETURN_ON_FALSE( outStream.WriteValue<vaResourceBindSupportFlags >( m_bindSupportFlags ) );
     VERIFY_TRUE_RETURN_ON_FALSE( outStream.WriteValue<vaTextureContentsType     >( m_contentsType     ) );
@@ -782,7 +751,7 @@ bool vaTextureDX11::SaveAPACK( vaStream & outStream )
     int64 posOfSize = outStream.GetPosition( );
     VERIFY_TRUE_RETURN_ON_FALSE( outStream.WriteValue<int64>( 0 ) );
 
-    VERIFY_TRUE_RETURN_ON_FALSE( vaDirectXTools::SaveDDSTexture( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), outStream, m_resource ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( vaDirectXTools11::SaveDDSTexture( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), outStream, m_resource ) );
 
     int64 calculatedSize = outStream.GetPosition( ) - posOfSize;
     outStream.Seek( posOfSize );
@@ -805,7 +774,7 @@ bool vaTextureDX11::LoadAPACK( vaStream & inStream )
     }
 
     VERIFY_TRUE_RETURN_ON_FALSE( inStream.ReadValue<vaTextureFlags            >( m_flags ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( inStream.ReadValue<vaTextureAccessFlags      >( m_accessFlags ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( inStream.ReadValue<vaResourceAccessFlags      >( m_accessFlags ) );
     VERIFY_TRUE_RETURN_ON_FALSE( inStream.ReadValue<vaTextureType             >( m_type ) );
     VERIFY_TRUE_RETURN_ON_FALSE( inStream.ReadValue<vaResourceBindSupportFlags >( m_bindSupportFlags ) );
     VERIFY_TRUE_RETURN_ON_FALSE( inStream.ReadValue<vaTextureContentsType     >( m_contentsType ) );
@@ -837,7 +806,7 @@ bool vaTextureDX11::LoadAPACK( vaStream & inStream )
     if( stripRenderTargetFlag )
         m_bindSupportFlags &= ~vaResourceBindSupportFlags::RenderTarget;
 
-    m_resource = vaDirectXTools::LoadTextureDDS( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), buffer, textureDataSize, vaTextureLoadFlags::Default, m_bindSupportFlags );
+    m_resource = vaDirectXTools11::LoadTextureDDS( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), buffer, textureDataSize, vaTextureLoadFlags::Default, m_bindSupportFlags );
     delete[] buffer;
 
     if( m_resource == NULL )
@@ -856,25 +825,25 @@ bool vaTextureDX11::LoadAPACK( vaStream & inStream )
 bool vaTextureDX11::SerializeUnpacked( vaXMLSerializer & serializer, const wstring & assetFolder )
 {
     int32 fileVersion = c_fileVersion;
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "FileVersion", fileVersion ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "FileVersion", fileVersion ) );
 
     VERIFY_TRUE_RETURN_ON_FALSE( fileVersion == c_fileVersion );
 
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "flags",            (int32&)m_flags             ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "accessFlags",      (int32&)m_accessFlags       ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "type",             (int32&)m_type              ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "bindSupportFlags", (int32&)m_bindSupportFlags  ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "contentsType",     (int32&)m_contentsType      ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "resourceFormat",   (int32&)m_resourceFormat    ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "srvFormat",        (int32&)m_srvFormat         ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "rtvFormat",        (int32&)m_rtvFormat         ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "dsvFormat",        (int32&)m_dsvFormat         ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "uavFormat",        (int32&)m_uavFormat         ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "sizeX",            (int32&)m_sizeX             ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "sizeY",            (int32&)m_sizeY             ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "sizeZ",            (int32&)m_sizeZ             ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "sampleCount",      (int32&)m_sampleCount       ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "mipLevels",        (int32&)m_mipLevels         ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "flags",            (int32&)m_flags             ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "accessFlags",      (int32&)m_accessFlags       ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "type",             (int32&)m_type              ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "bindSupportFlags", (int32&)m_bindSupportFlags  ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "contentsType",     (int32&)m_contentsType      ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "resourceFormat",   (int32&)m_resourceFormat    ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "srvFormat",        (int32&)m_srvFormat         ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "rtvFormat",        (int32&)m_rtvFormat         ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "dsvFormat",        (int32&)m_dsvFormat         ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "uavFormat",        (int32&)m_uavFormat         ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "sizeX",            (int32&)m_sizeX             ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "sizeY",            (int32&)m_sizeY             ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "sizeZ",            (int32&)m_sizeZ             ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "sampleCount",      (int32&)m_sampleCount       ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "mipLevels",        (int32&)m_mipLevels         ) );
 
     vaFileStream textureFile;
 
@@ -885,7 +854,7 @@ bool vaTextureDX11::SerializeUnpacked( vaXMLSerializer & serializer, const wstri
             VA_LOG_ERROR( L"vaTextureDX11::SerializeUnpacked - Unable to open '%s'", (assetFolder + L"/Texture.dds").c_str() );
             return false;
         }
-        VERIFY_TRUE_RETURN_ON_FALSE( vaDirectXTools::SaveDDSTexture( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), textureFile, m_resource ) );
+        VERIFY_TRUE_RETURN_ON_FALSE( vaDirectXTools11::SaveDDSTexture( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), textureFile, m_resource ) );
         textureFile.Close();
     }
     else if( serializer.IsReading( ) )
@@ -901,7 +870,7 @@ bool vaTextureDX11::SerializeUnpacked( vaXMLSerializer & serializer, const wstri
         // 
         // if(  )
         // 
-        // VERIFY_TRUE_RETURN_ON_FALSE( vaDirectXTools::LoadTextureDDS( textureFile, m_resource ) );
+        // VERIFY_TRUE_RETURN_ON_FALSE( vaDirectXTools11::LoadTextureDDS( textureFile, m_resource ) );
         // textureFile.Close();
 
         // used for creating mip-maps; stripping it here but in theory should be stripped on save in case we really do want to use it as a RT at any point (not sure why we would though)
@@ -909,7 +878,7 @@ bool vaTextureDX11::SerializeUnpacked( vaXMLSerializer & serializer, const wstri
         if( stripRenderTargetFlag )
             m_bindSupportFlags &= ~vaResourceBindSupportFlags::RenderTarget;
 
-        m_resource = vaDirectXTools::LoadTextureDDS( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), (assetFolder + L"/Texture.dds").c_str(), vaTextureLoadFlags::Default, m_bindSupportFlags, false );
+        m_resource = vaDirectXTools11::LoadTextureDDS( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), (assetFolder + L"/Texture.dds").c_str(), vaTextureLoadFlags::Default, m_bindSupportFlags, false );
 
         if( m_resource == NULL )
         {
@@ -925,9 +894,16 @@ bool vaTextureDX11::SerializeUnpacked( vaXMLSerializer & serializer, const wstri
 }
 
 
-bool vaTextureDX11::TryMap( vaRenderDeviceContext & apiContext, vaResourceMapType mapType, bool doNotWait )
+bool vaTextureDX11::TryMap( vaRenderDeviceContext & renderContext, vaResourceMapType mapType, bool doNotWait )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    assert( vaThreading::IsMainThread() );
+    if( GetRenderDevice( ).GetMainContext( ) != &renderContext )
+    {
+        assert( false ); // must be main context
+        return false;
+    }
+
+    ID3D11DeviceContext * dx11Context = GetRenderDevice().GetMainContext()->SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     assert( !m_isMapped );
     if( m_isMapped )
@@ -980,9 +956,16 @@ bool vaTextureDX11::TryMap( vaRenderDeviceContext & apiContext, vaResourceMapTyp
     return true;
 }
 
-void vaTextureDX11::Unmap( vaRenderDeviceContext & apiContext )
+void vaTextureDX11::Unmap( vaRenderDeviceContext & renderContext )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    assert( vaThreading::IsMainThread() );
+    if( GetRenderDevice( ).GetMainContext( ) != &renderContext )
+    {
+        assert( false ); // must be main context
+        return;
+    }
+
+    ID3D11DeviceContext * dx11Context = GetRenderDevice().GetMainContext()->SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     assert( m_isMapped );
     if( !m_isMapped )
@@ -1002,9 +985,9 @@ void vaTextureDX11::Unmap( vaRenderDeviceContext & apiContext )
     m_isMapped = false;
 }
 
-void vaTextureDX11::ResolveSubresource( vaRenderDeviceContext & apiContext, const shared_ptr<vaTexture> & dstResource, uint dstSubresource, uint srcSubresource, vaResourceFormat format )
+void vaTextureDX11::ResolveSubresource( vaRenderDeviceContext & renderContext, const shared_ptr<vaTexture> & dstResource, uint dstSubresource, uint srcSubresource, vaResourceFormat format )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext( );
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext( );
 
     if( format == vaResourceFormat::Automatic )
         format = GetResourceFormat();
@@ -1012,161 +995,57 @@ void vaTextureDX11::ResolveSubresource( vaRenderDeviceContext & apiContext, cons
     dx11Context->ResolveSubresource( dstResource->SafeCast<vaTextureDX11*>( )->GetResource(), dstSubresource, GetResource(), srcSubresource, DXGIFormatFromVA( format ) );
 }
 
-void vaTextureDX11::SetToAPISlotSRV( vaRenderDeviceContext & apiContext, int slot, bool assertOnOverwrite )
+void vaTextureDX11::SetToAPISlotSRV( vaRenderDeviceContext & renderContext, int slot, bool assertOnOverwrite )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     if( assertOnOverwrite )
     {
-        vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, slot );
+        vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, slot );
     }
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )GetSRV(), slot );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )GetSRV(), slot );
 }
 
-void vaTextureDX11::UnsetFromAPISlotSRV( vaRenderDeviceContext & apiContext, int slot, bool assertOnNotSet )
+void vaTextureDX11::UnsetFromAPISlotSRV( vaRenderDeviceContext & renderContext, int slot, bool assertOnNotSet )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     if( assertOnNotSet )
     {
-        vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )GetSRV(), slot );
+        vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )GetSRV(), slot );
     }
-   vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, slot );
+   vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, ( ID3D11ShaderResourceView* )nullptr, slot );
 }
 
-void vaTextureDX11::SetToAPISlotUAV_CS( vaRenderDeviceContext & apiContext, int slot, uint32 initialCount, bool assertOnOverwrite )
+void vaTextureDX11::SetToAPISlotUAV_CS( vaRenderDeviceContext & renderContext, int slot, uint32 initialCount, bool assertOnOverwrite )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     if( assertOnOverwrite )
     {
-        vaDirectXTools::AssertSetToD3DContextCS( dx11Context, ( ID3D11UnorderedAccessView* )nullptr, slot );
+        vaDirectXTools11::AssertSetToD3DContextCS( dx11Context, ( ID3D11UnorderedAccessView* )nullptr, slot );
     }
-    vaDirectXTools::SetToD3DContextCS( dx11Context, ( ID3D11UnorderedAccessView* )GetUAV(), slot, initialCount );
+    vaDirectXTools11::SetToD3DContextCS( dx11Context, ( ID3D11UnorderedAccessView* )GetUAV(), slot, initialCount );
 }
 
-void vaTextureDX11::UnsetFromAPISlotUAV_CS( vaRenderDeviceContext & apiContext, int slot, bool assertOnNotSet )
+void vaTextureDX11::UnsetFromAPISlotUAV_CS( vaRenderDeviceContext & renderContext, int slot, bool assertOnNotSet )
 {
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+    ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
 
     if( assertOnNotSet )
     {
-        vaDirectXTools::AssertSetToD3DContextCS( dx11Context, ( ID3D11UnorderedAccessView* )GetUAV(), slot );
+        vaDirectXTools11::AssertSetToD3DContextCS( dx11Context, ( ID3D11UnorderedAccessView* )GetUAV(), slot );
     }
-    vaDirectXTools::SetToD3DContextCS( dx11Context, ( ID3D11UnorderedAccessView* )nullptr, slot, (uint32)-1 );
+    vaDirectXTools11::SetToD3DContextCS( dx11Context, ( ID3D11UnorderedAccessView* )nullptr, slot, (uint32)-1 );
 }
 
-void vaTextureDX11::UpdateSubresource( vaRenderDeviceContext & apiContext, int dstSubresourceIndex, const vaBoxi & dstBox, void * srcData, int srcDataRowPitch, int srcDataDepthPitch )
-{
-    ID3D11DeviceContext * dx11Context = apiContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext( );
-
-    D3D11_BOX d3d11box = { (UINT)dstBox.left, (UINT)dstBox.top, (UINT)dstBox.front, (UINT)dstBox.right, (UINT)dstBox.bottom, (UINT)dstBox.back };
-    dx11Context->UpdateSubresource( m_resource, (UINT)dstSubresourceIndex, &d3d11box, srcData, srcDataRowPitch, srcDataDepthPitch );
-}
-
-static vaResourceFormat ConvertBCFormatToUncompressedCounterpart( vaResourceFormat format )
-{
-    switch( format )
-    {
-    case( vaResourceFormat::BC4_UNORM ):
-        format = vaResourceFormat::R8_UNORM; break;
-    case( vaResourceFormat::BC5_UNORM ):
-        format = vaResourceFormat::R8G8_UNORM; break;
-    case( vaResourceFormat::BC6H_UF16 ):
-        format = vaResourceFormat::R16G16B16A16_FLOAT; break;
-    case( vaResourceFormat::BC1_UNORM_SRGB ):
-    case( vaResourceFormat::BC7_UNORM_SRGB ):
-        format = vaResourceFormat::R8G8B8A8_UNORM_SRGB; break;
-    default: break;
-    }
-    return format;
-}
-
-shared_ptr<vaTexture> vaTextureDX11::CreateLowerResFromMIPs( vaRenderDeviceContext & apiContext, int numberOfMIPsToDrop, bool neverGoBelow4x4 )
-{
-    if( numberOfMIPsToDrop <= 0 || numberOfMIPsToDrop >= m_mipLevels )
-    {
-        assert( false );
-        VA_ERROR( "numberOfMIPsToDrop must be > 0 and less than the number of MIP levels (%d)", m_mipLevels );
-        return nullptr;
-    }
-
-
-    int newTexSizeX = m_sizeX;
-    int newTexSizeY = m_sizeY;
-    int newTexSizeZ = m_sizeZ;
-
-    for( int i = 0; i < numberOfMIPsToDrop; i++ )
-    {
-        if( neverGoBelow4x4 )
-        {
-            if( newTexSizeX == 4 || newTexSizeY == 4 || newTexSizeZ == 4 )
-            {
-                numberOfMIPsToDrop = i;
-                VA_LOG( "vaTextureDX11::CreateLowerResFromMIPs - stopping before required numberOfMipsToDrop due to reaching min size of 4" );
-                break;
-            }
-        }
-
-        // mipmap generation seems to compute mip dimensions by round down (dim >> 1) which means loss of data, so that's why we assert
-        assert( ( newTexSizeX % 2 ) == 0 );
-        if( m_type == vaTextureType::Texture2D || m_type == vaTextureType::Texture3D )
-            assert( ( newTexSizeY % 2 ) == 0 );
-        if( m_type == vaTextureType::Texture3D )
-            assert( ( newTexSizeZ % 2 ) == 0 );
-        newTexSizeX = ( newTexSizeX ) / 2;
-        newTexSizeY = ( newTexSizeY ) / 2;
-        newTexSizeZ = ( newTexSizeZ ) / 2;
-    }
-
-    if( m_type == vaTextureType::Texture2D )
-    {
-        assert( m_sampleCount == 1 );
-
-        vaResourceFormat newResFormat = m_resourceFormat;
-        vaResourceFormat srvFormat = vaResourceFormat::Automatic;
-        vaResourceFormat rtvFormat = vaResourceFormat::Automatic;
-        vaResourceFormat dsvFormat = vaResourceFormat::Automatic;
-        vaResourceFormat uavFormat = vaResourceFormat::Automatic;
-
-        if( ( m_bindSupportFlags & vaResourceBindSupportFlags::ShaderResource ) != 0 )
-            srvFormat = m_srvFormat;
-        if( ( m_bindSupportFlags & vaResourceBindSupportFlags::RenderTarget ) != 0 )
-            rtvFormat = m_rtvFormat;
-        if( ( m_bindSupportFlags & vaResourceBindSupportFlags::DepthStencil ) != 0 )
-            dsvFormat = m_dsvFormat;
-        if( ( m_bindSupportFlags & vaResourceBindSupportFlags::UnorderedAccess ) != 0 )
-            uavFormat = m_uavFormat;
-
-        // Handle compressed textures by uncompressing them - not all done, needs more work
-        newResFormat = ConvertBCFormatToUncompressedCounterpart( newResFormat );
-        srvFormat = ConvertBCFormatToUncompressedCounterpart( srvFormat );
-        uavFormat = ConvertBCFormatToUncompressedCounterpart( uavFormat );
-        rtvFormat = ConvertBCFormatToUncompressedCounterpart( rtvFormat );
-
-        // add RT so we can render into it as a way of setting mips...
-        m_bindSupportFlags |= vaResourceBindSupportFlags::RenderTarget;
-
-        shared_ptr<vaTexture> newTex = Create2D( GetRenderDevice(), newResFormat, newTexSizeX, newTexSizeY, m_mipLevels-numberOfMIPsToDrop, m_sizeZ, 1, m_bindSupportFlags, m_accessFlags, 
-                                        srvFormat, rtvFormat, dsvFormat, uavFormat, m_flags, m_contentsType );
-
-        if( newTex != nullptr )
-        {
-            for( int i = 0; i < m_mipLevels - numberOfMIPsToDrop; i++ )
-            {
-                shared_ptr<vaTexture> mipRTV = vaTexture::CreateView( *newTex, vaResourceBindSupportFlags::RenderTarget, vaResourceFormat::Unknown, rtvFormat, vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaTextureFlags::None, i, 1 );
-                shared_ptr<vaTexture> mipSRV = vaTexture::CreateView( *this, vaResourceBindSupportFlags::ShaderResource, vaResourceFormat::Automatic, vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaResourceFormat::Unknown, vaTextureFlags::None, i + numberOfMIPsToDrop, 1 );
-
-                apiContext.CopySRVToRTV( mipRTV, mipSRV );
-            }
-            return newTex;
-        }
-    }
-
-    assert( false );
-    VA_ERROR( "Path not yet (fully) implemented, or a bug was encountered" );
-    return nullptr;
-}
+// void vaTextureDX11::UpdateSubresource( vaRenderDeviceContext & renderContext, int dstSubresourceIndex, const vaBoxi & dstBox, void * srcData, int srcDataRowPitch, int srcDataDepthPitch )
+// {
+//     ID3D11DeviceContext * dx11Context = renderContext.SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext( );
+// 
+//     D3D11_BOX d3d11box = { (UINT)dstBox.left, (UINT)dstBox.top, (UINT)dstBox.front, (UINT)dstBox.right, (UINT)dstBox.bottom, (UINT)dstBox.back };
+//     dx11Context->UpdateSubresource( m_resource, (UINT)dstSubresourceIndex, &d3d11box, srcData, srcDataRowPitch, srcDataDepthPitch );
+// }
 
 shared_ptr<vaTexture> vaTextureDX11::TryCompress( )
 {
@@ -1253,7 +1132,7 @@ shared_ptr<vaTexture> vaTextureDX11::TryCompress( )
     HRESULT hr;
     {
         vaMemoryStream memoryStream( (int64)0, 1024 * 1024 );
-        vaDirectXTools::SaveDDSTexture( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), memoryStream, m_resource );
+        vaDirectXTools11::SaveDDSTexture( GetRenderDevice().SafeCast<vaRenderDeviceDX11*>( )->GetPlatformDevice(), memoryStream, m_resource );
         hr = DirectX::LoadFromDDSMemory( memoryStream.GetBuffer(), memoryStream.GetLength(), DirectX::DDS_FLAGS_NONE, &info, scratchImage );
         assert( SUCCEEDED( hr ) );
         if( !SUCCEEDED( hr ) )
@@ -1280,12 +1159,12 @@ shared_ptr<vaTexture> vaTextureDX11::TryCompress( )
         return nullptr;
     }
 
-    return vaTexture::CreateFromImageData( GetRenderDevice(), blob.GetBufferPointer(), blob.GetBufferSize(), vaTextureLoadFlags::Default, GetBindSupportFlags(), destinationContentsType );
+    return vaTexture::CreateFromImageBuffer( GetRenderDevice(), blob.GetBufferPointer(), blob.GetBufferSize(), vaTextureLoadFlags::Default, GetBindSupportFlags(), destinationContentsType );
 }
 
-bool vaTextureDX11::InternalCreate1D( vaResourceFormat format, int width, int mipLevels, int arraySize, vaResourceBindSupportFlags bindFlags, vaTextureAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData )
+bool vaTextureDX11::InternalCreate1D( vaResourceFormat format, int width, int mipLevels, int arraySize, vaResourceBindSupportFlags bindFlags, vaResourceAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData )
 {
-    Initialize( bindFlags, format, srvFormat, rtvFormat, dsvFormat, uavFormat, flags, 0, -1, 0, -1, contentsType );
+    Initialize( bindFlags, accessFlags, format, srvFormat, rtvFormat, dsvFormat, uavFormat, flags, 0, -1, 0, -1, contentsType );
 
     D3D11_SUBRESOURCE_DATA dxInitDataObj;
     D3D11_SUBRESOURCE_DATA * dxInitDataPtr = NULL;
@@ -1297,7 +1176,7 @@ bool vaTextureDX11::InternalCreate1D( vaResourceFormat format, int width, int mi
         dxInitDataPtr = &dxInitDataObj;
     }
 
-    if( (accessFlags & vaTextureAccessFlags::CPURead) != 0 )
+    if( (accessFlags & vaResourceAccessFlags::CPURead) != 0 )
     {
         // Cannot have any shader binds if texture has CPU read access flag
         assert( bindFlags == vaResourceBindSupportFlags::None );
@@ -1307,8 +1186,8 @@ bool vaTextureDX11::InternalCreate1D( vaResourceFormat format, int width, int mi
 
     // do we need an option to make this any other usage? staging will be needed likely
     D3D11_USAGE dx11Usage = DX11UsageFromVAAccessFlags( accessFlags );
-    UINT dx11BindFlags = BindFlagsDXFromVA( bindFlags );
-    UINT dx11MiscFlags = TexFlagsDXFromVA( flags );
+    UINT dx11BindFlags = BindFlagsDX11FromVA( bindFlags );
+    UINT dx11MiscFlags = TexFlags11DXFromVA( flags );
     if( ( dx11Usage == D3D11_USAGE_DYNAMIC ) && ( bindFlags == 0 ) )
     {
         assert( false ); // codepath not tested
@@ -1320,7 +1199,7 @@ bool vaTextureDX11::InternalCreate1D( vaResourceFormat format, int width, int mi
     HRESULT hr = GetRenderDevice().SafeCast<vaRenderDeviceDX11*>()->GetPlatformDevice()->CreateTexture1D( &desc, dxInitDataPtr, &resource );
     assert( SUCCEEDED(hr) );
 
-    //ID3D11Resource * resource = vaDirectXTools::CreateTexture1D( DXGIFormatFromVA(format), width, dxInitDataPtr, arraySize, mipLevels, dx11BindFlags, dx11Usage, CPUAccessFlagsDXFromVA( accessFlags ), dx11MiscFlags );
+    //ID3D11Resource * resource = vaDirectXTools11::CreateTexture1D( DXGIFormatFromVA(format), width, dxInitDataPtr, arraySize, mipLevels, dx11BindFlags, dx11Usage, CPUAccessFlagsDXFromVA( accessFlags ), dx11MiscFlags );
 
     if( SUCCEEDED(hr) && resource != NULL )
     {
@@ -1335,24 +1214,24 @@ bool vaTextureDX11::InternalCreate1D( vaResourceFormat format, int width, int mi
     }
 }
 
-bool vaTextureDX11::InternalCreate2D( vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags bindFlags, vaTextureAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData, int initialDataPitch )
+bool vaTextureDX11::InternalCreate2D( vaResourceFormat format, int width, int height, int mipLevels, int arraySize, int sampleCount, vaResourceBindSupportFlags bindFlags, vaResourceAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData, int initialDataRowPitch )
 {
-    Initialize( bindFlags, format, srvFormat, rtvFormat, dsvFormat, uavFormat, flags, 0, -1, 0, -1, contentsType );
+    Initialize( bindFlags, accessFlags, format, srvFormat, rtvFormat, dsvFormat, uavFormat, flags, 0, -1, 0, -1, contentsType );
 
     D3D11_SUBRESOURCE_DATA dxInitDataObj;
     D3D11_SUBRESOURCE_DATA * dxInitDataPtr = NULL;
     if( initialData != NULL )
     {
         dxInitDataObj.pSysMem           = initialData;
-        dxInitDataObj.SysMemPitch       = initialDataPitch;
+        dxInitDataObj.SysMemPitch       = initialDataRowPitch;
         dxInitDataObj.SysMemSlicePitch  = 0;
         dxInitDataPtr = &dxInitDataObj;
     }
 
     // do we need an option to make this any other usage? staging will be needed likely
     D3D11_USAGE dx11Usage = DX11UsageFromVAAccessFlags( accessFlags );
-    UINT dx11BindFlags = BindFlagsDXFromVA( bindFlags );
-    UINT dx11MiscFlags = TexFlagsDXFromVA( flags );
+    UINT dx11BindFlags = BindFlagsDX11FromVA( bindFlags );
+    UINT dx11MiscFlags = TexFlags11DXFromVA( flags );
     if( ( dx11Usage == D3D11_USAGE_DYNAMIC ) && ( bindFlags == 0 ) )
     {
         dx11Usage = D3D11_USAGE_STAGING; // is this intended? I think it is
@@ -1365,7 +1244,7 @@ bool vaTextureDX11::InternalCreate2D( vaResourceFormat format, int width, int he
     HRESULT hr = GetRenderDevice().SafeCast<vaRenderDeviceDX11*>()->GetPlatformDevice()->CreateTexture2D( &desc, dxInitDataPtr, &resource );
     assert( SUCCEEDED(hr) );
 
-    //ID3D11Resource * resource = vaDirectXTools::CreateTexture2D( DXGIFormatFromVA(format), width, height, dxInitDataPtr, arraySize, mipLevels, dx11BindFlags, dx11Usage, CPUAccessFlagsDXFromVA(accessFlags), sampleCount, sampleQuality, dx11MiscFlags );
+    //ID3D11Resource * resource = vaDirectXTools11::CreateTexture2D( DXGIFormatFromVA(format), width, height, dxInitDataPtr, arraySize, mipLevels, dx11BindFlags, dx11Usage, CPUAccessFlagsDXFromVA(accessFlags), sampleCount, sampleQuality, dx11MiscFlags );
     
     if( SUCCEEDED(hr) && resource != NULL )
     {
@@ -1380,24 +1259,24 @@ bool vaTextureDX11::InternalCreate2D( vaResourceFormat format, int width, int he
     }
 }
 
-bool vaTextureDX11::InternalCreate3D( vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags bindFlags, vaTextureAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData, int initialDataPitch, int initialDataSlicePitch )
+bool vaTextureDX11::InternalCreate3D( vaResourceFormat format, int width, int height, int depth, int mipLevels, vaResourceBindSupportFlags bindFlags, vaResourceAccessFlags accessFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, vaTextureContentsType contentsType, void * initialData, int initialDataRowPitch, int initialDataSlicePitch )
 {
-    Initialize( bindFlags, format, srvFormat, rtvFormat, dsvFormat, uavFormat, flags, 0, -1, 0, -1, contentsType );
+    Initialize( bindFlags, accessFlags, format, srvFormat, rtvFormat, dsvFormat, uavFormat, flags, 0, -1, 0, -1, contentsType );
 
     D3D11_SUBRESOURCE_DATA dxInitDataObj;
     D3D11_SUBRESOURCE_DATA * dxInitDataPtr = NULL;
     if( initialData != NULL )
     {
         dxInitDataObj.pSysMem = initialData;
-        dxInitDataObj.SysMemPitch = initialDataPitch;
+        dxInitDataObj.SysMemPitch = initialDataRowPitch;
         dxInitDataObj.SysMemSlicePitch = initialDataSlicePitch;
         dxInitDataPtr = &dxInitDataObj;
     }
 
     // do we need an option to make this any other usage? staging will be needed likely
     D3D11_USAGE dx11Usage = DX11UsageFromVAAccessFlags( accessFlags );
-    UINT dx11BindFlags = BindFlagsDXFromVA( bindFlags );
-    UINT dx11MiscFlags = TexFlagsDXFromVA( flags );
+    UINT dx11BindFlags = BindFlagsDX11FromVA( bindFlags );
+    UINT dx11MiscFlags = TexFlags11DXFromVA( flags );
     if( ( dx11Usage == D3D11_USAGE_DYNAMIC ) && ( bindFlags == 0 ) )
     {
         assert( false ); // codepath not tested
@@ -1409,7 +1288,7 @@ bool vaTextureDX11::InternalCreate3D( vaResourceFormat format, int width, int he
     HRESULT hr = GetRenderDevice().SafeCast<vaRenderDeviceDX11*>()->GetPlatformDevice()->CreateTexture3D( &desc, dxInitDataPtr, &resource );
     assert( SUCCEEDED(hr) );
 
-    // ID3D11Resource * resource = vaDirectXTools::CreateTexture3D( DXGIFormatFromVA(format), width, height, depth, dxInitDataPtr, mipLevels, dx11BindFlags, dx11Usage, CPUAccessFlagsDXFromVA( accessFlags ), dx11MiscFlags );
+    // ID3D11Resource * resource = vaDirectXTools11::CreateTexture3D( DXGIFormatFromVA(format), width, height, depth, dxInitDataPtr, mipLevels, dx11BindFlags, dx11Usage, CPUAccessFlagsDXFromVA( accessFlags ), dx11MiscFlags );
 
     if( SUCCEEDED(hr) && resource != NULL )
     {
@@ -1424,8 +1303,9 @@ bool vaTextureDX11::InternalCreate3D( vaResourceFormat format, int width, int he
     }
 }
 
-shared_ptr<vaTexture> vaTextureDX11::CreateView( vaResourceBindSupportFlags bindFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, int viewedMipSliceMin, int viewedMipSliceCount, int viewedArraySliceMin, int viewedArraySliceCount )
+shared_ptr<vaTexture> vaTextureDX11::CreateViewInternal( const shared_ptr<vaTexture> & thisTexture, vaResourceBindSupportFlags bindFlags, vaResourceFormat srvFormat, vaResourceFormat rtvFormat, vaResourceFormat dsvFormat, vaResourceFormat uavFormat, vaTextureFlags flags, int viewedMipSliceMin, int viewedMipSliceCount, int viewedArraySliceMin, int viewedArraySliceCount )
 {
+    assert( thisTexture.get() == static_cast<vaTexture*>(this) );
     vaTextureDX11 * origDX11Texture = this->SafeCast<vaTextureDX11*>( );
 
     // -1 means all above min
@@ -1455,11 +1335,10 @@ shared_ptr<vaTexture> vaTextureDX11::CreateView( vaResourceBindSupportFlags bind
     origFlags; // unreferenced in Release
 
     shared_ptr<vaTexture> newTexture = VA_RENDERING_MODULE_CREATE_SHARED( vaTexture, vaTextureConstructorParams( GetRenderDevice(), vaCore::GUIDCreate( ) ) );
-    newTexture->Initialize( bindFlags, this->GetResourceFormat(), srvFormat, rtvFormat, dsvFormat, uavFormat, this->GetFlags(), viewedMipSliceMin, viewedMipSliceCount, viewedArraySliceMin, viewedArraySliceCount, this->GetContentsType() );
+    AsDX11( *newTexture ).Initialize( bindFlags, this->GetAccessFlags(), this->GetResourceFormat(), srvFormat, rtvFormat, dsvFormat, uavFormat, this->GetFlags(), viewedMipSliceMin, viewedMipSliceCount, viewedArraySliceMin, viewedArraySliceCount, this->GetContentsType() );
     
-    // it is debatable whether this is needed since DX resources have reference counting and will stay alive, but it might be useful for DX12 or other API implementations so I'll leave it in (actually, I removed it later :P)
-    // newTexture->m_viewedOriginal = texture;
-    newTexture->m_isView = true;
+    // track the original & keep it alive (not needed in DX since DX resources have reference counting and will stay alive, but it might be useful for other API implementations and/or debugging purposes)
+    AsDX11( *newTexture ).SetViewedOriginal( thisTexture );
 
     vaTextureDX11 * newDX11Texture = newTexture->SafeCast<vaTextureDX11*>( );
     resource->AddRef( );
@@ -1486,4 +1365,53 @@ shared_ptr<vaTexture> vaTextureDX11::CreateView( vaResourceBindSupportFlags bind
         { assert( uavFormat == vaResourceFormat::Unknown || uavFormat == vaResourceFormat::Automatic ); assert( newDX11Texture->m_uav == nullptr ); }
 
     return newTexture;
+}
+
+bool vaTextureDX11::SaveToDDSFile( vaRenderDeviceContext & renderContext, const wstring & path )
+{
+    vaRenderDeviceContextDX11 * apiContextDX11 = renderContext.SafeCast<vaRenderDeviceContextDX11*>( );
+    ID3D11DeviceContext * dx11Context = apiContextDX11->GetDXContext( );
+
+    if( !SUCCEEDED( DirectX::SaveDDSTextureToFile( dx11Context, this->SafeCast<vaTextureDX11*>( )->GetResource( ), path.c_str() ) ) )
+    {
+        VA_LOG_ERROR( L"vaPostProcessDX11::SaveTextureToDDSFile failed ('%s')!", path.c_str() );
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+bool vaTextureDX11::SaveToPNGFile( vaRenderDeviceContext & renderContext, const wstring & path )
+{
+    vaRenderDeviceContextDX11 * apiContextDX11 = renderContext.SafeCast<vaRenderDeviceContextDX11*>( );
+    ID3D11DeviceContext * dx11Context = apiContextDX11->GetDXContext( );
+
+    if( !SUCCEEDED( DirectX::SaveWICTextureToFile( dx11Context, this->SafeCast<vaTextureDX11*>( )->GetResource( ), GUID_ContainerFormatPng, path.c_str( ) ) ) )
+    {
+        VA_LOG_ERROR( L"vaPostProcessDX11::SaveTextureToPNGFile failed ('%s')!", path.c_str() );
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+void vaTextureDX11::UpdateSubresources( vaRenderDeviceContext & renderContext, uint32 firstSubresource, /*const*/ std::vector<vaTextureSubresourceData> & subresources )
+{
+    assert( vaThreading::IsMainThread() );
+    if( GetRenderDevice( ).GetMainContext( ) != &renderContext )
+    {
+        assert( false ); // must be main context
+        return;
+    }
+
+    ID3D11DeviceContext * dx11Context = GetRenderDevice().GetMainContext()->SafeCast<vaRenderDeviceContextDX11*>( )->GetDXContext();
+
+    for( int i = 0; i < (int)subresources.size( ); i++ )
+    {
+        dx11Context->UpdateSubresource( m_resource, firstSubresource+i, nullptr, subresources[i].pData, (UINT)subresources[i].RowPitch, (UINT)subresources[i].SlicePitch );
+    }
 }

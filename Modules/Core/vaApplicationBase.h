@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2016, Intel Corporation
+// Copyright (c) 2019, Intel Corporation
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
 // the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
@@ -23,10 +23,15 @@
 
 #include "Core/vaEvent.h"
 
+#include "Core/vaUI.h"
+
+#include "Rendering/vaRendering.h"
+
 namespace VertexAsylum
 {
     class vaRenderDevice;
     class vaXMLSerializer;
+    class vaApplicationBase;
 
     // just keeping events separate for clarity - no other reason
     class vaApplicationEvents
@@ -37,97 +42,48 @@ namespace VertexAsylum
         vaEvent<void(void)>                 Event_Stopped;
         vaEvent<void(void)>                 Event_MouseCaptureChanged;
 
-        //vaEvent<void( void )>               Event_BeforeWindowResized;              // width, height, fullscreen
-        vaEvent<void( int, int, bool )>     Event_WindowResized;                    // width, height, fullscreen
-
         vaEvent<void( float )>              Event_Tick;
 
         vaEvent<void( vaXMLSerializer & )>  Event_SerializeSettings;
 
     };
 
-    class vaApplicationBase : public vaApplicationEvents
+    class vaApplicationBase : public vaApplicationEvents, protected vaUIPanel
     {
     public:
         struct Settings
         {
-            wstring         AppName;
-            wstring         CmdLine;
+            wstring             AppName;
+            wstring             CmdLine;
 
-            int             StartScreenPosX;
-            int             StartScreenPosY;
-            int             StartScreenWidth;
-            int             StartScreenHeight;
-            bool            StartFullscreen;
+            int                 StartScreenPosX;
+            int                 StartScreenPosY;
+            int                 StartScreenWidth;
+            int                 StartScreenHeight;
+            vaFullscreenState   StartFullscreenState;
 
-            bool            AllowFullscreen;
+            bool                UpdateWindowTitleWithBasicFrameInfo;
 
-            bool            UpdateWindowTitleWithBasicFrameInfo;
+            bool                Vsync;
 
-            bool            Vsync;
+            int                 FramerateLimit;
 
-            bool            ApplicationInfoWindowOpenByDefault;
-
-            int             FramerateLimit;
-
-            Settings( )
+            Settings( const wstring & appName = L"Name me plz", const wstring & cmdLine = L"" ) : AppName(appName), CmdLine( cmdLine )
             {
-                AppName             = L"Name me plz";
-                CmdLine             = L"";
-
                 StartScreenPosX                     = -1;
                 StartScreenPosY                     = -1;
                 StartScreenWidth                    = 1920;
                 StartScreenHeight                   = 1080;
-                StartFullscreen                     = false;
-                AllowFullscreen                     = true;
-                UpdateWindowTitleWithBasicFrameInfo = false;
+                StartFullscreenState                = vaFullscreenState::Windowed;
+                UpdateWindowTitleWithBasicFrameInfo = true;
                 Vsync                               = false;
                 FramerateLimit                      = 0;
-                ApplicationInfoWindowOpenByDefault  = true;
-            }
-        };
-
-        enum class HelperUIFlags
-        {
-            None                    = 0,
-            ShowStatsGraph          = ( 1 << 1 ),
-            ShowResolutionOptions   = ( 1 << 2 ),
-            ShowGPUProfiling        = ( 1 << 3 ),
-            ShowCPUProfiling        = ( 1 << 4 ),
-            ShowAssetPackManager    = ( 1 << 5 ),
-            ShowConsoleWindow       = ( 1 << 6 ),
-       
-        };
-
-        struct HelperUISettings
-        {
-            HelperUIFlags           Flags;
-            bool                    GPUProfilerDefaultOpen;
-            bool                    CPUProfilerDefaultOpen;
-            bool                    ConsoleLogOpen;
-            int                     ConsoleVSrollPos;   // functionality not implemented yet
-
-            HelperUISettings( )
-            {
-                Flags = HelperUIFlags(
-                (int)HelperUIFlags::ShowStatsGraph           | 
-                (int)HelperUIFlags::ShowResolutionOptions    | 
-                (int)HelperUIFlags::ShowGPUProfiling         |
-                (int)HelperUIFlags::ShowCPUProfiling         |
-                (int)HelperUIFlags::ShowAssetPackManager           |
-                (int)HelperUIFlags::ShowConsoleWindow );
-                
-                GPUProfilerDefaultOpen  = false;
-                CPUProfilerDefaultOpen  = false;
-                ConsoleLogOpen          = false;
-                ConsoleVSrollPos     = 0;
             }
         };
 
     protected:
         const Settings                      m_settings;
-        HelperUISettings                    m_helperUISettings;
+        vector<pair<string, string>>        m_enumeratedAPIsAdapters;
 
         bool                                m_initialized;
 
@@ -137,6 +93,7 @@ namespace VertexAsylum
         //
         vaVector2i                          m_currentWindowClientSize;
         vaVector2i                          m_currentWindowPosition;
+        vaVector2i                          m_lastNonFullscreenWindowClientSize;
         //
         static const int                    c_framerateHistoryCount = 96;
         float                               m_frametimeHistory[c_framerateHistoryCount];
@@ -158,22 +115,29 @@ namespace VertexAsylum
         wstring                             m_basicFrameInfo;
 
         // used for delayed switch to fullscreen or window size change
-        bool                                m_toggleFullscreenNextFrame;
-        vaVector2i                          m_setWindowSizeNextFrame;
+        vaVector2i                          m_setWindowSizeNextFrame;                                       // only works if not fullscreen 
+        vaFullscreenState                   m_setFullscreenStateNextFrame   = vaFullscreenState::Unknown;   // next state
 
         bool                                m_vsync;
         
         int                                 m_framerateLimit;
 
+        vaFullscreenState                   m_currentFullscreenState        = vaFullscreenState::Unknown;   // this track current/last state and is valid after window is destroyed too (to enable serialization)
+
+        const float                         m_windowTitleInfoUpdateFrequency    = 0.1f;                     // at least every 100ms - should be enough
+        float                               m_windowTitleInfoTimeFromLastUpdate = 0;
+
     protected:
-        vaApplicationBase( Settings & settings, const std::shared_ptr<vaRenderDevice> & renderDevice, const wstring & cmdLine );
+        vaApplicationBase( const Settings & settings, const std::shared_ptr<vaRenderDevice> & renderDevice );
         virtual ~vaApplicationBase( );
 
-    public:
-        virtual void                        Initialize( )  ;
-        //
     protected:
         void                                UpdateFramerateStats( float deltaTime );
+        virtual void                        Initialize( );
+        //
+        void                                TickUI( );
+        //
+        virtual void                        UIPanelDraw( ) override;
         //
     public:
         // run the main loop!
@@ -183,6 +147,7 @@ namespace VertexAsylum
         //
     public:
         const vaSystemTimer &               GetMainTimer( ) const                   { return m_mainTimer; }
+        double                              GetTimeFromStart( ) const               { return m_mainTimer.GetTimeFromStart(); }
         //        //
         float                               GetAvgFramerate( ) const                { return m_avgFramerate; }
         float                               GetAvgFrametime( ) const                { return m_avgFrametime; }
@@ -192,10 +157,10 @@ namespace VertexAsylum
         virtual bool                        IsMouseCaptured( ) const;
         //
         const Settings &                    GetSettings( ) const                    { return m_settings; }
-        HelperUISettings &                  HelperUISettings( )                     { return m_helperUISettings; }
         //
-        virtual bool                        IsFullscreen( ) const                   = 0;
-        virtual void                        ToggleFullscreen( )                     = 0;
+        vaFullscreenState                   GetFullscreenState( ) const             { return ( m_setFullscreenStateNextFrame != vaFullscreenState::Unknown ) ? ( m_setFullscreenStateNextFrame ) : ( m_currentFullscreenState ); }
+        void                                SetFullscreenState( vaFullscreenState state ) { m_setFullscreenStateNextFrame = state; }
+        bool                                IsFullscreen( ) const                   { return GetFullscreenState() != vaFullscreenState::Windowed; }
 
         bool                                HasFocus( ) const                       { return m_hasFocus; }
         
@@ -203,9 +168,6 @@ namespace VertexAsylum
         void                                SetBlockInput( bool blockInput )        { m_blockInput = blockInput; }
 
         const vector<pair<wstring,wstring>> &      GetCommandLineParameters( ) const       { return m_cmdLineParams; }
-
-        // Use HelperUISettings for controlling the way it looks
-        void                                InsertImGuiWindow( );
 
         const wstring &                     GetBasicFrameInfoText( )                { return m_basicFrameInfo; }
 
@@ -217,13 +179,9 @@ namespace VertexAsylum
         int                                 GetFramerateLimit( ) const              { return m_framerateLimit; }
         void                                SetFramerateLimit( int fpsLimit )       { m_framerateLimit = fpsLimit; }
 
-        bool                                GetConsoleOpen( ) const                 { return m_helperUISettings.ConsoleLogOpen; }
-        void                                SetConsoleOpen( bool consoleOpen )      { m_helperUISettings.ConsoleLogOpen = consoleOpen; }
-
-    protected:
-        virtual vaVector2i                  GetWindowPosition( ) = 0;
+        virtual vaVector2i                  GetWindowPosition( ) const = 0;
         virtual void                        SetWindowPosition( const vaVector2i & position ) = 0;
-        virtual vaVector2i                  GetWindowClientAreaSize( ) = 0;
+        virtual vaVector2i                  GetWindowClientAreaSize( ) const = 0;
         virtual void                        SetWindowClientAreaSize( const vaVector2i & clientSize ) = 0;
 
         virtual void                        OnGotFocus( );
@@ -231,15 +189,19 @@ namespace VertexAsylum
 
         virtual void                        Tick( float deltaTime );
 
-        virtual void                        OnResized( int width, int height, bool windowed );
+        virtual wstring                     GetSettingsFileName()                   { return vaCore::GetExecutableDirectory( ) + L"ApplicationSettings.xml"; }
+        virtual void                        NamedSerializeSettings( vaXMLSerializer & serializer );
 
-        virtual void                        SerializeSettings( vaXMLSerializer & serializer );
-
+    public:
+        virtual void                        UIPanelStandaloneMenu( ) override;
 
     private:
         //
         bool                                UpdateUserWindowChanges( );
 
+    public:
+        static wstring                      GetDefaultGraphicsAPIAdapterInfoFileName()  { return vaCore::GetExecutableDirectory( ) + L"APIAdapter"; }
+        static void                         SaveDefaultGraphicsAPIAdapter( pair<string, string> apiAdapter );
+        static pair<string, string>         LoadDefaultGraphicsAPIAdapter( );
     };
-
 }

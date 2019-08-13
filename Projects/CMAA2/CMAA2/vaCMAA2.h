@@ -21,15 +21,17 @@
 #pragma once
 
 #include "Core/vaCoreIncludes.h"
+#include "Core/vaUI.h"
 
 #include "Rendering/vaRenderingIncludes.h"
 
-#define CMAA2_INCLUDED_FROM_CPP
+#ifndef __INTELLISENSE__
 #include "CMAA2.hlsl"
+#endif
 
 namespace VertexAsylum
 {
-    class vaCMAA2 : public VertexAsylum::vaRenderingModule, public vaImguiHierarchyObject
+    class vaCMAA2 : public VertexAsylum::vaRenderingModule, public vaUIPanel
     {
     public:
 
@@ -67,12 +69,9 @@ namespace VertexAsylum
 
         Settings &                  Settings( )                                                                     { return m_settings; }
 
-    protected:
-        virtual void                UpdateConstants( vaRenderDeviceContext & apiContext );
-
     private:
-        virtual string              IHO_GetInstanceName( ) const { return "CMAA 2"; }
-        virtual void                IHO_Draw( );
+        virtual void                UIPanelDraw( ) override;
+        virtual bool                UIPanelIsListed( ) const override          { return false; }
     };
 
 }

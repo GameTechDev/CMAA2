@@ -19,9 +19,11 @@
 
 #include "vaSMAAWrapper.h"
 
+#include "IntegratedExternals/vaImguiIntegration.h"
+
 using namespace VertexAsylum;
 
-vaSMAAWrapper::vaSMAAWrapper( const vaRenderingModuleParams & params ) : vaRenderingModule( params ), m_constantsBuffer( params )
+vaSMAAWrapper::vaSMAAWrapper( const vaRenderingModuleParams & params ) : vaRenderingModule( params ), vaUIPanel("SMAA", 0, false), m_constantsBuffer( params )
 { 
 //    assert( vaRenderingCore::IsInitialized() );
 
@@ -33,8 +35,9 @@ vaSMAAWrapper::~vaSMAAWrapper( )
 {
 }
 
-void vaSMAAWrapper::IHO_Draw( )
+void vaSMAAWrapper::UIPanelDraw( )
 {
+#ifdef VA_IMGUI_INTEGRATION_ENABLED
     ImGui::PushItemWidth( 120.0f );
 
 
@@ -43,9 +46,10 @@ void vaSMAAWrapper::IHO_Draw( )
     //ImGui::Checkbox( "Show edges", &m_debugShowEdges );
 
     ImGui::PopItemWidth();
+#endif
 }
 
-// void vaSMAAWrapper::UpdateConstants( vaRenderDeviceContext & apiContext )
+// void vaSMAAWrapper::UpdateConstants( vaRenderDeviceContext & renderContext )
 // {
 //     apiContext;
 // //    CMAA2ShaderConstants consts;

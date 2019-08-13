@@ -45,7 +45,7 @@ namespace VertexAsylum
 } // namespace VertexAsylum
 #endif
 
-#define POSTPROCESS_BLUR_CONSTANTS_BUFFERSLOT    1
+#define POSTPROCESS_BLUR_CONSTANTSBUFFERSLOT    1
 
 #define POSTPROCESS_BLUR_TEXTURE_SLOT0           0
 #define POSTPROCESS_BLUR_TEXTURE_SLOT1           1
@@ -53,7 +53,7 @@ namespace VertexAsylum
 
 #ifdef VA_COMPILED_AS_SHADER_CODE
 
-cbuffer PostProcessBlurConstantsBuffer : register( B_CONCATENATER( POSTPROCESS_BLUR_CONSTANTS_BUFFERSLOT ) )
+cbuffer PostProcessBlurConstantsBuffer : register( B_CONCATENATER( POSTPROCESS_BLUR_CONSTANTSBUFFERSLOT ) )
 {
     PostProcessBlurConstants              g_PostProcessBlurConsts;
 }

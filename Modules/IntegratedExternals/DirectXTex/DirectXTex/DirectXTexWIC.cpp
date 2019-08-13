@@ -9,7 +9,7 @@
 // http://go.microsoft.com/fwlink/?LinkId=248926
 //-------------------------------------------------------------------------------------
 
-#include "directxtexp.h"
+#include "DirectXTexp.h"
 
 //-------------------------------------------------------------------------------------
 // IStream support for WIC Memory routines
@@ -62,7 +62,7 @@
     #pragma prefast(suppress:6387 28196, "a simple wrapper around an existing annotated function" );
     static inline HRESULT CreateMemoryStream(_Outptr_ IStream** stream)
     {
-        return CreateStreamOnHGlobal(0, TRUE, stream);
+        return CreateStreamOnHGlobal(nullptr, TRUE, stream);
     }
 
 #endif
@@ -163,7 +163,7 @@ namespace
                 if (iswic2)
                 {
                     if (pConvert)
-                        memcpy(pConvert, &GUID_WICPixelFormat96bppRGBFloat, sizeof(WICPixelFormatGUID));
+                        memcpy_s(pConvert, sizeof(WICPixelFormatGUID), &GUID_WICPixelFormat96bppRGBFloat, sizeof(GUID));
                     format = DXGI_FORMAT_R32G32B32_FLOAT;
                 }
                 else
@@ -172,7 +172,7 @@ namespace
 #endif
                 {
                     if (pConvert)
-                        memcpy(pConvert, &GUID_WICPixelFormat128bppRGBAFloat, sizeof(WICPixelFormatGUID));
+                        memcpy_s(pConvert, sizeof(WICPixelFormatGUID), &GUID_WICPixelFormat128bppRGBAFloat, sizeof(GUID));
                     format = DXGI_FORMAT_R32G32B32A32_FLOAT;
                 }
             }
@@ -183,7 +183,7 @@ namespace
                     if (memcmp(&g_WICConvert[i].source, &pixelFormat, sizeof(WICPixelFormatGUID)) == 0)
                     {
                         if (pConvert)
-                            memcpy(pConvert, &g_WICConvert[i].target, sizeof(WICPixelFormatGUID));
+                            memcpy_s(pConvert, sizeof(WICPixelFormatGUID), &g_WICConvert[i].target, sizeof(GUID));
 
                         format = _WICToDXGI(g_WICConvert[i].target);
                         assert(format != DXGI_FORMAT_UNKNOWN);
@@ -202,7 +202,7 @@ namespace
             {
                 format = DXGI_FORMAT_R8G8B8A8_UNORM;
                 if (pConvert)
-                    memcpy(pConvert, &GUID_WICPixelFormat32bppRGBA, sizeof(WICPixelFormatGUID));
+                    memcpy_s(pConvert, sizeof(WICPixelFormatGUID), &GUID_WICPixelFormat32bppRGBA, sizeof(GUID));
             }
             break;
 
@@ -211,7 +211,7 @@ namespace
             {
                 format = DXGI_FORMAT_R10G10B10A2_UNORM;
                 if (pConvert)
-                    memcpy(pConvert, &GUID_WICPixelFormat32bppRGBA1010102, sizeof(WICPixelFormatGUID));
+                    memcpy_s(pConvert, sizeof(WICPixelFormatGUID), &GUID_WICPixelFormat32bppRGBA1010102, sizeof(GUID));
             }
             break;
 
@@ -221,7 +221,7 @@ namespace
             {
                 format = DXGI_FORMAT_R8G8B8A8_UNORM;
                 if (pConvert)
-                    memcpy(pConvert, &GUID_WICPixelFormat32bppRGBA, sizeof(WICPixelFormatGUID));
+                    memcpy_s(pConvert, sizeof(WICPixelFormatGUID), &GUID_WICPixelFormat32bppRGBA, sizeof(GUID));
             }
             break;
 
@@ -231,7 +231,7 @@ namespace
                 // By default we want to promote a black & white to gresycale since R1 is not a generally supported D3D format
                 format = DXGI_FORMAT_R8_UNORM;
                 if (pConvert)
-                    memcpy(pConvert, &GUID_WICPixelFormat8bppGray, sizeof(WICPixelFormatGUID));
+                    memcpy_s(pConvert, sizeof(WICPixelFormatGUID), &GUID_WICPixelFormat8bppGray, sizeof(GUID));
             }
             break;
 
@@ -390,9 +390,12 @@ namespace
         if (!pWIC)
             return E_NOINTERFACE;
 
+        if (img->rowPitch > UINT32_MAX || img->slicePitch > UINT32_MAX)
+            return HRESULT_FROM_WIN32(ERROR_ARITHMETIC_OVERFLOW);
+
         if (memcmp(&convertGUID, &GUID_NULL, sizeof(GUID)) == 0)
         {
-            hr = frame->CopyPixels(0, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
+            hr = frame->CopyPixels(nullptr, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
             if (FAILED(hr))
                 return hr;
         }
@@ -419,7 +422,7 @@ namespace
             if (FAILED(hr))
                 return hr;
 
-            hr = FC->CopyPixels(0, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
+            hr = FC->CopyPixels(nullptr, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
             if (FAILED(hr))
                 return hr;
         }
@@ -459,6 +462,9 @@ namespace
             if (!img)
                 return E_POINTER;
 
+            if (img->rowPitch > UINT32_MAX || img->slicePitch > UINT32_MAX)
+                return HRESULT_FROM_WIN32(ERROR_ARITHMETIC_OVERFLOW);
+
             ComPtr<IWICBitmapFrameDecode> frame;
             hr = decoder->GetFrame(static_cast<UINT>(index), frame.GetAddressOf());
             if (FAILED(hr))
@@ -479,7 +485,7 @@ namespace
                 // This frame does not need resized
                 if (memcmp(&pfGuid, &sourceGUID, sizeof(WICPixelFormatGUID)) == 0)
                 {
-                    hr = frame->CopyPixels(0, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
+                    hr = frame->CopyPixels(nullptr, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
                     if (FAILED(hr))
                         return hr;
                 }
@@ -501,7 +507,7 @@ namespace
                     if (FAILED(hr))
                         return hr;
 
-                    hr = FC->CopyPixels(0, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
+                    hr = FC->CopyPixels(nullptr, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
                     if (FAILED(hr))
                         return hr;
                 }
@@ -525,7 +531,7 @@ namespace
 
                 if (memcmp(&pfScaler, &sourceGUID, sizeof(WICPixelFormatGUID)) == 0)
                 {
-                    hr = scaler->CopyPixels(0, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
+                    hr = scaler->CopyPixels(nullptr, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
                     if (FAILED(hr))
                         return hr;
                 }
@@ -549,7 +555,7 @@ namespace
                     if (FAILED(hr))
                         return hr;
 
-                    hr = FC->CopyPixels(0, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
+                    hr = FC->CopyPixels(nullptr, static_cast<UINT>(img->rowPitch), static_cast<UINT>(img->slicePitch), img->pixels);
                     if (FAILED(hr))
                         return hr;
                 }
@@ -687,6 +693,9 @@ namespace
         if ((image.width > UINT32_MAX) || (image.height > UINT32_MAX))
             return E_INVALIDARG;
 
+        if (image.rowPitch > UINT32_MAX || image.slicePitch > UINT32_MAX)
+            return HRESULT_FROM_WIN32(ERROR_ARITHMETIC_OVERFLOW);
+
         hr = frame->SetSize(static_cast<UINT>(image.width), static_cast<UINT>(image.height));
         if (FAILED(hr))
             return hr;
@@ -780,7 +789,7 @@ namespace
             return E_NOINTERFACE;
 
         ComPtr<IWICBitmapEncoder> encoder;
-        HRESULT hr = pWIC->CreateEncoder(containerFormat, 0, encoder.GetAddressOf());
+        HRESULT hr = pWIC->CreateEncoder(containerFormat, nullptr, encoder.GetAddressOf());
         if (FAILED(hr))
             return hr;
 
@@ -848,7 +857,7 @@ namespace
             return E_NOINTERFACE;
 
         ComPtr<IWICBitmapEncoder> encoder;
-        HRESULT hr = pWIC->CreateEncoder(containerFormat, 0, encoder.GetAddressOf());
+        HRESULT hr = pWIC->CreateEncoder(containerFormat, nullptr, encoder.GetAddressOf());
         if (FAILED(hr))
             return hr;
 
@@ -935,7 +944,7 @@ HRESULT DirectX::GetMetadataFromWICMemory(
 
     // Initialize WIC
     ComPtr<IWICBitmapDecoder> decoder;
-    hr = pWIC->CreateDecoderFromStream(stream.Get(), 0, WICDecodeMetadataCacheOnDemand, decoder.GetAddressOf());
+    hr = pWIC->CreateDecoderFromStream(stream.Get(), nullptr, WICDecodeMetadataCacheOnDemand, decoder.GetAddressOf());
     if (FAILED(hr))
         return hr;
 
@@ -973,7 +982,7 @@ HRESULT DirectX::GetMetadataFromWICFile(
 
     // Initialize WIC
     ComPtr<IWICBitmapDecoder> decoder;
-    HRESULT hr = pWIC->CreateDecoderFromFilename(szFile, 0, GENERIC_READ, WICDecodeMetadataCacheOnDemand, decoder.GetAddressOf());
+    HRESULT hr = pWIC->CreateDecoderFromFilename(szFile, nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand, decoder.GetAddressOf());
     if (FAILED(hr))
         return hr;
 
@@ -1028,7 +1037,7 @@ HRESULT DirectX::LoadFromWICMemory(
 
     // Initialize WIC
     ComPtr<IWICBitmapDecoder> decoder;
-    hr = pWIC->CreateDecoderFromStream(stream.Get(), 0, WICDecodeMetadataCacheOnDemand, decoder.GetAddressOf());
+    hr = pWIC->CreateDecoderFromStream(stream.Get(), nullptr, WICDecodeMetadataCacheOnDemand, decoder.GetAddressOf());
     if (FAILED(hr))
         return hr;
 
@@ -1089,7 +1098,7 @@ HRESULT DirectX::LoadFromWICFile(
 
     // Initialize WIC
     ComPtr<IWICBitmapDecoder> decoder;
-    HRESULT hr = pWIC->CreateDecoderFromFilename(szFile, 0, GENERIC_READ, WICDecodeMetadataCacheOnDemand, decoder.GetAddressOf());
+    HRESULT hr = pWIC->CreateDecoderFromFilename(szFile, nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand, decoder.GetAddressOf());
     if (FAILED(hr))
         return hr;
 
@@ -1167,7 +1176,7 @@ HRESULT DirectX::SaveToWICMemory(
         return hr;
 
     LARGE_INTEGER li = {};
-    hr = stream->Seek(li, STREAM_SEEK_SET, 0);
+    hr = stream->Seek(li, STREAM_SEEK_SET, nullptr);
     if (FAILED(hr))
         return hr;
 
@@ -1224,7 +1233,7 @@ HRESULT DirectX::SaveToWICMemory(
         return hr;
 
     LARGE_INTEGER li = {};
-    hr = stream->Seek(li, STREAM_SEEK_SET, 0);
+    hr = stream->Seek(li, STREAM_SEEK_SET, nullptr);
     if (FAILED(hr))
         return hr;
 

@@ -31,13 +31,10 @@
 
 #include "vaShaderDX11.h"
 
-#include "vaRenderingToolsDX11.h"
-
 #include "Rendering/DirectX/vaRenderDeviceDX11.h"
 
-#include "Rendering/DirectX/vaRenderDeviceContextDX11.h"
-
-#include "Core/Misc/vaCRC64.h"
+// TODO: replace with vaXXHash
+// #include "Core/Misc/vaCRC64.h"
 
 #include "Core/System/vaFileTools.h"
 
@@ -53,10 +50,99 @@ using namespace std;
 namespace VertexAsylum
 {
 
-    const D3D_SHADER_MACRO c_builtInMacros[] = { { "VA_COMPILED_AS_SHADER_CODE", "1" }, { 0, 0 } };
+    const D3D_SHADER_MACRO c_builtInMacros[] = { { "VA_COMPILED_AS_SHADER_CODE", "1" }, { "VA_DIRECTX", "11" }, { 0, 0 } };
+
+    class vaShaderIncludeHelper11 : public ID3DInclude
+    {
+        std::vector<vaShaderCacheEntry11::FileDependencyInfo> &     m_dependenciesCollector;
+        
+        std::vector< std::pair<string, string> >                    m_foundNamePairs;
+
+        wstring                                                     m_relativePath;
+
+        string                                                      m_macrosAsIncludeFile;
+
+        vaShaderIncludeHelper11( const vaShaderIncludeHelper11 & c ) = delete; //: m_dependenciesCollector( c.m_dependenciesCollector ), m_relativePath( c.m_relativePath ), m_macros( c.m_macros )
+        //{
+        //    assert( false );
+        //}    // to prevent warnings (and also this object doesn't support copying/assignment)
+        void operator = ( const vaShaderIncludeHelper11 & ) = delete;
+        //{
+        //    assert( false );
+        //}    // to prevent warnings (and also this object doesn't support copying/assignment)
+
+    public:
+        vaShaderIncludeHelper11( std::vector<vaShaderCacheEntry11::FileDependencyInfo> & dependenciesCollector, const wstring & relativePath, const string & macrosAsIncludeFile ) : m_dependenciesCollector( dependenciesCollector ), m_relativePath( relativePath ), m_macrosAsIncludeFile( macrosAsIncludeFile )
+        {
+        }
+
+        STDMETHOD( Open )( D3D10_INCLUDE_TYPE IncludeType, LPCSTR pFileName, LPCVOID pParentData, LPCVOID *ppData, UINT *pBytes )
+        {
+            IncludeType; // unreferenced
+            pParentData; // unreferenced
+
+            // special case to handle macros - no need to add dependencies here, macros are CRC-ed separately
+            if( pFileName == string( "MagicMacrosMagicFile.h" ) || pFileName == string( "magicmacrosmagicfile.h" ) )
+            {
+                int length = (int)m_macrosAsIncludeFile.size( );
+                void * pData = new char[length];
+                memcpy( pData, m_macrosAsIncludeFile.c_str( ), length );
+                *ppData = pData;
+                *pBytes = length;
+                return S_OK;
+            }
+
+            vaShaderCacheEntry11::FileDependencyInfo fileDependencyInfo;
+            std::shared_ptr<vaMemoryStream>        memBuffer;
+
+            wstring fileNameR = m_relativePath + vaStringTools::SimpleWiden( string( pFileName ) );
+            wstring fileNameA = vaStringTools::SimpleWiden( string( pFileName ) );
+
+            // First try the file system...
+            wstring fullFileName = vaDirectX11ShaderManager::GetInstance( ).FindShaderFile( fileNameR.c_str( ) );
+            if( fullFileName == L"" )
+                fullFileName = vaDirectX11ShaderManager::GetInstance( ).FindShaderFile( fileNameA.c_str( ) );
+            if( fullFileName != L"" )
+            {
+                fileDependencyInfo = vaShaderCacheEntry11::FileDependencyInfo( fullFileName.c_str( ) );
+                memBuffer = vaFileTools::LoadFileToMemoryStream( fullFileName.c_str( ) );
+            }
+            else
+            {
+                // ...then try embedded storage
+                vaFileTools::EmbeddedFileData embeddedData = vaFileTools::EmbeddedFilesFind( wstring( L"shaders:\\" ) + fileNameR );
+                if( !embeddedData.HasContents( ) )
+                    embeddedData = vaFileTools::EmbeddedFilesFind( wstring( L"shaders:\\" ) + fileNameA );
+
+                if( !embeddedData.HasContents( ) )
+                {
+                    VA_ERROR( L"Error trying to find shader file '%s' / '%s'!", fileNameR.c_str( ), fileNameA.c_str( ) );
+                    return E_FAIL;
+                }
+                fileDependencyInfo = vaShaderCacheEntry11::FileDependencyInfo( embeddedData.Name.c_str(), embeddedData.TimeStamp );
+                memBuffer = embeddedData.MemStream;
+            }
+
+            m_dependenciesCollector.push_back( fileDependencyInfo );
+            m_foundNamePairs.push_back( std::make_pair( pFileName, vaStringTools::SimpleNarrow(fullFileName) ) );
+
+            int length = (int)memBuffer->GetLength( );
+            void * pData = new char[length];
+            memcpy( pData, memBuffer->GetBuffer( ), length );
+            *ppData = pData;
+            *pBytes = length;
+            return S_OK;
+        }
+        STDMETHOD( Close )( LPCVOID pData )
+        {
+            delete[] pData;
+            return S_OK;
+        }
+        const std::vector< std::pair<string, string> > & GetFoundNameParis( )       { return m_foundNamePairs; }
+    };
 
     // this is used to make the error reporting report to correct file (or embedded storage)
-    string CorrectErrorIfNotFullPath( const string & errorText )
+    static string CorrectErrorIfNotFullPath11( const string & errorText, vaShaderIncludeHelper11 & includeHelper )
     {
         string ret;
 
@@ -81,18 +167,13 @@ namespace VertexAsylum
 
                     wstring fileName = vaStringTools::SimpleWiden( filePart );
 
-                    // First try the file system...
-                    wstring fullFileName = vaDirectX11ShaderManager::GetInstance( ).FindShaderFile( fileName.c_str( ) );
-                    if( fullFileName != L"" )
+                    for( auto & fnp : includeHelper.GetFoundNameParis() )
                     {
-                        filePart = vaStringTools::SimpleNarrow( fullFileName );
-                    }
-                    else
-                    {
-                        // ...then try embedded storage
-                        vaFileTools::EmbeddedFileData embeddedData = vaFileTools::EmbeddedFilesFind( wstring( L"shaders:\\" ) + fileName );
-                        if( embeddedData.HasContents( ) )
-                            filePart = vaStringTools::SimpleNarrow( wstring( L"shaders:\\" ) + fileName );
+                        if( vaStringTools::CompareNoCase( filePart, fnp.first ) == 0 )
+                        {
+                            filePart = fnp.second;
+                            break;
+                        }
                     }
 
                     line = filePart + lineInfoPart + errorPart;
@@ -102,86 +183,6 @@ namespace VertexAsylum
         }
         return ret;
     }
-
-    class vaShaderIncludeHelper : public ID3DInclude
-    {
-        std::vector<vaShaderCacheEntry::FileDependencyInfo> &       m_dependenciesCollector;
-
-        wstring                                                     m_relativePath;
-
-        string                                                      m_macrosAsIncludeFile;
-
-        vaShaderIncludeHelper( const vaShaderIncludeHelper & c ) = delete; //: m_dependenciesCollector( c.m_dependenciesCollector ), m_relativePath( c.m_relativePath ), m_macros( c.m_macros )
-        //{
-        //    assert( false );
-        //}    // to prevent warnings (and also this object doesn't support copying/assignment)
-        void operator = ( const vaShaderIncludeHelper & ) = delete;
-        //{
-        //    assert( false );
-        //}    // to prevent warnings (and also this object doesn't support copying/assignment)
-
-    public:
-        vaShaderIncludeHelper( std::vector<vaShaderCacheEntry::FileDependencyInfo> & dependenciesCollector, const wstring & relativePath, const string & macrosAsIncludeFile ) : m_dependenciesCollector( dependenciesCollector ), m_relativePath( relativePath ), m_macrosAsIncludeFile( macrosAsIncludeFile )
-        {
-        }
-
-        STDMETHOD( Open )( D3D10_INCLUDE_TYPE IncludeType, LPCSTR pFileName, LPCVOID pParentData, LPCVOID *ppData, UINT *pBytes )
-        {
-            IncludeType; // unreferenced
-            pParentData; // unreferenced
-
-            // special case to handle macros - no need to add dependencies here, macros are CRC-ed separately
-            if( pFileName == string( "MagicMacrosMagicFile.h" ) || pFileName == string( "magicmacrosmagicfile.h" ) )
-            {
-                int length = (int)m_macrosAsIncludeFile.size( );
-                void * pData = new char[length];
-                memcpy( pData, m_macrosAsIncludeFile.c_str( ), length );
-                *ppData = pData;
-                *pBytes = length;
-                return S_OK;
-            }
-
-            vaShaderCacheEntry::FileDependencyInfo fileDependencyInfo;
-            std::shared_ptr<vaMemoryStream>        memBuffer;
-
-            wstring fileName = m_relativePath + vaStringTools::SimpleWiden( string( pFileName ) );
-
-            // First try the file system...
-            wstring fullFileName = vaDirectX11ShaderManager::GetInstance( ).FindShaderFile( fileName.c_str( ) );
-            if( fullFileName != L"" )
-            {
-                fileDependencyInfo = vaShaderCacheEntry::FileDependencyInfo( fileName.c_str( ) );
-                memBuffer = vaFileTools::LoadFileToMemoryStream( fullFileName.c_str( ) );
-            }
-            else
-            {
-                // ...then try embedded storage
-                vaFileTools::EmbeddedFileData embeddedData = vaFileTools::EmbeddedFilesFind( wstring( L"shaders:\\" ) + fileName );
-
-                if( !embeddedData.HasContents( ) )
-                {
-                    VA_ERROR( L"Error trying to find shader file '%s'!", fileName.c_str( ) );
-                    return E_FAIL;
-                }
-                fileDependencyInfo = vaShaderCacheEntry::FileDependencyInfo( fileName.c_str( ), embeddedData.TimeStamp );
-                memBuffer = embeddedData.MemStream;
-            }
-
-            m_dependenciesCollector.push_back( fileDependencyInfo );
-
-            int length = (int)memBuffer->GetLength( );
-            void * pData = new char[length];
-            memcpy( pData, memBuffer->GetBuffer( ), length );
-            *ppData = pData;
-            *pBytes = length;
-            return S_OK;
-        }
-        STDMETHOD( Close )( LPCVOID pData )
-        {
-            delete[] pData;
-            return S_OK;
-        }
-    };
 
     vaShaderDX11::vaShaderDX11( )
     {
@@ -205,7 +206,8 @@ namespace VertexAsylum
     //
     void vaShaderDX11::Clear( )
     {
-        m_state = vaShader::State::Empty;
+        m_state             = vaShader::State::Empty;
+        m_uniqueContentsID  = -1;
         assert( vaThreading::IsMainThread() );  // creation/cleaning only supported from main thread for now
         vaBackgroundTaskManager::GetInstance().WaitUntilFinished( m_backgroundCreationTask );
 
@@ -228,10 +230,13 @@ namespace VertexAsylum
         m_lastLoadedFromCache = false;
         SAFE_RELEASE( m_shader );
         if( m_state != State::Empty )
+        {
             m_state             = State::Uncooked;
+            m_uniqueContentsID  = -1;
+        }
     }
     //
-    void vaShaderDX11::CreateCacheKey( vaShaderCacheKey & outKey )
+    void vaShaderDX11::CreateCacheKey( vaShaderCacheKey11 & outKey )
     {
         m_allShaderDataMutex.assert_locked_by_caller();
 
@@ -349,7 +354,7 @@ namespace VertexAsylum
         return ret;
     }
     //
-    void vaVertexShaderDX11::CreateCacheKey( vaShaderCacheKey & outKey )
+    void vaVertexShaderDX11::CreateCacheKey( vaShaderCacheKey11 & outKey )
     {
         m_allShaderDataMutex.assert_locked_by_caller();
 
@@ -359,7 +364,7 @@ namespace VertexAsylum
     }
     //
     static HRESULT CompileShaderFromFile( const wchar_t* szFileName, const string & macrosAsIncludeFile, LPCSTR szEntryPoint,
-        LPCSTR szShaderModel, ID3DBlob** ppBlobOut, vector<vaShaderCacheEntry::FileDependencyInfo> & outDependencies, HWND hwnd )
+        LPCSTR szShaderModel, ID3DBlob** ppBlobOut, vector<vaShaderCacheEntry11::FileDependencyInfo> & outDependencies, HWND hwnd )
     {
         HRESULT hr = S_OK;
 
@@ -387,12 +392,12 @@ namespace VertexAsylum
             do
             {
                 outDependencies.clear( );
-                outDependencies.push_back( vaShaderCacheEntry::FileDependencyInfo( szFileName ) );
+                outDependencies.push_back( vaShaderCacheEntry11::FileDependencyInfo( szFileName ) );
 
                 wstring relativePath;
                 vaFileTools::SplitPath( szFileName, &relativePath, nullptr, nullptr );
 
-                vaShaderIncludeHelper includeHelper( outDependencies, relativePath, macrosAsIncludeFile );
+                vaShaderIncludeHelper11 includeHelper( outDependencies, relativePath, macrosAsIncludeFile );
 
                 attemptReload = false;
                 ID3DBlob* pErrorBlob;
@@ -405,7 +410,7 @@ namespace VertexAsylum
                         wstring absFileName = vaFileTools::GetAbsolutePath( fullFileName );
 
                         OutputDebugStringA( vaStringTools::Format( "\nError while compiling '%s' shader, SM: '%s', EntryPoint: '%s' :\n", vaStringTools::SimpleNarrow( absFileName ).c_str( ), szShaderModel, szEntryPoint ).c_str( ) );
-                        OutputDebugStringA( CorrectErrorIfNotFullPath( (char*)pErrorBlob->GetBufferPointer( ) ).c_str( ) );
+                        OutputDebugStringA( CorrectErrorIfNotFullPath11( (char*)pErrorBlob->GetBufferPointer( ), includeHelper ).c_str( ) );
 #if 1 || defined( _DEBUG ) // display always for now
                         wstring errorMsg = vaStringTools::SimpleWiden( (char*)pErrorBlob->GetBufferPointer( ) );
                         wstring shmStr = vaStringTools::SimpleWiden( szShaderModel );
@@ -435,7 +440,7 @@ namespace VertexAsylum
                 return E_FAIL;
             }
 
-            vaShaderCacheEntry::FileDependencyInfo fileDependencyInfo = vaShaderCacheEntry::FileDependencyInfo( szFileName, embeddedData.TimeStamp );
+            vaShaderCacheEntry11::FileDependencyInfo fileDependencyInfo = vaShaderCacheEntry11::FileDependencyInfo( szFileName, embeddedData.TimeStamp );
 
             outDependencies.clear( );
             outDependencies.push_back( fileDependencyInfo );
@@ -443,7 +448,7 @@ namespace VertexAsylum
             wstring relativePath;
             vaFileTools::SplitPath( szFileName, &relativePath, nullptr, nullptr );
 
-            vaShaderIncludeHelper includeHelper( outDependencies, relativePath, macrosAsIncludeFile );
+            vaShaderIncludeHelper11 includeHelper( outDependencies, relativePath, macrosAsIncludeFile );
 
             ID3DBlob* pErrorBlob;
             string ansiName = vaStringTools::SimpleNarrow( embeddedData.Name );
@@ -453,7 +458,7 @@ namespace VertexAsylum
             {
                 if( pErrorBlob != nullptr )
                 {
-                    OutputDebugStringA( CorrectErrorIfNotFullPath( (char*)pErrorBlob->GetBufferPointer( ) ).c_str( ) );
+                    OutputDebugStringA( CorrectErrorIfNotFullPath11( (char*)pErrorBlob->GetBufferPointer( ), includeHelper ).c_str( ) );
 #if 1 || defined( _DEBUG ) // display always for now
                     wstring errorMsg = vaStringTools::SimpleWiden( (char*)pErrorBlob->GetBufferPointer( ) );
                     wstring shmStr = vaStringTools::SimpleWiden( szShaderModel );
@@ -491,14 +496,17 @@ namespace VertexAsylum
             combinedShaderCode +="\n";
         combinedShaderCode += shaderCode;
 
+        vector<vaShaderCacheEntry11::FileDependencyInfo> unusedDependencies;
+        vaShaderIncludeHelper11 includeHelper( unusedDependencies, L"", macrosAsIncludeFile );
+
         ID3DBlob* pErrorBlob;
-        hr = D3DCompile( combinedShaderCode.c_str( ), combinedShaderCode.size( ), nullptr, c_builtInMacros, nullptr, szEntryPoint, szShaderModel,
+        hr = D3DCompile( combinedShaderCode.c_str( ), combinedShaderCode.size( ), nullptr, c_builtInMacros, &includeHelper, szEntryPoint, szShaderModel,
             dwShaderFlags, 0, ppBlobOut, &pErrorBlob );
         if( FAILED( hr ) )
         {
             if( pErrorBlob != nullptr )
             {
-                OutputDebugStringA( CorrectErrorIfNotFullPath( (char*)pErrorBlob->GetBufferPointer( ) ).c_str( ) );
+                OutputDebugStringA( CorrectErrorIfNotFullPath11( (char*)pErrorBlob->GetBufferPointer( ), includeHelper ).c_str( ) );
 #if 1 || defined( _DEBUG ) // display always for now
                 //wstring errorMsg = vaStringTools::SimpleWiden( (char*)pErrorBlob->GetBufferPointer( ) );
                 string fullMessage = vaStringTools::Format( "Error while compiling '%s' shader, SM: '%s', EntryPoint: '%s'. \n\n---\n%s\n---",
@@ -531,7 +539,7 @@ namespace VertexAsylum
 
         if( m_shaderFilePath.size( ) != 0 )
         {
-            vaShaderCacheKey cacheKey;
+            vaShaderCacheKey11 cacheKey;
             CreateCacheKey( cacheKey );
 
 #ifdef VA_SHADER_SHADER_CACHE_PERSISTENT_STORAGE_ENABLE
@@ -554,7 +562,7 @@ namespace VertexAsylum
 
             if( shaderBlob == nullptr )
             {
-                vector<vaShaderCacheEntry::FileDependencyInfo> dependencies;
+                vector<vaShaderCacheEntry11::FileDependencyInfo> dependencies;
 
                 CompileShaderFromFile( m_shaderFilePath.c_str( ), macrosAsIncludeFile, m_entryPoint.c_str( ), m_shaderModel.c_str( ), &shaderBlob, dependencies, GetRenderDevice().SafeCast<vaRenderDeviceDX11*>()->GetHWND( ) );
 
@@ -591,10 +599,10 @@ namespace VertexAsylum
                 {
                     wstring fileName = vaCore::GetWorkingDirectory( );
 
-                    vaShaderCacheKey cacheKey;
+                    vaShaderCacheKey11 cacheKey;
                     CreateCacheKey( cacheKey );
-                    vaCRC64 crc;
-                    crc.AddString( cacheKey.StringPart );
+                    // vaCRC64 crc;
+                    // crc.AddString( cacheKey.StringPart );
 
                     fileName += L"shaderdump_" + vaStringTools::SimpleWiden( m_entryPoint ) + L"_" + vaStringTools::SimpleWiden( m_shaderModel ) /*+ L"_" + vaStringTools::SimpleWiden( vaStringTools::Format( "0x%" PRIx64, crc.GetCurrent() ) )*/ + L".txt";
 
@@ -631,6 +639,7 @@ namespace VertexAsylum
         }
         SAFE_RELEASE( shaderBlob );
         m_state             = State::Cooked;
+        m_uniqueContentsID  = ++s_lastUniqueShaderContentsID;
     }
     //
     void vaComputeShaderDX11::CreateShader( )
@@ -653,6 +662,7 @@ namespace VertexAsylum
         }
         SAFE_RELEASE( shaderBlob );
         m_state             = State::Cooked;
+        m_uniqueContentsID  = ++s_lastUniqueShaderContentsID;
     }
     //
     vaVertexShaderDX11::vaVertexShaderDX11( const vaRenderingModuleParams & params ) : vaShader( params ) 
@@ -739,6 +749,7 @@ namespace VertexAsylum
         }
         SAFE_RELEASE( shaderBlob );
         m_state             = State::Cooked;
+        m_uniqueContentsID  = ++s_lastUniqueShaderContentsID;
     }
     //
     void vaHullShaderDX11::CreateShader( )
@@ -763,6 +774,7 @@ namespace VertexAsylum
 
         SAFE_RELEASE( shaderBlob );
         m_state             = State::Cooked;
+        m_uniqueContentsID  = ++s_lastUniqueShaderContentsID;
     }
     //
     void vaDomainShaderDX11::CreateShader( )
@@ -787,6 +799,7 @@ namespace VertexAsylum
 
         SAFE_RELEASE( shaderBlob );
         m_state             = State::Cooked;
+        m_uniqueContentsID  = ++s_lastUniqueShaderContentsID;
     }
     //
     void vaGeometryShaderDX11::CreateShader( )
@@ -811,6 +824,7 @@ namespace VertexAsylum
 
         SAFE_RELEASE( shaderBlob );
         m_state             = State::Cooked;
+        m_uniqueContentsID  = ++s_lastUniqueShaderContentsID;
     }
     //
     void vaVertexShaderDX11::DestroyShader( )
@@ -832,7 +846,7 @@ namespace VertexAsylum
             vaVertexInputElementDesc desc;
             desc.SemanticName           = src.SemanticName;
             desc.SemanticIndex          = src.SemanticIndex;
-            desc.Format                 = (vaResourceFormat)src.Format;
+            desc.Format                 = VAFormatFromDXGI(src.Format);
             desc.InputSlot              = src.InputSlot;
             desc.AlignedByteOffset      = src.AlignedByteOffset;
             desc.InputSlotClass         = (vaVertexInputElementDesc::InputClassification)src.InputSlotClass;
@@ -881,9 +895,9 @@ namespace VertexAsylum
 
             // Do we need per-adapter caches? probably not but who cares - different adapter >usually< means different machine so recaching anyway
 #if defined( DEBUG ) || defined( _DEBUG )
-        m_cacheFilePath += L"shaders_debug_" + GetRenderDevice().GetAdapterNameID( );
+        m_cacheFilePath += L"shaders_dx11_debug_" + vaStringTools::SimpleWiden( vaStringTools::ReplaceSpacesWithUnderscores( GetRenderDevice().GetAdapterNameID( ) ) );
 #else
-        m_cacheFilePath += L"shaders_release_" + GetRenderDevice().GetAdapterNameID( );
+        m_cacheFilePath += L"shaders_dx11_release_" + vaStringTools::SimpleWiden( vaStringTools::ReplaceSpacesWithUnderscores( GetRenderDevice().GetAdapterNameID( ) ) );
 #endif
         }
 
@@ -932,19 +946,19 @@ namespace VertexAsylum
             std::wstring filePath = m_searchPaths[i] + L"\\" + fileName;
             if( vaFileTools::FileExists( filePath.c_str( ) ) )
             {
-                return vaFileTools::CleanupPath( filePath, false );
+                return vaFileTools::GetAbsolutePath( filePath ); // vaFileTools::CleanupPath( filePath, false );
             }
             if( vaFileTools::FileExists( ( vaCore::GetWorkingDirectory( ) + filePath ).c_str( ) ) )
             {
-                return vaFileTools::CleanupPath( vaCore::GetWorkingDirectory( ) + filePath, false );
+                return vaFileTools::GetAbsolutePath( vaCore::GetWorkingDirectory( ) + filePath ); //vaFileTools::CleanupPath( vaCore::GetWorkingDirectory( ) + filePath, false );
             }
         }
 
         if( vaFileTools::FileExists( fileName ) )
-            return vaFileTools::CleanupPath( fileName, false );
+            return vaFileTools::GetAbsolutePath( fileName ); // vaFileTools::CleanupPath( fileName, false );
 
         if( vaFileTools::FileExists( ( vaCore::GetWorkingDirectory( ) + fileName ).c_str( ) ) )
-            return vaFileTools::CleanupPath( vaCore::GetWorkingDirectory( ) + fileName, false );
+            return vaFileTools::GetAbsolutePath( vaCore::GetWorkingDirectory( ) + fileName ); // vaFileTools::CleanupPath( vaCore::GetWorkingDirectory( ) + fileName, false );
 
         return L"";
     }
@@ -987,11 +1001,11 @@ namespace VertexAsylum
                 {
                     context.Progress = float(i)/float(entryCount-1);
 
-                    vaShaderCacheKey key;
+                    vaShaderCacheKey11 key;
                     key.Load( inFile );
-                    vaShaderCacheEntry * entry = new vaShaderCacheEntry( inFile );
+                    vaShaderCacheEntry11 * entry = new vaShaderCacheEntry11( inFile );
 
-                    m_cache.insert( std::pair<vaShaderCacheKey, vaShaderCacheEntry *>( key, entry ) );
+                    m_cache.insert( std::pair<vaShaderCacheKey11, vaShaderCacheEntry11 *>( key, entry ) );
                 }
 
                 int32 terminator;
@@ -1037,7 +1051,7 @@ namespace VertexAsylum
 
         outFile.WriteValue<int32>( (int32)m_cache.size( ) );    // number of entries
 
-        for( std::map<vaShaderCacheKey, vaShaderCacheEntry *>::const_iterator it = m_cache.cbegin( ); it != m_cache.cend( ); ++it )
+        for( std::map<vaShaderCacheKey11, vaShaderCacheEntry11 *>::const_iterator it = m_cache.cbegin( ); it != m_cache.cend( ); ++it )
         {
             // Save key
             ( *it ).first.Save( outFile );
@@ -1052,7 +1066,7 @@ namespace VertexAsylum
     void vaDirectX11ShaderManager::ClearCacheInternal( )
     {
         m_cacheMutex.assert_locked_by_caller();
-        for( std::map<vaShaderCacheKey, vaShaderCacheEntry *>::iterator it = m_cache.begin( ); it != m_cache.end( ); ++it )
+        for( std::map<vaShaderCacheKey11, vaShaderCacheEntry11 *>::iterator it = m_cache.begin( ); it != m_cache.end( ); ++it )
         {
             delete ( *it ).second;;
         }
@@ -1065,13 +1079,13 @@ namespace VertexAsylum
         ClearCacheInternal();
     }
     //
-    ID3DBlob * vaDirectX11ShaderManager::FindInCache( vaShaderCacheKey & key, bool & foundButModified )
+    ID3DBlob * vaDirectX11ShaderManager::FindInCache( vaShaderCacheKey11 & key, bool & foundButModified )
     {
         std::unique_lock<mutex> cacheMutexLock( m_cacheMutex );
 
         foundButModified = false;
 
-        std::map<vaShaderCacheKey, vaShaderCacheEntry *>::iterator it = m_cache.find( key );
+        std::map<vaShaderCacheKey11, vaShaderCacheEntry11 *>::iterator it = m_cache.find( key );
 
         if( it != m_cache.end( ) )
         {
@@ -1092,11 +1106,11 @@ namespace VertexAsylum
         return nullptr;
     }
     //
-    void vaDirectX11ShaderManager::AddToCache( vaShaderCacheKey & key, ID3DBlob * shaderBlob, std::vector<vaShaderCacheEntry::FileDependencyInfo> & dependencies )
+    void vaDirectX11ShaderManager::AddToCache( vaShaderCacheKey11 & key, ID3DBlob * shaderBlob, std::vector<vaShaderCacheEntry11::FileDependencyInfo> & dependencies )
     {
         std::unique_lock<mutex> cacheMutexLock( m_cacheMutex );
 
-        std::map<vaShaderCacheKey, vaShaderCacheEntry *>::iterator it = m_cache.find( key );
+        std::map<vaShaderCacheKey11, vaShaderCacheEntry11 *>::iterator it = m_cache.find( key );
 
         if( it != m_cache.end( ) )
         {
@@ -1107,10 +1121,10 @@ namespace VertexAsylum
             // m_cache.erase( it );
         }
 
-        m_cache.insert( std::pair<vaShaderCacheKey, vaShaderCacheEntry *>( key, new vaShaderCacheEntry( shaderBlob, dependencies ) ) );
+        m_cache.insert( std::pair<vaShaderCacheKey11, vaShaderCacheEntry11 *>( key, new vaShaderCacheEntry11( shaderBlob, dependencies ) ) );
     }
     //
-    vaShaderCacheEntry::FileDependencyInfo::FileDependencyInfo( const wstring & filePath )
+    vaShaderCacheEntry11::FileDependencyInfo::FileDependencyInfo( const wstring & filePath )
     {
         wstring fullFileName = vaDirectX11ShaderManager::GetInstance( ).FindShaderFile( filePath );
 
@@ -1137,17 +1151,17 @@ namespace VertexAsylum
         }
     }
     //
-    vaShaderCacheEntry::FileDependencyInfo::FileDependencyInfo( const wstring & filePath, int64 modifiedTimeDate )
+    vaShaderCacheEntry11::FileDependencyInfo::FileDependencyInfo( const wstring & filePath, int64 modifiedTimeDate )
     {
         this->FilePath = filePath;
         this->ModifiedTimeDate = modifiedTimeDate;
     }
     //
-    bool vaShaderCacheEntry::FileDependencyInfo::IsModified( )
+    bool vaShaderCacheEntry11::FileDependencyInfo::IsModified( )
     {
         wstring fullFileName = vaDirectX11ShaderManager::GetInstance( ).FindShaderFile( this->FilePath.c_str( ) );
 
-        //vaLog::GetInstance( ).Add( LOG_COLORS_SHADERS, (L"vaShaderCacheEntry::FileDependencyInfo::IsModified, file name %s", fullFileName.c_str() ) );
+        //vaLog::GetInstance( ).Add( LOG_COLORS_SHADERS, (L"vaShaderCacheEntry11::FileDependencyInfo::IsModified, file name %s", fullFileName.c_str() ) );
 
         if( fullFileName == L"" )  // Can't find the file?
         {
@@ -1187,7 +1201,7 @@ namespace VertexAsylum
         return ret;
     }
     //
-    vaShaderCacheEntry::vaShaderCacheEntry( ID3DBlob * compiledShader, std::vector<vaShaderCacheEntry::FileDependencyInfo> & dependencies )
+    vaShaderCacheEntry11::vaShaderCacheEntry11( ID3DBlob * compiledShader, std::vector<vaShaderCacheEntry11::FileDependencyInfo> & dependencies )
     {
         m_compiledShader = compiledShader;
         m_compiledShader->AddRef( );
@@ -1195,14 +1209,14 @@ namespace VertexAsylum
         m_dependencies = dependencies;
     }
     //
-    vaShaderCacheEntry::~vaShaderCacheEntry( )
+    vaShaderCacheEntry11::~vaShaderCacheEntry11( )
     {
         m_compiledShader->Release( );
     }
     //
-    bool vaShaderCacheEntry::IsModified( )
+    bool vaShaderCacheEntry11::IsModified( )
     {
-        for( std::vector<vaShaderCacheEntry::FileDependencyInfo>::iterator it = m_dependencies.begin( ); it != m_dependencies.end( ); ++it )
+        for( std::vector<vaShaderCacheEntry11::FileDependencyInfo>::iterator it = m_dependencies.begin( ); it != m_dependencies.end( ); ++it )
         {
             if( ( *it ).IsModified( ) )
                 return true;
@@ -1210,22 +1224,22 @@ namespace VertexAsylum
         return false;
     }
     //
-    void vaShaderCacheKey::Save( vaStream & outStream ) const
+    void vaShaderCacheKey11::Save( vaStream & outStream ) const
     {
         outStream.WriteString( this->StringPart.c_str( ) );
     }
     //
-    void vaShaderCacheEntry::FileDependencyInfo::Save( vaStream & outStream ) const
+    void vaShaderCacheEntry11::FileDependencyInfo::Save( vaStream & outStream ) const
     {
         outStream.WriteString( this->FilePath.c_str( ) );
         outStream.WriteValue<int64>( this->ModifiedTimeDate );
     }
     //
-    void vaShaderCacheEntry::Save( vaStream & outStream ) const
+    void vaShaderCacheEntry11::Save( vaStream & outStream ) const
     {
         outStream.WriteValue<int32>( ( int32 )this->m_dependencies.size( ) );       // number of dependencies
 
-        for( std::vector<vaShaderCacheEntry::FileDependencyInfo>::const_iterator it = m_dependencies.cbegin( ); it != m_dependencies.cend( ); ++it )
+        for( std::vector<vaShaderCacheEntry11::FileDependencyInfo>::const_iterator it = m_dependencies.cbegin( ); it != m_dependencies.cend( ); ++it )
         {
             ( *it ).Save( outStream );
         }
@@ -1236,25 +1250,25 @@ namespace VertexAsylum
         outStream.Write( m_compiledShader->GetBufferPointer( ), bufferSize );
     }
     //
-    void vaShaderCacheKey::Load( vaStream & inStream )
+    void vaShaderCacheKey11::Load( vaStream & inStream )
     {
         inStream.ReadString( this->StringPart );
     }
     //
-    void vaShaderCacheEntry::FileDependencyInfo::Load( vaStream & inStream )
+    void vaShaderCacheEntry11::FileDependencyInfo::Load( vaStream & inStream )
     {
         inStream.ReadString( this->FilePath );
         inStream.ReadValue<int64>( this->ModifiedTimeDate );
     }
     //
-    void vaShaderCacheEntry::Load( vaStream & inStream )
+    void vaShaderCacheEntry11::Load( vaStream & inStream )
     {
         int dependencyCount;
         inStream.ReadValue<int32>( dependencyCount );
 
         for( int i = 0; i < dependencyCount; i++ )
         {
-            m_dependencies.push_back( vaShaderCacheEntry::FileDependencyInfo( inStream ) );
+            m_dependencies.push_back( vaShaderCacheEntry11::FileDependencyInfo( inStream ) );
         }
 
         int bufferSize;

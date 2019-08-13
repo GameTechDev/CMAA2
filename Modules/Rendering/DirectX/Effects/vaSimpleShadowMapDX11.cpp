@@ -195,8 +195,8 @@ void vaSimpleShadowMapDX11::InternalStopGenerating( const vaSceneDrawContext & d
 //    ID3D11DeviceContext * dx11Context = vaSaferStaticCast< vaRenderDeviceContextDX11 * >( &drawContext.APIContext )->GetDXContext( );
 
     // make sure nothing messed with our constant buffers and nothing uses them after
-    // vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, m_constantsBuffer.GetBuffer(), SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
-    // vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11Buffer*)NULL, SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
+    // vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, m_constantsBuffer.GetBuffer(), SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
+    // vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11Buffer*)NULL, SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
     m_constantsBuffer.UnsetFromAPISlot( drawContext.APIContext, SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
 
 //    if( drawContext.PassType != vaRenderPassType::GenerateVolumeShadowmap )
@@ -217,17 +217,17 @@ void vaSimpleShadowMapDX11::InternalStartUsing( const vaSceneDrawContext & drawC
     ID3D11DeviceContext * dx11Context = vaSaferStaticCast< vaRenderDeviceContextDX11 * >( &drawContext.APIContext )->GetDXContext( );
 
     // make sure we're not overwriting anything
-    //vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, (ID3D11Buffer*)NULL, SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
+    //vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, (ID3D11Buffer*)NULL, SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
     //m_constantsBuffer.SetToD3DContextAllShaderTypes( dx11Context, SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
     m_constantsBuffer.SetToAPISlot( drawContext.APIContext, SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
 
     vaTextureDX11 * shadowMapTextureDX11 = vaSaferStaticCast<vaTextureDX11*>( GetShadowMapTexture( ).get( ) );
 
     // make sure we're not overwriting anything else, and set our sampler and shadow map texture
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, (ID3D11SamplerState*)NULL, SHADERSIMPLESHADOWSGLOBAL_CMPSAMPLERSLOT );
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*)NULL, SHADERSIMPLESHADOWSGLOBAL_TEXTURESLOT );
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, m_shadowCmpSamplerState, SHADERSIMPLESHADOWSGLOBAL_CMPSAMPLERSLOT );
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, shadowMapTextureDX11->GetSRV(), SHADERSIMPLESHADOWSGLOBAL_TEXTURESLOT );
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, (ID3D11SamplerState*)NULL, SHADERSIMPLESHADOWSGLOBAL_CMPSAMPLERSLOT );
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*)NULL, SHADERSIMPLESHADOWSGLOBAL_TEXTURESLOT );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, m_shadowCmpSamplerState, SHADERSIMPLESHADOWSGLOBAL_CMPSAMPLERSLOT );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, shadowMapTextureDX11->GetSRV(), SHADERSIMPLESHADOWSGLOBAL_TEXTURESLOT );
 
     assert( m_prevCanvasRT == NULL );
     assert( m_prevCanvasDS == NULL );
@@ -240,14 +240,14 @@ void vaSimpleShadowMapDX11::InternalStopUsing( const vaSceneDrawContext & drawCo
     vaTextureDX11 * shadowMapTextureDX11 = vaSaferStaticCast<vaTextureDX11*>( GetShadowMapTexture( ).get( ) );
 
     // make sure nothing messed with our sampler and shadow map texture and nothing uses them after
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, m_shadowCmpSamplerState, SHADERSIMPLESHADOWSGLOBAL_CMPSAMPLERSLOT );
-    vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, shadowMapTextureDX11->GetSRV( ), SHADERSIMPLESHADOWSGLOBAL_TEXTURESLOT );
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11SamplerState*)NULL, SHADERSIMPLESHADOWSGLOBAL_CMPSAMPLERSLOT );
-    vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*)NULL, SHADERSIMPLESHADOWSGLOBAL_TEXTURESLOT );
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, m_shadowCmpSamplerState, SHADERSIMPLESHADOWSGLOBAL_CMPSAMPLERSLOT );
+    vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, shadowMapTextureDX11->GetSRV( ), SHADERSIMPLESHADOWSGLOBAL_TEXTURESLOT );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11SamplerState*)NULL, SHADERSIMPLESHADOWSGLOBAL_CMPSAMPLERSLOT );
+    vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11ShaderResourceView*)NULL, SHADERSIMPLESHADOWSGLOBAL_TEXTURESLOT );
 
     // make sure nothing messed with our constant buffers and nothing uses them after
-    //vaDirectXTools::AssertSetToD3DContextAllShaderTypes( dx11Context, m_constantsBuffer.GetBuffer( ), SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
-    //vaDirectXTools::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11Buffer*)NULL, SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
+    //vaDirectXTools11::AssertSetToD3DContextAllShaderTypes( dx11Context, m_constantsBuffer.GetBuffer( ), SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
+    //vaDirectXTools11::SetToD3DContextAllShaderTypes( dx11Context, (ID3D11Buffer*)NULL, SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
     m_constantsBuffer.UnsetFromAPISlot( drawContext.APIContext, SHADERSIMPLESHADOWSGLOBAL_CONSTANTSBUFFERSLOT );
 }
 

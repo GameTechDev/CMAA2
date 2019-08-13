@@ -403,9 +403,9 @@ namespace VertexAsylum
             vaTriangleMeshTools::GenerateNormals( m_vertices, m_indices, windingOrder );
         }
 
-        void                                UpdateGPUDataIfNeeded( vaRenderDeviceContext & apiContext )
+        void                                UpdateGPUDataIfNeeded( vaRenderDeviceContext & renderContext )
         {
-            apiContext;
+            renderContext;
             if( m_gpuDataDirty )
             {
                 if( m_indices.size( ) > 0 )
@@ -421,9 +421,9 @@ namespace VertexAsylum
             }
         }
 
-        void                                UpdateAndSetToRenderItem( vaRenderDeviceContext & apiContext, vaRenderItem & renderItem )
+        void                                UpdateAndSetToRenderItem( vaRenderDeviceContext & renderContext, vaGraphicsItem & renderItem )
         {
-            UpdateGPUDataIfNeeded( apiContext );
+            UpdateGPUDataIfNeeded( renderContext );
             renderItem.IndexBuffer  = GetGPUIndexBuffer( );
             renderItem.VertexBuffer = GetGPUVertexBuffer( );
         }
@@ -511,7 +511,7 @@ namespace VertexAsylum
         void                                SetDataDirty( )     { m_dataDirty = true; }
         bool                                IsDataDirty( )      { return m_dataDirty; }
 
-        void                                UpdateBuffersIfDirty( vaRenderDeviceContext & apiContext )
+        void                                UpdateBuffersIfDirty( vaRenderDeviceContext & renderContext )
         {
             if( m_dataDirty )
             {
@@ -545,7 +545,7 @@ namespace VertexAsylum
             m_dataDirty = false;
         }
 
-        // void                        SetToAPI( vaRenderDeviceContext & apiContext, uint32 indexOffset, int vertexSlotIndex, int vertexOffset/*, bool assertOnOverwrite = true*/ )
+        // void                        SetToAPI( vaRenderDeviceContext & renderContext, uint32 indexOffset, int vertexSlotIndex, int vertexOffset/*, bool assertOnOverwrite = true*/ )
         // {
         //     UpdateBuffersIfDirty( apiContext );
         //     assert( m_indexBuffer != nullptr );
@@ -555,7 +555,7 @@ namespace VertexAsylum
         //     m_vertexBuffer->SetToAPI( apiContext, vertexSlotIndex, vertexOffset/*, assertOnOverwrite*/ );
         // }
 
-        // void                        UnsetFromAPI( vaRenderDeviceContext & apiContext, int vertexSlotIndex, bool assertOnNotSet = true )
+        // void                        UnsetFromAPI( vaRenderDeviceContext & renderContext, int vertexSlotIndex, bool assertOnNotSet = true )
         // {
         //     UpdateBuffersIfDirty( apiContext );
         //     assert( m_indexBuffer != nullptr );

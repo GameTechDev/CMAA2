@@ -21,13 +21,13 @@
 
 #include "Core/vaCoreIncludes.h"
 
-#include "IntegratedExternals/vaImguiIntegration.h"
+#include "Core/vaUI.h"
 
 namespace VertexAsylum
 {
     class vaCameraBase;
 
-    class vaCameraControllerBase : public std::enable_shared_from_this<vaCameraControllerBase>, public vaImguiHierarchyObject
+    class vaCameraControllerBase : public std::enable_shared_from_this<vaCameraControllerBase>, public vaUIPropertiesItem
     {
     protected:
         weak_ptr< vaCameraBase >                    m_attachedCamera;
@@ -47,8 +47,8 @@ namespace VertexAsylum
         virtual void                                CameraTick( float deltaTime, vaCameraBase & camera, bool hasFocus )  { deltaTime; camera; hasFocus; }
 
     private:
-        virtual string                              IHO_GetInstanceName( ) const override   { return "CameraControllerBase"; }
-        virtual void                                IHO_Draw( ) override                    { }
+        virtual string                              UIPropertiesItemGetDisplayName( ) const override    { return "CameraControllerBase"; }
+        virtual void                                UIPropertiesItemDraw( ) override                    { }
     };
 
     class vaCameraControllerFreeFlight : public vaCameraControllerBase
@@ -88,8 +88,8 @@ namespace VertexAsylum
         bool                                        GetMoveWhileNotCaptured( )                              { return m_moveWhileNotCaptured; }
 
     private:
-        virtual string                              IHO_GetInstanceName( ) const override   { return "CameraControllerFreeFlight"; }
-        virtual void                                IHO_Draw( ) override                    { }
+        virtual string                              UIPropertiesItemGetDisplayName( ) const override   { return "CameraControllerFreeFlight"; }
+        virtual void                                UIPropertiesItemDraw( ) override                    { }
     };
 
     class vaCameraControllerFlythrough : public vaCameraControllerBase
@@ -147,8 +147,8 @@ namespace VertexAsylum
         virtual void                                CameraTick( float deltaTime, vaCameraBase & camera, bool hasFocus );
     
     private:
-        virtual string                              IHO_GetInstanceName( ) const override   { return "CameraControllerFocusLocationsFlythrough"; }
-        virtual void                                IHO_Draw( ) override;
+        virtual string                              UIPropertiesItemGetDisplayName( ) const override   { return "CameraControllerFocusLocationsFlythrough"; }
+        virtual void                                UIPropertiesItemDraw( ) override;
     };
 
 }

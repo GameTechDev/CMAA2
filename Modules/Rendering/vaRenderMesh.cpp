@@ -23,6 +23,9 @@
 
 #include "Core/System/vaFileTools.h"
 
+#include "Core/vaXMLSerialization.h"
+
+#include "IntegratedExternals/vaImguiIntegration.h"
 
 using namespace VertexAsylum;
 
@@ -69,7 +72,10 @@ void vaRenderMesh::RebuildNormals( )
     m_triangleMesh->SetDataDirty( );
 }
 
-vaRenderMeshManager::vaRenderMeshManager( const vaRenderingModuleParams & params ) : vaRenderingModule( params ), m_constantsBuffer( params )
+vaRenderMeshManager::vaRenderMeshManager( const vaRenderingModuleParams & params ) : 
+    vaRenderingModule( params ), 
+    vaUIPanel( "RenderMeshManager", 0, false, vaUIPanel::DockLocation::DockedLeftBottom ),
+    m_constantsBuffer( params )
 {
     m_isDestructing = false;
     m_renderMeshes.SetAddedCallback( std::bind( &vaRenderMeshManager::RenderMeshesTrackeeAddedCallback, this, std::placeholders::_1 ) );
@@ -135,7 +141,7 @@ void vaRenderMeshManager::RenderMeshesTrackeeBeforeRemovedCallback( int toBeRemo
 //     m_totalDrawListEntriesQueued = 0;
 // }
 
-void vaRenderMeshManager::IHO_Draw( )
+void vaRenderMeshManager::UIPanelDraw( )
 {
 #ifdef VA_IMGUI_INTEGRATION_ENABLED
     static int selected = 0;
@@ -201,7 +207,7 @@ bool vaRenderMesh::LoadAPACK( vaStream & inStream )
         return false;
     }
 
-    VERIFY_TRUE_RETURN_ON_FALSE( inStream.ReadValue<int32>( (int32&)m_frontFaceWinding ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( inStream.ReadValue<int32>( reinterpret_cast<int32&>(m_frontFaceWinding) ) );
 
     shared_ptr<StandardTriangleMesh> triMesh = std::make_shared< vaRenderMesh::StandardTriangleMesh> ( m_renderMeshManager.GetRenderDevice() );
 
@@ -219,7 +225,7 @@ bool vaRenderMesh::LoadAPACK( vaStream & inStream )
 
 
     int32 partCount = 0;
-    VERIFY_TRUE_RETURN_ON_FALSE( inStream.ReadValue<int32>( (int32&)partCount ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( inStream.ReadValue<int32>( partCount ) );
 
     // multipart no longer supported
     assert( partCount <= 1 );
@@ -244,12 +250,12 @@ bool vaRenderMesh::SerializeUnpacked( vaXMLSerializer & serializer, const wstrin
 {
     assetFolder;
     int32 fileVersion = c_renderMeshFileVersion;
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "FileVersion", fileVersion ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "FileVersion", fileVersion ) );
     VERIFY_TRUE_RETURN_ON_FALSE( fileVersion == c_renderMeshFileVersion );
 
 
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "FrontFaceWinding", (int32&)m_frontFaceWinding ) );
-    //VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "TangentBitangentValid", m_tangentBitangentValid ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "FrontFaceWinding", reinterpret_cast<int32&>(m_frontFaceWinding) ) );
+    //VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<bool>( "TangentBitangentValid", m_tangentBitangentValid ) );
 
     if( serializer.IsReading() )
     {
@@ -259,7 +265,7 @@ bool vaRenderMesh::SerializeUnpacked( vaXMLSerializer & serializer, const wstrin
     }
 
     int32 indexCount = (int32)m_triangleMesh->Indices().size();
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "IndexCount", indexCount ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "IndexCount", indexCount ) );
     if( serializer.IsReading() )
     {
         m_triangleMesh->Indices().resize( indexCount );
@@ -272,7 +278,7 @@ bool vaRenderMesh::SerializeUnpacked( vaXMLSerializer & serializer, const wstrin
     else { assert( false ); return false; }
 
     int32 vertexCount = (int32)m_triangleMesh->Vertices().size();
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "VertexCount", vertexCount ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "VertexCount", vertexCount ) );
     if( serializer.IsReading() )
     {
         m_triangleMesh->Vertices().resize( vertexCount );
@@ -285,25 +291,25 @@ bool vaRenderMesh::SerializeUnpacked( vaXMLSerializer & serializer, const wstrin
     else { assert( false ); return false; }
         
 
-    int32 partCount = 1;
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "PartCount", partCount ) );
+    // int32 partCount = 1;
+    // VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "PartCount", partCount ) );
 
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "AABBMin", m_boundingBox.Min ) );
-    VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "AABBSize", m_boundingBox.Size ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector3>( "AABBMin", m_boundingBox.Min ) );
+    VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaVector3>( "AABBSize", m_boundingBox.Size ) );
 
-    assert( partCount < 9999 );
-    if( serializer.IsReading() )
-    {
-        // multipart no longer supported
-        assert( partCount <= 1 );
-    }
-    if( partCount > 0 )
+    //assert( partCount < 9999 );
+    //if( serializer.IsReading() )
+    //{
+    //    // multipart no longer supported
+    //    // assert( partCount <= 1 );
+    //}
+    //if( partCount > 0 )
     {
         // string partName = vaStringTools::Format( "Part%04d", partCount );
         //VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeOpenChildElement( partName.c_str() ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "PartIndexStart", m_part.IndexStart ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "PartIndexCount", m_part.IndexCount ) );
-        VERIFY_TRUE_RETURN_ON_FALSE( serializer.SerializeValue( "PartMaterialID", m_part.MaterialID ) );
+        VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "PartIndexStart", m_part.IndexStart ) );
+        VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<int32>( "PartIndexCount", m_part.IndexCount ) );
+        VERIFY_TRUE_RETURN_ON_FALSE( serializer.Serialize<vaGUID>( "PartMaterialID", m_part.MaterialID ) );
 
         if( serializer.IsWriting() )
         {
@@ -568,7 +574,7 @@ shared_ptr<vaRenderMesh> vaRenderMesh::CreateTeapot( vaRenderDevice & device, co
     return Create( device, transform, vertices, normals, texcoords0, texcoords1, indices, windingOrder, uid );
 }
 
-vaDrawResultFlags vaRenderMeshManager::Draw( vaSceneDrawContext & drawContext, const vaRenderMeshDrawList & list, vaBlendMode blendMode, vaRenderMeshDrawFlags drawFlags )
+vaDrawResultFlags vaRenderMeshManager::Draw( vaSceneDrawContext & drawContext, const vaRenderMeshDrawList & list, vaBlendMode blendMode, vaRenderMeshDrawFlags drawFlags, std::function< void( const vaRenderMeshDrawList::Entry & entry, const vaRenderMaterial & material, vaGraphicsItem & renderItem ) > globalCustomizer )
 {
     vaDrawResultFlags drawResults = vaDrawResultFlags::None;
 
@@ -585,16 +591,8 @@ vaDrawResultFlags vaRenderMeshManager::Draw( vaSceneDrawContext & drawContext, c
         break;
     }
 
-    drawContext.APIContext.BeginItems();
+    drawContext.RenderDeviceContext.BeginItems( vaRenderTypeFlags::Graphics );
 
-    vaRenderItem renderItem;
-
-    renderItem.SceneDrawContext = &drawContext;
-
-    // set our main constant buffer
-    renderItem.ConstantBuffers[ RENDERMESH_CONSTANTS_BUFFERSLOT ] = m_constantsBuffer;
-
-    renderItem.Topology         = vaPrimitiveTopology::TriangleList;
 
     bool reverseOrder           = false; //(drawFlags & vaRenderMeshDrawFlags::ReverseOrder          ) != 0;
     bool skipTransparencies     = (drawFlags & vaRenderMeshDrawFlags::SkipTransparencies    ) != 0;
@@ -606,18 +604,28 @@ vaDrawResultFlags vaRenderMeshManager::Draw( vaSceneDrawContext & drawContext, c
     bool enableDepthWrite       = (drawFlags & vaRenderMeshDrawFlags::EnableDepthWrite      ) != 0;
     bool depthTestIncludesEqual = (drawFlags & vaRenderMeshDrawFlags::DepthTestIncludesEqual) != 0;
 
-    renderItem.BlendMode        = blendMode;
+    bool depthEnable            = enableDepthTest || enableDepthWrite;
+    bool useReversedZ           = (invertDepthTest)?(!drawContext.Camera.GetUseReversedZ()):(drawContext.Camera.GetUseReversedZ());
 
-    renderItem.DepthEnable      = enableDepthTest || enableDepthWrite;
-    bool useReversedZ = (invertDepthTest)?(!drawContext.Camera.GetUseReversedZ()):(drawContext.Camera.GetUseReversedZ());
-    if( !enableDepthTest )
-        renderItem.DepthFunc    = vaComparisonFunc::Always;
-    else
-        renderItem.DepthFunc    = ( depthTestIncludesEqual ) ? ( ( useReversedZ )?( vaComparisonFunc::GreaterEqual ):( vaComparisonFunc::LessEqual ) ):( ( useReversedZ )?( vaComparisonFunc::Greater ):( vaComparisonFunc::Less ) );
-    renderItem.DepthWriteEnable = enableDepthWrite;
+    vaComparisonFunc depthFunc  = vaComparisonFunc::Always;
+    if( enableDepthTest )
+        depthFunc               = ( depthTestIncludesEqual ) ? ( ( useReversedZ )?( vaComparisonFunc::GreaterEqual ):( vaComparisonFunc::LessEqual ) ):( ( useReversedZ )?( vaComparisonFunc::Greater ):( vaComparisonFunc::Less ) );
 
     for( int i = (reverseOrder)?(list.Count()-1):(0); (reverseOrder)?(i>=0):(i < list.Count()); (reverseOrder)?(i--):(i++) )
     {
+        vaGraphicsItem renderItem;
+        renderItem.SceneDrawContext = &drawContext;
+
+        // set our main constant buffer
+        renderItem.ConstantBuffers[ RENDERMESH_CONSTANTSBUFFERSLOT ] = m_constantsBuffer;
+
+        // these could be set outside of the loop but we'll keep them here in case of any overrides (RenderItemOverrides) messing up the states
+        renderItem.BlendMode        = blendMode;
+        renderItem.DepthFunc        = depthFunc;
+        renderItem.Topology         = vaPrimitiveTopology::TriangleList;
+        renderItem.DepthEnable      = depthEnable;
+        renderItem.DepthWriteEnable = enableDepthWrite;
+
         const vaRenderMeshDrawList::Entry & entry = list[i];
         if( entry.Mesh == nullptr ) 
         { VA_WARN( "vaRenderMeshManagerDX11::Draw - drawing empty mesh" ); continue; }
@@ -635,12 +643,12 @@ vaDrawResultFlags vaRenderMeshManager::Draw( vaSceneDrawContext & drawContext, c
         // mesh data
         const shared_ptr<vaRenderMesh::StandardTriangleMesh> & triangleMesh = mesh.GetTriangleMesh( );
 
-        triangleMesh->UpdateAndSetToRenderItem( drawContext.APIContext, renderItem );
+        triangleMesh->UpdateAndSetToRenderItem( drawContext.RenderDeviceContext, renderItem );
 
         // update per-instance constants
         RenderMeshConstants instanceConsts;
         {
-            instanceConsts.World = entry.Transform;
+            // instanceConsts.World = entry.Transform;
             //consts.Color = entry.Color;
 
             // this means 'do not override'
@@ -648,95 +656,97 @@ vaDrawResultFlags vaRenderMeshManager::Draw( vaSceneDrawContext & drawContext, c
 
             // since we now support non-uniform scale, we need the 'normal matrix' to keep normals correct 
             // (for more info see : https://www.scratchapixel.com/lessons/mathematics-physics-for-computer-graphics/geometry/transforming-normals or http://www.lighthouse3d.com/tutorials/glsl-12-tutorial/the-normal-matrix/ )
-            instanceConsts.NormalWorld = entry.Transform.InverseD( nullptr, false ).Transpose( );
-            instanceConsts.NormalWorld.r0.w = 0.0f; instanceConsts.NormalWorld.r1.w = 0.0f; instanceConsts.NormalWorld.r2.w = 0.0f;
-            instanceConsts.NormalWorld.r3.x = 0.0f; instanceConsts.NormalWorld.r3.y = 0.0f; instanceConsts.NormalWorld.r3.z = 0.0f; instanceConsts.NormalWorld.r3.w = 1.0f;
+            vaMatrix4x4 normalWorld = entry.Transform.InverseD( nullptr, false ).Transpose( );
+            normalWorld.r0.w = 0.0f; normalWorld.r1.w = 0.0f; normalWorld.r2.w = 0.0f;
+            normalWorld.r3.x = 0.0f; normalWorld.r3.y = 0.0f; normalWorld.r3.z = 0.0f; normalWorld.r3.w = 1.0f;
+            // instanceConsts.NormalWorld = normalWorld;
 
             //if( drawType != vaDrawType::ShadowmapGenerate )
             {
-                instanceConsts.WorldView = instanceConsts.World * drawContext.Camera.GetViewMatrix( );
+                instanceConsts.WorldView = entry.Transform * drawContext.Camera.GetViewMatrix( );
                 instanceConsts.ShadowWorldViewProj = vaMatrix4x4::Identity;
 
-                instanceConsts.NormalWorldView = instanceConsts.NormalWorld * drawContext.Camera.GetViewMatrix( );
+                instanceConsts.NormalWorldView = normalWorld * drawContext.Camera.GetViewMatrix( );
             }
         }
 
-        // draw subparts! no more subparts though, always one part per mesh - this is unlikely to get changed in the future, we might reuse mesh buffers by pointing to the 'main' render mesh
-        // for( size_t subPartIndex = 0; subPartIndex < parts.size(); subPartIndex++ )
-        {
+        const vaRenderMesh::SubPart & subPart = mesh.GetPart(); // parts[subPartIndex];
 
-            const vaRenderMesh::SubPart & subPart = mesh.GetPart(); // parts[subPartIndex];
+        if( subPart.IndexCount == 0 )
+            continue;
 
-            if( subPart.IndexCount == 0 )
-                continue;
-
-            assert( (subPart.IndexStart + subPart.IndexCount) <= (int)triangleMesh->Indices().size() );
+        assert( (subPart.IndexStart + subPart.IndexCount) <= (int)triangleMesh->Indices().size() );
         
-            shared_ptr<vaRenderMaterial> material = vaUIDObjectRegistrar::GetInstance().FindCached( subPart.MaterialID, subPart.CachedMaterialRef );
+        shared_ptr<vaRenderMaterial> material = vaUIDObjectRegistrar::GetInstance().FindCached( subPart.MaterialID, subPart.CachedMaterialRef );
             
-            if( material != nullptr && !material->SetToRenderItem( renderItem, shaderType ) )
-            {
-                // VA_WARN( "material->SetToRenderItem returns false, using default material instead" );
-                material = nullptr;
-                drawResults |= vaDrawResultFlags::AssetsStillLoading;
-            }
-
-            // no material found? should we warn? it might be ok sometimes too, just relying on default?
-            if( material == nullptr  )
-            {
-                material = GetRenderDevice().GetMaterialManager().GetDefaultMaterial( );
-                if( material != nullptr )
-                    material->SetToRenderItem( renderItem, shaderType );
-                drawResults |= vaDrawResultFlags::AssetsStillLoading;
-            }
-
-            const vaRenderMaterial::MaterialSettings & materialSettings = material->GetMaterialSettings( );
-
-            bool isWireframe = ( ( drawContext.RenderFlags & vaDrawContextFlags::DebugWireframePass ) != 0 ) || material->GetMaterialSettings( ).Wireframe;
-
-            bool showMaterialSelected = mesh.GetUIShowSelected( ) || material->GetUIShowSelected();
-            if( isWireframe )
-            {
-                instanceConsts.ColorOverride = vaVector4( 1.0f, 0.0f, 0.0f, 0.0f );
-            }
-            if( showMaterialSelected )
-            {
-                float highlight = 0.5f * (float)vaMath::Sin( drawContext.Globals.GetTotalTime( ) * VA_PI * 2.0 ) + 0.5f;
-                instanceConsts.ColorOverride = vaVector4( highlight, highlight, highlight, highlight );
-            }
-
-            m_constantsBuffer.Update( drawContext.APIContext, instanceConsts );
-
-            if( skipTransparencies )
-            {
-                assert( !skipNonTransparencies );
-                if( material->GetMaterialSettings().Transparent )
-                    continue;
-            }
-            if( skipNonTransparencies )
-            {
-                assert( !skipTransparencies );
-                if( !material->GetMaterialSettings( ).Transparent )
-                    continue;
-            }
-            if( skipNonShadowCasters )
-            {
-                if( !material->GetMaterialSettings().CastShadows )
-                    continue;
-            }
-
-            renderItem.FillMode                 = (isWireframe)?(vaFillMode::Wireframe):(vaFillMode::Solid);
-            renderItem.CullMode                 = materialSettings.FaceCull;
-            renderItem.FrontCounterClockwise    = mesh.GetFrontFaceWindingOrder() == vaWindingOrder::CounterClockwise;
-
-            material->SetToRenderItem( renderItem, shaderType );
-
-            renderItem.SetDrawIndexed( subPart.IndexCount, subPart.IndexStart, 0 );
-
-            drawResults |= drawContext.APIContext.ExecuteItem( renderItem );
+        if( material != nullptr && !material->SetToRenderItem( renderItem, shaderType ) )
+        {
+            // VA_WARN( "material->SetToRenderItem returns false, using default material instead" );
+            material = nullptr;
+            drawResults |= vaDrawResultFlags::AssetsStillLoading;
         }
+
+        // no material found? should we warn? it might be ok sometimes too, just relying on default?
+        if( material == nullptr  )
+        {
+            material = GetRenderDevice().GetMaterialManager().GetDefaultMaterial( );
+            if( material != nullptr )
+                material->SetToRenderItem( renderItem, shaderType );
+            drawResults |= vaDrawResultFlags::AssetsStillLoading;
+        }
+
+        const vaRenderMaterial::MaterialSettings & materialSettings = material->GetMaterialSettings( );
+
+        bool isWireframe = ( ( drawContext.RenderFlags & vaDrawContextFlags::DebugWireframePass ) != 0 ) || material->GetMaterialSettings( ).Wireframe;
+
+        bool showMaterialSelected = mesh.GetUIShowSelected( ) || material->GetUIShowSelected();
+        if( isWireframe )
+        {
+            instanceConsts.ColorOverride = vaVector4( 1.0f, 0.0f, 0.0f, 0.0f );
+        }
+        if( showMaterialSelected )
+        {
+            float highlight = 0.5f * (float)vaMath::Sin( drawContext.RenderDeviceContext.GetRenderDevice().GetTotalTime( ) * VA_PI * 2.0 ) + 0.5f;
+            instanceConsts.ColorOverride = vaVector4( highlight, highlight, highlight, highlight );
+        }
+
+        m_constantsBuffer.Update( drawContext.RenderDeviceContext, instanceConsts );
+
+        if( skipTransparencies )
+        {
+            assert( !skipNonTransparencies );
+            if( material->GetMaterialSettings().Transparent )
+                continue;
+        }
+        if( skipNonTransparencies )
+        {
+            assert( !skipTransparencies );
+            if( !material->GetMaterialSettings( ).Transparent )
+                continue;
+        }
+        if( skipNonShadowCasters )
+        {
+            if( !material->GetMaterialSettings().CastShadows )
+                continue;
+        }
+
+        renderItem.FillMode                 = (isWireframe)?(vaFillMode::Wireframe):(vaFillMode::Solid);
+        renderItem.CullMode                 = materialSettings.FaceCull;
+        renderItem.FrontCounterClockwise    = mesh.GetFrontFaceWindingOrder() == vaWindingOrder::CounterClockwise;
+
+        material->SetToRenderItem( renderItem, shaderType );
+
+        renderItem.SetDrawIndexed( subPart.IndexCount, subPart.IndexStart, 0 );
+
+        // apply overrides, if any
+        if( entry.CustomHandler != nullptr )
+            entry.CustomHandler->ApplyMeshCustomization( drawContext, entry, *material, renderItem );
+        if( globalCustomizer )
+            globalCustomizer( entry, *material, renderItem );
+
+        drawResults |= drawContext.RenderDeviceContext.ExecuteItem( renderItem );
     }
 
-    drawContext.APIContext.EndItems();
+    drawContext.RenderDeviceContext.EndItems();
     return drawResults;
 }
