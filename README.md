@@ -19,7 +19,7 @@ To add your images to the StaticImage list simply copy the image file in the .pn
 
 ### Switching between DirectX 11 and DirectX 12 implementations or hardware adapters
 
-On the right UI panel "System & Performance", under the resolution, fullscreen and vsync settings, there is a new button for selecting the hardware adapter as well as the DirectX API version to use out of what is available on the system. Changing the API/adapter will restart the application and remember the setting in the 'APIAdapter' file located in the same folder where the executable is.
+On the right UI panel tab named "System & Performance", under the settings for resolution, fullscreen and vsync, there is a new button for selecting the hardware adapter and the DirectX API version to use, out of what is available on the system. Changing the API/adapter will restart the application and the new settings will be remembered in the 'APIAdapter' file located in the folder where the executable is located.
 
 ### AA options
 
