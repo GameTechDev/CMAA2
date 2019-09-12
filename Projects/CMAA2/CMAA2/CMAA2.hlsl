@@ -1013,7 +1013,7 @@ bool CollectBlendZs( uint2 screenPos, bool horizontal, bool invertedZShape, lpfl
     lpfloat loopFrom = -floor( ( lineLengthLeft + 1 ) / 2 ) + 1.0;
     lpfloat loopTo = floor( ( lineLengthRight + 1 ) / 2 );
     
-    int itemIndex;
+    uint itemIndex;
     const uint blendItemCount = loopTo-loopFrom+1;
     InterlockedAdd( g_groupSharedBlendItemCount, blendItemCount, itemIndex );
     // safety
@@ -1195,7 +1195,7 @@ void ProcessCandidatesCS( uint3 dispatchThreadID : SV_DispatchThreadID, uint3 gr
         lpfloat normalZScore;
         lpfloat maxScore;
         bool horizontal = true;
-        bool invertedZ;
+        bool invertedZ = false;
         // lpfloat shapeQualityScore;    // 0 - best quality, 1 - some edges missing but ok, 2 & 3 - dubious but better than nothing
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1276,9 +1276,9 @@ void ProcessCandidatesCS( uint3 dispatchThreadID : SV_DispatchThreadID, uint3 gr
     // spread items into waves
     const uint loops = ((int)g_groupSharedBlendItemCount+(int)CMAA2_PROCESS_CANDIDATES_NUM_THREADS-1-groupThreadID.x)/CMAA2_PROCESS_CANDIDATES_NUM_THREADS;
 
-    for( uint loop = 0; loop < loops; loop++ )
+    for( uint i = 0; i < loops; i++ )
     {
-        uint    index           = loop*CMAA2_PROCESS_CANDIDATES_NUM_THREADS + groupThreadID.x;
+        uint    index           = i*CMAA2_PROCESS_CANDIDATES_NUM_THREADS + groupThreadID.x;
 
         uint2   itemVal         = g_groupSharedBlendItems[index];
 
@@ -1365,8 +1365,8 @@ void DeferredColorApply2x2CS( uint3 dispatchThreadID : SV_DispatchThreadID, uint
 
             if( offsetXY == currentQuadOffsetXY )
             {
-                lpfloat3 color          = InternalUnpackColor(val.y);
-                lpfloat weight = 0.8 + 1.0 * lpfloat(isComplexShape);
+                lpfloat3 color      = InternalUnpackColor(val.y);
+                lpfloat weight      = 0.8 + 1.0 * lpfloat(isComplexShape);
 #if CMAA_MSAA_SAMPLE_COUNT > 1
                 outColors[msaaSampleIndex] += lpfloat4( color * weight, weight );
                 hasValue = true;
