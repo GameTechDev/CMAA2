@@ -591,7 +591,6 @@ void GroupsharedLoadQuadHV( uint addr, out lpfloat2 e00, out lpfloat2 e10, out l
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Edge detection compute shader
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-groupshared uint2 g_groupShared2x2FracEdgesPacked[CMAA2_CS_INPUT_KERNEL_SIZE_X * CMAA2_CS_INPUT_KERNEL_SIZE_Y];
 //groupshared uint g_groupShared2x2ProcColors[(CMAA2_CS_INPUT_KERNEL_SIZE_X * 2 + 1) * (CMAA2_CS_INPUT_KERNEL_SIZE_Y * 2 + 1)];
 //groupshared float3 g_groupSharedResolvedMSColors[(CMAA2_CS_INPUT_KERNEL_SIZE_X * 2 + 1) * (CMAA2_CS_INPUT_KERNEL_SIZE_Y * 2 + 1)];
 //
@@ -769,10 +768,10 @@ void EdgesColor2x2CS( uint3 groupID : SV_GroupID, uint3 groupThreadID : SV_Group
                 ce[3].x = ( qe3.x - ComputeLocalContrastV( 1, 1, neighbourhood ) ) > GetActualEdgeThreshold();
                 ce[3].y = ( qe3.y - ComputeLocalContrastH( 1, 1, neighbourhood ) ) > GetActualEdgeThreshold();
             #else
-                topRow[0]     = > GetActualEdgeThreshold();
-                topRow[1]     = > GetActualEdgeThreshold();
-                leftColumn[0] = > GetActualEdgeThreshold();
-                leftColumn[1] = > GetActualEdgeThreshold();
+                topRow[0]     = topRow[0]    > GetActualEdgeThreshold();
+                topRow[1]     = topRow[1]    > GetActualEdgeThreshold();
+                leftColumn[0] = leftColumn[0]> GetActualEdgeThreshold();
+                leftColumn[1] = leftColumn[1]> GetActualEdgeThreshold();
                 ce[0].x = qe0.x > GetActualEdgeThreshold();
                 ce[0].y = qe0.y > GetActualEdgeThreshold();
                 ce[1].x = qe1.x > GetActualEdgeThreshold();
@@ -1273,12 +1272,14 @@ void ProcessCandidatesCS( uint3 dispatchThreadID : SV_DispatchThreadID, uint3 gr
 #if CMAA2_COLLECT_EXPAND_BLEND_ITEMS
     GroupMemoryBarrierWithGroupSync( );
     
-    // spread items into waves
-    const uint loops = ((int)g_groupSharedBlendItemCount+(int)CMAA2_PROCESS_CANDIDATES_NUM_THREADS-1-groupThreadID.x)/CMAA2_PROCESS_CANDIDATES_NUM_THREADS;
+    uint totalItemCount = min( CMAA2_BLEND_ITEM_SLM_SIZE, g_groupSharedBlendItemCount );
 
-    for( uint i = 0; i < loops; i++ )
+    // spread items into waves
+    uint loops = (totalItemCount+(CMAA2_PROCESS_CANDIDATES_NUM_THREADS-1)-groupThreadID.x)/CMAA2_PROCESS_CANDIDATES_NUM_THREADS;
+
+    for( uint loop = 0; loop < loops; loop++ )
     {
-        uint    index           = i*CMAA2_PROCESS_CANDIDATES_NUM_THREADS + groupThreadID.x;
+        uint    index           = loop*CMAA2_PROCESS_CANDIDATES_NUM_THREADS + groupThreadID.x;
 
         uint2   itemVal         = g_groupSharedBlendItems[index];
 
