@@ -200,7 +200,7 @@ Texture2D<float>                g_inLumaReadonly                    : register( 
 // how .rgba channels from the edge texture maps to pixel edges:
 //
 //                   A - 0x08               (A - there's an edge between us and a pixel above us)
-//              |¯¯¯¯¯¯¯¯¯|                 (R - there's an edge between us and a pixel to the right)
+//              |---------|                 (R - there's an edge between us and a pixel to the right)
 //              |         |                 (G - there's an edge between us and a pixel at the bottom)
 //     0x04 - B |  pixel  | R - 0x01        (B - there's an edge between us and a pixel to the left)
 //              |         |
@@ -915,11 +915,11 @@ void FindZLineLengths( out lpfloat lineLengthLeft, out lpfloat lineLengthRight, 
     // TODO: a cleaner and faster way to get to these - a precalculated array indexing maybe?
     uint maskLeft, bitsContinueLeft, maskRight, bitsContinueRight;
     {
-        // Horizontal (vertical is the same, just rotated 90º counter-clockwise)
+        // Horizontal (vertical is the same, just rotated 90- counter-clockwise)
         // Inverted Z case:              // Normal Z case:
         //   __                          // __
         //  X|                           //  X|
-        // ¯¯                            //   ¯¯
+        // --                            //   --
         uint maskTraceLeft, maskTraceRight;
 #if CMAA2_EXTRA_CONSERVATIVENESS2
         uint maskStopLeft, maskStopRight;
@@ -1095,7 +1095,7 @@ void DetectZsHorizontal( in lpfloat4 edges, in lpfloat4 edgesM1P0, in lpfloat4 e
     // Inverted Z case:
     //   __
     //  X|
-    // ¯¯
+    // --
     {
         invertedZScore  = edges.r * edges.g *                edgesP1P0.a;
         invertedZScore  *= 2.0 + ((edgesM1P0.g + edgesP2P0.a) ) - (edges.a + edgesP1P0.g) - 0.7 * (edgesP2P0.g + edgesM1P0.a + edges.b + edgesP1P0.r);
@@ -1104,7 +1104,7 @@ void DetectZsHorizontal( in lpfloat4 edges, in lpfloat4 edgesM1P0, in lpfloat4 e
     // Normal Z case:
     // __
     //  X|
-    //   ¯¯
+    //   --
     {
         normalZScore    = edges.r * edges.a *                edgesP1P0.g;
         normalZScore    *= 2.0 + ((edgesM1P0.a + edgesP2P0.g) ) - (edges.g + edgesP1P0.a) - 0.7 * (edgesP2P0.a + edgesM1P0.g + edges.b + edgesP1P0.r);
@@ -1217,7 +1217,7 @@ void ProcessCandidatesCS( uint3 dispatchThreadID : SV_DispatchThreadID, uint3 gr
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // vertical
         {
-            // Reuse the same code for vertical (used for horizontal above), but rotate input data 90º counter-clockwise, so that:
+            // Reuse the same code for vertical (used for horizontal above), but rotate input data 90 degrees counter-clockwise, so that:
             // left     becomes     bottom
             // top      becomes     left
             // right    becomes     top
