@@ -26,6 +26,8 @@
 #include "Core/vaCore.h"
 #include "Core/vaSingleton.h"
 
+#include <functional>
+
 namespace VertexAsylum
 {
     class vaThreading
