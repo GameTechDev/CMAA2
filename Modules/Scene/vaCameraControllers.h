@@ -131,7 +131,7 @@ namespace VertexAsylum
         
         float                                       GetTotalTime( ) const                                   { return m_totalTime; }
         float                                       GetPlayTime( ) const                                    { return m_currentTime; }
-        void                                        SetPlayTime( float newTime )                            { if( m_enableLoop ) newTime = std::fmodf( newTime, m_totalTime ); m_currentTime = vaMath::Clamp( newTime, 0.0f, m_totalTime ); }
+        void                                        SetPlayTime( float newTime )                            { if( m_enableLoop ) newTime = fmodf( newTime, m_totalTime ); m_currentTime = vaMath::Clamp( newTime, 0.0f, m_totalTime ); }
         float                                       GetPlaySpeed( ) const                                   { return m_playSpeed; }
         void                                        SetPlaySpeed( float newSpeed )                          { m_playSpeed = newSpeed; }
         bool                                        GetLoop( ) const                                        { return m_enableLoop; }

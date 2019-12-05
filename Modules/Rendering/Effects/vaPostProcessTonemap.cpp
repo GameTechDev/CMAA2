@@ -241,11 +241,11 @@ void vaPostProcessTonemap::Tick( float deltaTime )
         if( m_settings.UseAutoAutoExposureKeyValue )
         {
             // from https://mynameismjp.wordpress.com/2010/04/30/a-closer-look-at-tone-mapping/
-            m_settings.AutoExposureKeyValue = 1.03f - ( 2.0f / ( 2 + std::log10( m_lastAverageLuminance + 1 ) ) );
+            m_settings.AutoExposureKeyValue = 1.03f - ( 2.0f / ( 2 + log10f( m_lastAverageLuminance + 1 ) ) );
         }
 
         float linearExposure    = vaMath::Max( 0.00001f, ( m_settings.AutoExposureKeyValue / m_lastAverageLuminance ) );
-        float newExposure       = std::log2( linearExposure );
+        float newExposure       = log2f( linearExposure );
 
         m_settings.Exposure     = vaMath::Lerp( m_settings.Exposure, newExposure, exposureLerpK );
         m_settings.Exposure     = vaMath::Clamp( m_settings.Exposure, m_settings.ExposureMin, m_settings.ExposureMax );

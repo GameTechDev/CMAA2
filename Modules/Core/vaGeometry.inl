@@ -1326,7 +1326,7 @@ inline vaQuaternion vaQuaternion::Ln( ) const
    }
    else if( norm > 0.99999f)
    {
-      normvec = sqrt( this->x * this->x + this->y * this->y + this->z * this->z );
+      normvec = sqrtf( this->x * this->x + this->y * this->y + this->z * this->z );
       theta = vaMath::ATan2( normvec, this->w ) / normvec;
       ret.x = theta * this->x;
       ret.y = theta * this->y;
@@ -1350,10 +1350,10 @@ inline vaQuaternion vaQuaternion::Exp( ) const
    norm = vaMath::Sqrt( this->x * this->x + this->y * this->y + this->z * this->z );
    if (norm )
    {
-    ret.x = sin(norm) * this->x / norm;
-    ret.y = sin(norm) * this->y / norm;
-    ret.z = sin(norm) * this->z / norm;
-    ret.w = cos(norm);
+    ret.x = sinf(norm) * this->x / norm;
+    ret.y = sinf(norm) * this->y / norm;
+    ret.z = sinf(norm) * this->z / norm;
+    ret.w = cosf(norm);
    }
    else
    {

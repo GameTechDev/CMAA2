@@ -180,7 +180,7 @@ void vaStandardShapes::CreateOctahedron( std::vector<vaVector3> & outVertices, s
 void vaStandardShapes::CreateIcosahedron( std::vector<vaVector3> & outVertices, std::vector<uint32> & outIndices, bool shareVertices )
 {
     const float t = ( 1.0f + 2.236067977f ) / 2.0f;
-    const float s = sqrt( 1.0f + t*t );
+    const float s = sqrtf( 1.0f + t*t );
 
     const vaVector3 v0  = vaVector3( t, 1.0f, 0.0f ) / s;
     const vaVector3 v1  = vaVector3( -t, 1.0f, 0.0f ) / s;
@@ -267,8 +267,8 @@ void vaStandardShapes::CreateIcosahedron( std::vector<vaVector3> & outVertices, 
 void vaStandardShapes::CreateDodecahedron( std::vector<vaVector3> & outVertices, std::vector<uint32> & outIndices, bool shareVertices )
 {
     const float a = 1.0f / 1.7320508f;
-    const float b = sqrt( ( 3.0f - 2.23606797f ) / 6.0f );
-    const float c = sqrt( ( 3.0f + 2.23606797f ) / 6.0f );
+    const float b = sqrtf( ( 3.0f - 2.23606797f ) / 6.0f );
+    const float c = sqrtf( ( 3.0f + 2.23606797f ) / 6.0f );
 
     vaVector3 nv[20];
 
@@ -442,8 +442,8 @@ void vaStandardShapes::CreateCylinder( std::vector<vaVector3> & outVertices, std
 
     for( int i = 0; i < tessellation; i++ )
     {
-        s = ::cos( angle );
-        t = ::sin( angle );
+        s = ::cosf( angle );
+        t = ::sinf( angle );
         angle += angle_delta;
 
         vTs.push_back( vaVector3( s * radiusTop, t * radiusTop, halfHeight ) );

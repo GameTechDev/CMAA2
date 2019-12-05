@@ -132,14 +132,14 @@ void vaDebugCanvas2D::DrawCircle( float x, float y, float radius, unsigned int p
     int steps = (int)( circumference / 4.0f * tess );
     steps = vaMath::Clamp( steps, 5, 32768 );
 
-    float cxp = x + cos( 0 * 2 * VA_PIf ) * radius;
-    float cyp = y + sin( 0 * 2 * VA_PIf ) * radius;
+    float cxp = x + cosf( 0 * 2 * VA_PIf ) * radius;
+    float cyp = y + sinf( 0 * 2 * VA_PIf ) * radius;
 
     for( int i = 1; i <= steps; i++ )
     {
         float p = i / (float)steps;
-        float cx = x + cos( p * 2 * VA_PIf ) * radius;
-        float cy = y + sin( p * 2 * VA_PIf ) * radius;
+        float cx = x + cosf( p * 2 * VA_PIf ) * radius;
+        float cy = y + sinf( p * 2 * VA_PIf ) * radius;
 
         DrawLine( cxp, cyp, cx, cy, penColor );
 

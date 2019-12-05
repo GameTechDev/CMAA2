@@ -32,7 +32,7 @@
 //#include <memory>
 //#include <algorithm>
 #include <map>
-//#include <functional>
+#include <functional>
 #include <queue>
 #include <atomic>
 #include <thread>        

@@ -859,8 +859,8 @@ vaMatrix4x4 vaMatrix4x4::PerspectiveLH( float w, float h, float zn, float zf )
 vaMatrix4x4 vaMatrix4x4::PerspectiveFovRH( float fovy, float aspect, float zn, float zf )
 {
     vaMatrix4x4 ret = vaMatrix4x4::Identity;
-    ret.m[0][0] = 1.0f / ( aspect * tan( fovy / 2.0f ) );
-    ret.m[1][1] = 1.0f / tan( fovy / 2.0f );
+    ret.m[0][0] = 1.0f / ( aspect * tanf( fovy / 2.0f ) );
+    ret.m[1][1] = 1.0f / tanf( fovy / 2.0f );
     ret.m[2][2] = zf / ( zn - zf );
     ret.m[2][3] = -1.0f;
     ret.m[3][2] = ( zf * zn ) / ( zn - zf );
@@ -871,8 +871,8 @@ vaMatrix4x4 vaMatrix4x4::PerspectiveFovRH( float fovy, float aspect, float zn, f
 vaMatrix4x4 vaMatrix4x4::PerspectiveFovLH( float fovy, float aspect, float zn, float zf )
 {
     vaMatrix4x4 ret = vaMatrix4x4::Identity;
-    ret.m[0][0] = 1.0f / ( aspect * tan( fovy / 2.0f ) );
-    ret.m[1][1] = 1.0f / tan( fovy / 2.0f );
+    ret.m[0][0] = 1.0f / ( aspect * tanf( fovy / 2.0f ) );
+    ret.m[1][1] = 1.0f / tanf( fovy / 2.0f );
     ret.m[2][2] = zf / ( zf - zn );
     ret.m[2][3] = 1.0f;
     ret.m[3][2] = ( zf * zn ) / ( zn - zf );
@@ -1247,9 +1247,9 @@ vaQuaternion vaQuaternion::Slerp( const vaQuaternion & q1, const vaQuaternion & 
     }
     if( 1.0f - dot > 0.001f )
     {
-        float theta = acos( dot );
-        temp = sin( theta * temp ) / sin( theta );
-        u = sin( theta * u ) / sin( theta );
+        float theta = acosf( dot );
+        temp = sinf( theta * temp ) / sinf( theta );
+        u = sinf( theta * u ) / sinf( theta );
     }
     ret.x = temp * q1.x + epsilon * u * q2.x;
     ret.y = temp * q1.y + epsilon * u * q2.y;
