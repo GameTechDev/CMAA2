@@ -1,3 +1,7 @@
+# DISCONTINUATION OF PROJECT #
+This project will no longer be maintained by Intel.
+Intel has ceased development and contributions including, but not limited to, maintenance, bug fixes, new releases, or updates, to this project.
+Intel no longer accepts patches to this project.
 # Conservative Morphological Anti-Aliasing version 2 (CMAA2)
  
 This repository contains implementation of CMAA2, a post-process anti-aliasing solution focused on providing good anti-aliasing while minimizing the change (i.e. blurring) of the source image at minimal execution cost.
