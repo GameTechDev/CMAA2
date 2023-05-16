@@ -559,16 +559,16 @@ lpfloat4 ComputeSimpleShapeBlendValues( lpfloat4 edges, lpfloat4 edgesLeft, lpfl
 uint LoadEdge( int2 pixelPos, int2 offset, uint msaaSampleIndex )
 {
 #if CMAA_MSAA_SAMPLE_COUNT > 1
-    uint edge = g_workingEdges.Load( pixelPos + offset ).x;
+    uint edge = g_workingEdges[ pixelPos + offset ].x;
     edge = (edge >> (msaaSampleIndex*4)) & 0xF;
 #else
 #if CMAA_PACK_SINGLE_SAMPLE_EDGE_TO_HALF_WIDTH
     uint a      = uint(pixelPos.x+offset.x) % 2;
 
 #if CMAA2_EDGE_UNORM
-    uint edge   = (uint)(g_workingEdges.Load( uint2( uint(pixelPos.x+offset.x)/2, pixelPos.y + offset.y ) ).x * 255.0 + 0.5);
+    uint edge   = (uint)(g_workingEdges[ uint2( uint(pixelPos.x+offset.x)/2, pixelPos.y + offset.y ) ].x * 255.0 + 0.5);
 #else    
-    uint edge   = g_workingEdges.Load( uint2( uint(pixelPos.x+offset.x)/2, pixelPos.y + offset.y ) ).x;
+    uint edge   = g_workingEdges[ uint2( uint(pixelPos.x+offset.x)/2, pixelPos.y + offset.y ) ].x;
 #endif
     edge = (edge >> (a*4)) & 0xF;
 #else
@@ -915,7 +915,7 @@ void FindZLineLengths( out lpfloat lineLengthLeft, out lpfloat lineLengthRight, 
     // TODO: a cleaner and faster way to get to these - a precalculated array indexing maybe?
     uint maskLeft, bitsContinueLeft, maskRight, bitsContinueRight;
     {
-        // Horizontal (vertical is the same, just rotated 90- counter-clockwise)
+        // Horizontal (vertical is the same, just rotated 90 degrees counter-clockwise)
         // Inverted Z case:              // Normal Z case:
         //   __                          // __
         //  X|                           //  X|
